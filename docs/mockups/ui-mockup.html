@@ -1,0 +1,1412 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Expense Analyst — UI Mockups</title>
+<style>
+/* ===== RESET ===== */
+* { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+body {
+  font-family: 'Google Sans', 'Roboto', system-ui, sans-serif;
+  background: #0D1117;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 32px 20px 48px;
+  gap: 28px;
+}
+.page-header { text-align: center; }
+.page-header h1 { color: var(--on-surface); font-size: 22px; font-weight: 600; letter-spacing: -0.3px; }
+.page-header p { color: rgba(255,255,255,0.5); font-size: 14px; margin-top: 4px; }
+
+/* ===== DESIGN TOKENS ===== */
+:root {
+  --primary: #CCFF00; /* Neon Lime Green */
+  --primary-dark: #AADD00;
+  --primary-mid: #CCFF00;
+  --primary-container: rgba(204, 255, 0, 0.15);
+  --primary-container-light: rgba(204, 255, 0, 0.08);
+  --on-primary: #121212; /* Black text on neon green */
+  --secondary: #FFD600; /* Yellow */
+  --surface: #1D1D1D;
+  --surface-1: #262626;
+  --surface-variant: #303030;
+  --on-surface: #FFFFFF;
+  --on-surface-var: #A0A0A0;
+  --outline: #383838;
+  --outline-variant: #2A2A2A;
+  --error: #FF5555;
+  --success: #CCFF00;
+  --success-light: rgba(204, 255, 0, 0.15);
+  --bg: #121212;
+}
+
+
+/* ===== PHONE FRAME ===== */
+.phone-wrapper { position: relative; flex-shrink: 0; }
+.phone-frame {
+  width: 375px;
+  height: 812px;
+  background: var(--bg);
+  border-radius: 50px;
+  border: 10px solid #1C1C1E;
+  overflow: hidden;
+  position: relative;
+  box-shadow: 0 0 0 1.5px #3a3a3a, 0 0 0 2.5px #111, 0 30px 120px rgba(0,0,0,0.7);
+}
+/* Dynamic island */
+.phone-frame::before {
+  content: '';
+  position: absolute;
+  top: 11px; left: 50%;
+  transform: translateX(-50%);
+  width: 104px; height: 28px;
+  background: #1C1C1E;
+  border-radius: 20px;
+  z-index: 200;
+}
+
+/* ===== SCREEN SYSTEM ===== */
+.screen {
+  position: absolute;
+  top: 0; left: 0; right: 0; bottom: 0;
+  display: none;
+  flex-direction: column;
+  background: var(--bg);
+}
+.screen.active { display: flex; }
+
+/* ===== STATUS BAR ===== */
+.status-bar {
+  height: 50px;
+  padding: 16px 22px 0;
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  flex-shrink: 0;
+  font-size: 12px;
+  font-weight: 700;
+  z-index: 10;
+  color: var(--on-surface);
+}
+.status-bar.on-color { color: var(--on-surface); }
+.status-icons { display: flex; gap: 5px; align-items: center; font-size: 11px; }
+
+/* ===== SCROLL AREA ===== */
+.scroll-content {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+}
+.scroll-content::-webkit-scrollbar { display: none; }
+
+/* ===== APP BAR ===== */
+.app-bar {
+  height: 58px;
+  padding: 0 8px 0 16px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+  background: var(--surface);
+  border-bottom: 1px solid var(--outline-variant);
+}
+.app-bar.on-surface { background: var(--primary); color: var(--on-surface); border-bottom: none; }
+.app-bar.transparent { background: transparent; border-bottom: none; }
+.app-bar-title { flex: 1; font-size: 20px; font-weight: 600; letter-spacing: -0.3px; color: inherit; }
+.icon-btn {
+  width: 42px; height: 42px;
+  border-radius: 50%;
+  border: none;
+  background: none;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 20px;
+  cursor: pointer;
+  color: inherit;
+  transition: background 0.15s;
+  flex-shrink: 0;
+}
+.icon-btn:hover { background: rgba(0,0,0,0.08); }
+.icon-btn.on-primary:hover { background: rgba(255,255,255,0.15); }
+.avatar {
+  width: 36px; height: 36px;
+  border-radius: 50%;
+  background: var(--primary-container);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--primary-dark);
+  margin-right: 6px;
+  flex-shrink: 0;
+}
+
+/* ===== BOTTOM NAV ===== */
+.bottom-nav {
+  height: auto;
+  background: rgba(40, 40, 40, 0.85);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  display: flex;
+  align-items: center;
+  justify-content: space-around;
+  flex-shrink: 0;
+  border: 1px solid rgba(255,255,255,0.1);
+  padding: 12px 10px;
+  border-radius: 40px;
+  margin: 0 20px 20px;
+  position: absolute;
+  bottom: 0px;
+  left: 0;
+  right: 0;
+  z-index: 100;
+}
+.nav-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  cursor: pointer;
+  min-width: 60px;
+  color: var(--on-surface-var);
+}
+.nav-pill {
+  width: 44px; height: 32px;
+  border-radius: 16px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 20px;
+  transition: background 0.2s;
+}
+.nav-item.active .nav-pill { background: rgba(255,255,255,0.1); color: white; }
+.nav-item.active { color: white; }
+.nav-label { font-size: 11px; font-weight: 500; color: inherit; }
+/* ===== FAB ===== */
+.fab {
+  position: absolute;
+  box-shadow: 0 4px 12px rgba(204, 255, 0, 0.2); bottom: 90px; right: 18px;
+  width: 56px; height: 56px;
+  border-radius: 16px;
+  background: var(--primary);
+  color: var(--on-surface);
+  border: none;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 28px;
+  box-shadow: 0 4px 12px rgba(0,137,123,0.35), 0 2px 6px rgba(0,0,0,0.15);
+  cursor: pointer;
+  z-index: 5;
+  transition: all 0.2s;
+}
+.fab:hover { transform: scale(1.06); background: var(--primary-dark); }
+
+/* ===== BUTTONS ===== */
+.btn {
+  border: none; border-radius: 100px;
+  font-size: 14px; font-weight: 600; letter-spacing: 0.1px;
+  padding: 0 24px; height: 40px;
+  cursor: pointer;
+  display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+  transition: all 0.2s; font-family: inherit;
+}
+.btn-filled { background: var(--primary); color: var(--on-primary); font-weight: 700; box-shadow: none; border: none; }
+.btn-filled:hover { background: var(--primary-dark); }
+.btn-filled:disabled { background: #C5C5C5; color: #888; cursor: default; }
+.btn-tonal { background: var(--primary-container-light); color: var(--primary-mid); }
+.btn-tonal:hover { background: var(--primary-container); }
+.btn-text { background: none; color: var(--primary); padding: 0 12px; }
+.btn-text:hover { background: var(--primary-container-light); }
+.btn-large {
+  height: 56px; width: 100%; border-radius: 16px;
+  font-size: 16px; font-weight: 600;
+}
+.btn-outlined { background: none; color: var(--primary); border: 1.5px solid var(--primary); }
+
+/* ===== CHIPS ===== */
+.chip {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 7px 14px; border-radius: 8px;
+  font-size: 13px; font-weight: 500;
+  border: 1.5px solid var(--outline);
+  background: var(--surface); cursor: pointer;
+  transition: all 0.15s; white-space: nowrap;
+  color: var(--on-surface-var); font-family: inherit;
+}
+.chip.selected {
+  background: var(--primary-container-light);
+  border-color: var(--primary);
+  color: var(--primary-mid);
+}
+.chips-row {
+  padding: 8px 14px 6px;
+  display: flex; gap: 8px;
+  overflow-x: auto; -webkit-overflow-scrolling: touch;
+}
+.chips-row::-webkit-scrollbar { display: none; }
+
+/* ===== CARDS ===== */
+.card {
+  background: var(--surface); border-radius: 16px; padding: 16px;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.5); border: 1px solid var(--outline);
+}
+
+/* ===== DIVIDER ===== */
+.divider { height: 1px; background: var(--outline-variant); }
+
+/* ===== ONBOARDING ===== */
+.step-indicator { display: flex; gap: 6px; }
+.step-dot {
+  width: 8px; height: 8px; border-radius: 50%;
+  background: var(--outline);
+}
+.step-dot.active { background: var(--primary); width: 24px; border-radius: 4px; }
+
+.currency-item {
+  display: flex; align-items: center;
+  padding: 13px 20px; gap: 16px;
+  cursor: pointer; border-radius: 12px;
+  margin: 2px 8px;
+  transition: background 0.15s;
+}
+.currency-item:hover { background: var(--surface-1); }
+.currency-item.selected { background: var(--primary-container-light); }
+.flag { font-size: 26px; width: 36px; text-align: center; }
+.c-code { font-size: 15px; font-weight: 600; color: var(--on-surface); }
+.c-name { font-size: 13px; color: var(--on-surface-var); margin-top: 1px; }
+.radio {
+  width: 20px; height: 20px; border-radius: 50%;
+  border: 2px solid var(--outline);
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0; transition: all 0.15s;
+}
+.radio.on { border-color: var(--primary); background: var(--primary); }
+.radio.on::after { content: ''; width: 8px; height: 8px; background: var(--surface); border-radius: 50%; }
+
+/* ===== SUMMARY CARD ===== */
+.summary-card {
+  margin: 12px 16px 8px;
+  padding: 20px 22px;
+  background: var(--surface);
+  border: 1px solid var(--outline);
+  box-shadow: none;
+  border-radius: 22px;
+  color: var(--on-surface);
+}
+.summary-month { font-size: 13px; font-weight: 500; opacity: 0.85; margin-bottom: 2px; }
+.summary-amount { font-size: 38px; font-weight: 700; letter-spacing: -1.5px; line-height: 1.1; }
+.summary-sub { font-size: 13px; opacity: 0.75; margin-top: 6px; }
+.summary-row { display: flex; align-items: flex-end; gap: 16px; }
+.summary-col { flex: 1; }
+.summary-badge {
+  background: rgba(255,255,255,0.2); border-radius: 20px;
+  padding: 4px 12px; font-size: 13px; font-weight: 600;
+  display: inline-flex; align-items: center; gap: 4px;
+}
+
+/* ===== EXPENSE CARD ===== */
+.expense-card {
+  margin: 4px 14px;
+  padding: 13px 15px;
+  background: var(--surface);
+  border-radius: 16px;
+  display: flex; align-items: center; gap: 13px;
+  cursor: pointer;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.5); border: 1px solid var(--outline);
+  transition: all 0.15s;
+}
+.expense-card:hover { box-shadow: 0 4px 14px rgba(0,0,0,0.1); transform: translateY(-1px); }
+.expense-icon-wrap {
+  width: 46px; height: 46px; border-radius: 14px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 22px; flex-shrink: 0;
+}
+.expense-merchant { font-size: 15px; font-weight: 600; color: var(--on-surface); }
+.expense-desc { font-size: 12px; color: var(--on-surface-var); margin-top: 2px; }
+.expense-right { margin-left: auto; text-align: right; }
+.expense-amount { font-size: 16px; font-weight: 700; color: var(--on-surface); }
+.expense-amount.credit { color: #2E7D32; }
+.expense-method { font-size: 11px; color: var(--on-surface-var); margin-top: 3px; }
+
+.date-header {
+  padding: 12px 16px 5px;
+  font-size: 12px; font-weight: 700;
+  color: var(--on-surface-var);
+  letter-spacing: 0.8px;
+  text-transform: uppercase;
+}
+
+/* ===== ADD EXPENSE ===== */
+.amount-display {
+  background: var(--surface);
+  padding: 20px 20px 16px;
+  text-align: center;
+  border-bottom: 1px solid var(--outline-variant);
+}
+.amount-symbol { font-size: 28px; font-weight: 300; color: var(--on-surface-var); vertical-align: top; margin-top: 12px; }
+.amount-value { font-size: 56px; font-weight: 300; color: var(--on-surface); letter-spacing: -2px; }
+.amount-value.has-value { color: var(--primary-dark); font-weight: 500; }
+.currency-chip {
+  display: inline-flex; align-items: center; gap: 5px;
+  padding: 6px 14px 6px 10px; border-radius: 20px;
+  background: var(--surface-1); border: 1.5px solid var(--primary);
+  color: var(--primary-mid); font-size: 14px; font-weight: 600;
+  cursor: pointer; margin-top: 10px;
+  font-family: inherit;
+}
+
+.form-section { background: var(--surface); margin-top: 10px; padding: 16px 16px 8px; }
+.form-section-title {
+  font-size: 11px; font-weight: 700; letter-spacing: 1.2px;
+  color: var(--on-surface-var); text-transform: uppercase;
+  margin-bottom: 12px;
+}
+.category-grid {
+  display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px;
+}
+.cat-item {
+  display: flex; flex-direction: column; align-items: center; gap: 5px;
+  padding: 12px 6px; border-radius: 16px;
+  cursor: pointer;
+  border: 2px solid transparent;
+  background: var(--surface-variant);
+  transition: all 0.15s;
+}
+.cat-item:hover { background: var(--primary-container-light); }
+.cat-item.selected { border-color: var(--primary); background: var(--primary-container-light); }
+.cat-emoji { font-size: 24px; }
+.cat-label { font-size: 11px; font-weight: 500; color: var(--on-surface-var); text-align: center; }
+
+.payment-chips { display: flex; gap: 8px; flex-wrap: wrap; }
+
+.text-input {
+  width: 100%; height: 48px;
+  border: 1.5px solid var(--outline);
+  border-radius: 12px;
+  padding: 0 14px;
+  font-size: 15px; font-family: inherit;
+  color: var(--on-surface); background: var(--surface);
+  outline: none; transition: border-color 0.15s;
+  margin-top: 4px;
+}
+.text-input:focus { border-color: var(--primary); }
+.input-row { margin-bottom: 12px; }
+.input-label { font-size: 12px; font-weight: 500; color: var(--on-surface-var); letter-spacing: 0.3px; }
+
+/* ===== BOTTOM SHEET ===== */
+.sheet-overlay {
+  position: absolute; top: 0; left: 0; right: 0; bottom: 0;
+  background: rgba(0,0,0,0.42);
+  display: flex; flex-direction: column; justify-content: flex-end;
+  z-index: 50;
+}
+.bottom-sheet {
+  background: var(--surface);
+  border-radius: 28px 28px 0 0;
+  padding: 8px 20px 32px;
+}
+.sheet-handle {
+  width: 32px; height: 4px;
+  background: var(--outline);
+  border-radius: 2px;
+  margin: 8px auto 20px;
+}
+.sheet-title { font-size: 20px; font-weight: 600; color: var(--on-surface); margin-bottom: 4px; }
+.sheet-sub { font-size: 14px; color: var(--on-surface-var); margin-bottom: 20px; }
+
+.stepper {
+  display: flex; align-items: center; justify-content: center; gap: 24px;
+  margin: 8px 0 20px;
+}
+.stepper-btn {
+  width: 42px; height: 42px; border-radius: 50%;
+  border: 1.5px solid var(--primary);
+  background: none; color: var(--primary);
+  font-size: 24px; cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  font-family: inherit; transition: all 0.15s;
+}
+.stepper-btn:hover { background: var(--primary-container-light); }
+.stepper-value { font-size: 36px; font-weight: 600; color: var(--on-surface); min-width: 52px; text-align: center; }
+
+.installment-preview {
+  background: var(--primary-container-light);
+  border-radius: 14px;
+  padding: 16px 20px;
+  display: flex; justify-content: space-between; align-items: center;
+  margin: 0 0 20px;
+}
+.preview-label { font-size: 13px; color: var(--primary-mid); font-weight: 500; }
+.preview-amount { font-size: 22px; font-weight: 700; color: var(--primary-dark); }
+.preview-period { font-size: 12px; color: var(--primary-mid); margin-top: 1px; }
+
+/* ===== EMI LIST ===== */
+.emi-card {
+  margin: 6px 14px;
+  background: var(--surface);
+  border-radius: 18px;
+  padding: 16px;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.5); border: 1px solid var(--outline);
+}
+.emi-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 4px; }
+.emi-name { font-size: 16px; font-weight: 600; color: var(--on-surface); }
+.emi-badge {
+  background: var(--primary-container-light);
+  color: var(--primary-mid);
+  border-radius: 20px; padding: 3px 10px;
+  font-size: 12px; font-weight: 600;
+}
+.emi-amount { font-size: 22px; font-weight: 700; color: var(--primary-dark); }
+.emi-period { font-size: 12px; color: var(--on-surface-var); margin-bottom: 10px; }
+.progress-bar {
+  height: 6px; background: var(--outline);
+  border-radius: 3px; overflow: hidden;
+}
+.progress-fill { height: 100%; background: var(--primary); border-radius: 3px; }
+.emi-stats {
+  display: flex; justify-content: space-between; margin-top: 8px;
+  font-size: 12px; color: var(--on-surface-var);
+}
+.emi-stats span:last-child { color: var(--primary-dark); font-weight: 600; }
+
+/* ===== NOTIFICATION BANNER ===== */
+.notif-banner {
+  margin: 6px 12px 2px;
+  background: #1C1C2E;
+  border-radius: 20px;
+  padding: 14px 16px;
+  color: var(--on-surface);
+  box-shadow: 0 8px 30px rgba(0,0,0,0.35);
+  animation: slideDown 0.35s cubic-bezier(0.2,0,0,1);
+}
+@keyframes slideDown {
+  from { transform: translateY(-70px) scale(0.95); opacity: 0; }
+  to { transform: translateY(0) scale(1); opacity: 1; }
+}
+.notif-top { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+.notif-bank-icon {
+  width: 38px; height: 38px; border-radius: 10px;
+  background: linear-gradient(135deg, #1B6CA8, #0D47A1);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 18px; flex-shrink: 0;
+}
+.notif-title { font-size: 15px; font-weight: 600; }
+.notif-sub { font-size: 12px; opacity: 0.65; margin-top: 1px; }
+.notif-actions { display: flex; gap: 8px; justify-content: flex-end; }
+.notif-dismiss { padding: 7px 16px; border-radius: 20px; border: none; background: rgba(255,255,255,0.1); color: var(--on-surface); font-size: 13px; font-weight: 600; cursor: pointer; font-family: inherit; }
+.notif-save { padding: 7px 18px; border-radius: 20px; border: none; background: #A8F0C6; color: #003821; font-size: 13px; font-weight: 700; cursor: pointer; font-family: inherit; }
+
+/* ===== SETTINGS ===== */
+.settings-section-title {
+  padding: 16px 16px 8px;
+  font-size: 12px; font-weight: 700;
+  letter-spacing: 1px; text-transform: uppercase;
+  color: var(--primary);
+}
+.settings-item {
+  display: flex; align-items: center;
+  padding: 14px 16px; background: var(--surface);
+  gap: 14px; cursor: pointer; min-height: 56px;
+  transition: background 0.12s;
+}
+.settings-item:hover { background: #F5F5F5; }
+.s-icon {
+  width: 40px; height: 40px; border-radius: 12px;
+  background: var(--surface-1);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 20px; flex-shrink: 0;
+}
+.s-label { font-size: 15px; font-weight: 500; color: var(--on-surface); }
+.s-sub { font-size: 13px; color: var(--on-surface-var); margin-top: 1px; }
+.s-value { margin-left: auto; font-size: 13px; color: var(--on-surface-var); display: flex; align-items: center; gap: 4px; }
+.chevron { font-size: 16px; opacity: 0.4; }
+.toggle-track {
+  width: 50px; height: 28px; border-radius: 14px;
+  background: var(--primary); position: relative; cursor: pointer; flex-shrink: 0;
+  margin-left: auto;
+}
+.toggle-track::after {
+  content: ''; position: absolute;
+  top: 3px; right: 3px;
+  width: 22px; height: 22px;
+  background: var(--surface); border-radius: 50%;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.25);
+}
+.granted-badge {
+  display: flex; align-items: center; gap: 4px;
+  font-size: 13px; color: #2E7D32; font-weight: 500;
+  margin-left: auto;
+}
+
+/* ===== SCREEN NAV ===== */
+.screen-nav {
+  display: flex; gap: 8px; flex-wrap: wrap;
+  justify-content: center; max-width: 520px;
+}
+.nav-btn {
+  padding: 8px 16px; border-radius: 20px;
+  border: 1px solid rgba(255,255,255,0.15);
+  background: rgba(255,255,255,0.06);
+  color: rgba(255,255,255,0.65); font-size: 13px; font-weight: 500;
+  cursor: pointer; transition: all 0.2s; font-family: inherit;
+}
+.nav-btn:hover { background: rgba(255,255,255,0.12); color: var(--on-surface); border-color: rgba(255,255,255,0.3); }
+.nav-btn.active { background: var(--primary); color: var(--on-surface); border-color: var(--primary); }
+
+/* ===== MISC ===== */
+.section-bg { background: var(--bg); padding: 8px 0; }
+.empty-space { height: 12px; }
+.pill-tag {
+  display: inline-flex; align-items: center;
+  padding: 3px 10px; border-radius: 20px;
+  font-size: 12px; font-weight: 600;
+  background: var(--surface-1); color: var(--on-surface-var);
+}
+.positive { color: #2E7D32; }
+.negative { color: var(--error); }
+</style>
+</head>
+<body>
+
+<div class="page-header">
+  <h1>Expense Analyst — UI Mockups</h1>
+  <p>Interactive screen prototypes · Click a screen to preview</p>
+</div>
+
+<!-- ============================================================ -->
+<!-- PHONE FRAME -->
+<!-- ============================================================ -->
+<div class="phone-wrapper">
+<div class="phone-frame">
+
+  <!-- ======================================================= -->
+  <!-- SCREEN 1: ONBOARDING — CURRENCY SELECTION -->
+  <!-- ======================================================= -->
+  <div class="screen active" id="s-onboard-currency">
+    <div class="status-bar"><span>9:41</span><div class="status-icons">📶 🔋</div></div>
+
+    <div style="background:var(--surface); flex:1; display:flex; flex-direction:column;">
+      <!-- Header -->
+      <div style="padding:16px 20px 0; display:flex; align-items:center;">
+        <div class="step-indicator">
+          <div class="step-dot active"></div>
+          <div class="step-dot"></div>
+        </div>
+        <span style="margin-left:auto; font-size:13px; color:var(--on-surface-var);">Step 1 of 2</span>
+      </div>
+
+      <!-- Logo + Title -->
+      <div style="padding:28px 20px 20px; text-align:center;">
+        <div style="font-size:52px; margin-bottom:12px;">💰</div>
+        <div style="font-size:24px; font-weight:700; color:var(--on-surface); letter-spacing:-0.5px;">Choose your home currency</div>
+        <div style="font-size:14px; color:var(--on-surface-var); margin-top:6px; line-height:1.4;">All amounts will be converted to this currency for reporting</div>
+      </div>
+
+      <!-- Search -->
+      <div style="margin:0 16px 12px; background:var(--surface-1); border-radius:28px; height:46px; display:flex; align-items:center; padding:0 16px; gap:10px; border:1.5px solid var(--outline);">
+        <span style="font-size:18px; opacity:0.5;">🔍</span>
+        <span style="font-size:15px; color:var(--on-surface-var);">Search currencies...</span>
+      </div>
+
+      <!-- Currency list -->
+      <div class="scroll-content" style="flex:1;">
+        <div style="padding:4px 0; font-size:12px; font-weight:600; letter-spacing:1px; color:var(--on-surface-var); padding:6px 20px 4px; text-transform:uppercase;">Common</div>
+        <div class="currency-item selected" onclick="selectCurrency(this)">
+          <div class="flag">🇮🇳</div>
+          <div style="flex:1;"><div class="c-code">INR</div><div class="c-name">Indian Rupee</div></div>
+          <div class="radio on"></div>
+        </div>
+        <div class="currency-item" onclick="selectCurrency(this)">
+          <div class="flag">🇸🇦</div>
+          <div style="flex:1;"><div class="c-code">SAR</div><div class="c-name">Saudi Riyal</div></div>
+          <div class="radio"></div>
+        </div>
+        <div class="currency-item" onclick="selectCurrency(this)">
+          <div class="flag">🇺🇸</div>
+          <div style="flex:1;"><div class="c-code">USD</div><div class="c-name">US Dollar</div></div>
+          <div class="radio"></div>
+        </div>
+        <div class="currency-item" onclick="selectCurrency(this)">
+          <div class="flag">🇬🇧</div>
+          <div style="flex:1;"><div class="c-code">GBP</div><div class="c-name">British Pound</div></div>
+          <div class="radio"></div>
+        </div>
+        <div class="currency-item" onclick="selectCurrency(this)">
+          <div class="flag">🇪🇺</div>
+          <div style="flex:1;"><div class="c-code">EUR</div><div class="c-name">Euro</div></div>
+          <div class="radio"></div>
+        </div>
+        <div class="currency-item" onclick="selectCurrency(this)">
+          <div class="flag">🇦🇪</div>
+          <div style="flex:1;"><div class="c-code">AED</div><div class="c-name">UAE Dirham</div></div>
+          <div class="radio"></div>
+        </div>
+        <div class="currency-item" onclick="selectCurrency(this)">
+          <div class="flag">🇸🇬</div>
+          <div style="flex:1;"><div class="c-code">SGD</div><div class="c-name">Singapore Dollar</div></div>
+          <div class="radio"></div>
+        </div>
+        <div style="height:12px;"></div>
+      </div>
+
+      <!-- Continue button -->
+      <div style="padding:16px 20px 28px; background:var(--surface); border-top:1px solid var(--outline-variant);">
+        <button class="btn btn-filled btn-large" onclick="showScreen('s-onboard-notif')">Continue →</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ======================================================= -->
+  <!-- SCREEN 2: ONBOARDING — NOTIFICATION PERMISSION -->
+  <!-- ======================================================= -->
+  <div class="screen" id="s-onboard-notif">
+    <div class="status-bar"><span>9:41</span><div class="status-icons">📶 🔋</div></div>
+
+    <div style="background:var(--surface); flex:1; display:flex; flex-direction:column;">
+      <div style="padding:12px 20px 0; display:flex; align-items:center;">
+        <button class="icon-btn" onclick="showScreen('s-onboard-currency')" style="margin-left:-8px;">←</button>
+        <div class="step-indicator" style="margin-left:auto;">
+          <div class="step-dot"></div>
+          <div class="step-dot active"></div>
+        </div>
+        <span style="margin-left:8px; font-size:13px; color:var(--on-surface-var);">Step 2 of 2</span>
+      </div>
+
+      <div class="scroll-content" style="flex:1; padding:0 24px;">
+        <!-- Illustration -->
+        <div style="text-align:center; padding:28px 0 20px;">
+          <div style="font-size:80px; line-height:1;">🏦</div>
+          <div style="display:flex; justify-content:center; gap:12px; margin-top:12px;">
+            <div style="background:var(--primary-container-light); border-radius:12px; padding:8px 14px; font-size:13px; color:var(--primary-mid); font-weight:600; display:flex; align-items:center; gap:6px;">
+              <span>📨</span> HDFC Bank: Rs 450 debited
+            </div>
+          </div>
+          <div style="display:flex; justify-content:center; gap:8px; margin-top:8px;">
+            <div style="background:var(--surface-1); border-radius:12px; padding:8px 14px; font-size:13px; color:var(--on-surface-var); display:flex; align-items:center; gap:6px;">
+              ✅ Saved as expense
+            </div>
+          </div>
+        </div>
+
+        <div style="font-size:24px; font-weight:700; color:var(--on-surface); letter-spacing:-0.5px; margin-bottom:10px;">Never miss a transaction</div>
+        <div style="font-size:15px; color:var(--on-surface-var); line-height:1.6; margin-bottom:24px;">Allow Expense Analyst to read bank notifications and automatically track your spending — no manual entry needed.</div>
+
+        <!-- Permission list -->
+        <div style="display:flex; flex-direction:column; gap:12px; margin-bottom:24px;">
+          <div style="display:flex; align-items:flex-start; gap:12px;">
+            <span style="font-size:18px; margin-top:1px;">✅</span>
+            <div><div style="font-size:14px; font-weight:600; color:var(--on-surface);">Bank SMS &amp; payment notifications</div><div style="font-size:13px; color:var(--on-surface-var); margin-top:1px;">Captures amount, merchant, and type</div></div>
+          </div>
+          <div style="display:flex; align-items:flex-start; gap:12px;">
+            <span style="font-size:18px; margin-top:1px;">✅</span>
+            <div><div style="font-size:14px; font-weight:600; color:var(--on-surface);">Creates expense entries for your review</div><div style="font-size:13px; color:var(--on-surface-var); margin-top:1px;">You confirm before anything is saved</div></div>
+          </div>
+          <div style="display:flex; align-items:flex-start; gap:12px;">
+            <span style="font-size:18px; margin-top:1px;">🚫</span>
+            <div><div style="font-size:14px; font-weight:600; color:var(--on-surface);">Never reads personal messages</div><div style="font-size:13px; color:var(--on-surface-var); margin-top:1px;">Only bank/payment sender IDs are parsed</div></div>
+          </div>
+          <div style="display:flex; align-items:flex-start; gap:12px;">
+            <span style="font-size:18px; margin-top:1px;">🚫</span>
+            <div><div style="font-size:14px; font-weight:600; color:var(--on-surface);">No access to contacts or files</div><div style="font-size:13px; color:var(--on-surface-var); margin-top:1px;">Only notification content is read</div></div>
+          </div>
+        </div>
+      </div>
+
+      <div style="padding:16px 24px 28px; background:var(--surface); border-top:1px solid var(--outline-variant); display:flex; flex-direction:column; gap:10px;">
+        <button class="btn btn-filled btn-large" onclick="showScreen('s-home')">Grant Permission</button>
+        <button class="btn btn-text" onclick="showScreen('s-home')" style="height:44px; font-size:14px;">Skip for now</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ======================================================= -->
+  <!-- SCREEN 3: HOME — EXPENSE LIST -->
+  <!-- ======================================================= -->
+  <div class="screen" id="s-home">
+    <div class="status-bar" style="background:var(--surface);"><span>9:41</span><div class="status-icons">📶 🔋</div></div>
+
+    <!-- App bar -->
+    <div class="app-bar">
+      <button class="icon-btn">☰</button>
+      <span class="app-bar-title">Expense Analyst</span>
+      <button class="icon-btn">🔍</button>
+      <div class="avatar">A</div>
+    </div>
+
+    <div class="scroll-content" style="background:var(--bg);">
+      <!-- Summary card -->
+      <div class="summary-card">
+        <div class="summary-month">March 2026</div>
+        <div class="summary-row">
+          <div class="summary-col">
+            <div class="summary-amount">₹14,780</div>
+            <div class="summary-sub">Total spent this month</div>
+          </div>
+          <div style="text-align:right;">
+            <div class="summary-badge">↑ 22% <span style="font-weight:400; opacity:0.8; font-size:11px;">vs Feb</span></div>
+            <div style="font-size:12px; opacity:0.7; margin-top:6px;">7 days left</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Filter chips -->
+      <div class="chips-row">
+        <button class="chip selected" onclick="toggleChip(this)">All</button>
+        <button class="chip" onclick="toggleChip(this)">🍕 Food</button>
+        <button class="chip" onclick="toggleChip(this)">🚕 Transport</button>
+        <button class="chip" onclick="toggleChip(this)">🛒 Shopping</button>
+        <button class="chip" onclick="toggleChip(this)">💡 Bills</button>
+        <button class="chip" onclick="toggleChip(this)">❤️ Health</button>
+      </div>
+
+      <!-- Today's expenses -->
+      <div class="date-header">Today · ₹680</div>
+      <div class="expense-card" onclick="showScreen('s-add-expense')">
+        <div class="expense-icon-wrap" style="background:rgba(255,152,0,0.15);">🍕</div>
+        <div>
+          <div class="expense-merchant">Swiggy</div>
+          <div class="expense-desc">Food · 2:34 PM</div>
+        </div>
+        <div class="expense-right">
+          <div class="expense-amount">- ₹450</div>
+          <div class="expense-method">UPI</div>
+        </div>
+      </div>
+      <div class="expense-card">
+        <div class="expense-icon-wrap" style="background:rgba(33,150,243,0.15);">🚕</div>
+        <div>
+          <div class="expense-merchant">Uber</div>
+          <div class="expense-desc">Transport · 9:15 AM</div>
+        </div>
+        <div class="expense-right">
+          <div class="expense-amount">- ₹230</div>
+          <div class="expense-method">UPI</div>
+        </div>
+      </div>
+
+      <!-- Yesterday -->
+      <div class="date-header">Yesterday · ₹1,649</div>
+      <div class="expense-card">
+        <div class="expense-icon-wrap" style="background:rgba(156,39,176,0.15);">🛒</div>
+        <div>
+          <div class="expense-merchant">Amazon</div>
+          <div class="expense-desc">Shopping · 6:20 PM</div>
+        </div>
+        <div class="expense-right">
+          <div class="expense-amount">- ₹1,299</div>
+          <div class="expense-method">Credit Card</div>
+        </div>
+      </div>
+      <div class="expense-card">
+        <div class="expense-icon-wrap" style="background:rgba(76,175,80,0.15);">☕</div>
+        <div>
+          <div class="expense-merchant">Starbucks</div>
+          <div class="expense-desc">Food · 11:00 AM</div>
+        </div>
+        <div class="expense-right">
+          <div class="expense-amount">- ₹350</div>
+          <div class="expense-method">Debit Card</div>
+        </div>
+      </div>
+
+      <!-- Mar 20 -->
+      <div class="date-header">March 20 · ₹2,100</div>
+      <div class="expense-card">
+        <div class="expense-icon-wrap" style="background:rgba(255,235,59,0.15);">💡</div>
+        <div>
+          <div class="expense-merchant">Electricity Bill</div>
+          <div class="expense-desc">Bills · BESCOM</div>
+        </div>
+        <div class="expense-right">
+          <div class="expense-amount">- ₹2,100</div>
+          <div class="expense-method">Net Banking</div>
+        </div>
+      </div>
+
+      <!-- Mar 18 — credit example -->
+      <div class="date-header">March 18 · ₹45,000 in</div>
+      <div class="expense-card">
+        <div class="expense-icon-wrap" style="background:rgba(76,175,80,0.15);">💼</div>
+        <div>
+          <div class="expense-merchant">Salary Credit</div>
+          <div class="expense-desc">Income · HDFC Bank</div>
+        </div>
+        <div class="expense-right">
+          <div class="expense-amount credit">+ ₹45,000</div>
+          <div class="expense-method">Bank Transfer</div>
+        </div>
+      </div>
+
+      <div style="height:100px;"></div>
+    </div>
+
+    <!-- FAB -->
+    <button class="fab" onclick="showScreen('s-add-expense')">+</button>
+
+    <!-- Bottom nav -->
+    <div class="bottom-nav">
+      <div class="nav-item active">
+        <div class="nav-pill">🏠</div>
+        <div class="nav-label">Home</div>
+      </div>
+      <div class="nav-item" onclick="showScreen('s-emi-list')">
+        <div class="nav-pill">📊</div>
+        <div class="nav-label">EMI</div>
+      </div>
+      <div class="nav-item">
+        <div class="nav-pill">📈</div>
+        <div class="nav-label">Analytics</div>
+      </div>
+      <div class="nav-item" onclick="showScreen('s-settings')">
+        <div class="nav-pill">⚙️</div>
+        <div class="nav-label">Settings</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ======================================================= -->
+  <!-- SCREEN 4: ADD EXPENSE -->
+  <!-- ======================================================= -->
+  <div class="screen" id="s-add-expense">
+    <div class="status-bar"><span>9:41</span><div class="status-icons">📶 🔋</div></div>
+
+    <div class="app-bar transparent">
+      <button class="icon-btn" onclick="showScreen('s-home')">←</button>
+      <span class="app-bar-title" style="color:var(--on-surface); font-size:18px;">Add Expense</span>
+    </div>
+
+    <div class="scroll-content">
+      <!-- Amount display -->
+      <div class="amount-display">
+        <div>
+          <span class="amount-symbol">₹</span>
+          <span class="amount-value" id="amount-display">450</span>
+        </div>
+        <div>
+          <button class="currency-chip">🇮🇳 INR ▾</button>
+        </div>
+      </div>
+
+      <!-- Category -->
+      <div class="form-section">
+        <div class="form-section-title">Category</div>
+        <div class="category-grid">
+          <div class="cat-item selected" onclick="selectCat(this)"><div class="cat-emoji">🍕</div><div class="cat-label">Food</div></div>
+          <div class="cat-item" onclick="selectCat(this)"><div class="cat-emoji">🚕</div><div class="cat-label">Transport</div></div>
+          <div class="cat-item" onclick="selectCat(this)"><div class="cat-emoji">🛒</div><div class="cat-label">Shopping</div></div>
+          <div class="cat-item" onclick="selectCat(this)"><div class="cat-emoji">💡</div><div class="cat-label">Bills</div></div>
+          <div class="cat-item" onclick="selectCat(this)"><div class="cat-emoji">🎬</div><div class="cat-label">Entertainment</div></div>
+          <div class="cat-item" onclick="selectCat(this)"><div class="cat-emoji">❤️</div><div class="cat-label">Health</div></div>
+          <div class="cat-item" onclick="selectCat(this)"><div class="cat-emoji">🥑</div><div class="cat-label">Groceries</div></div>
+          <div class="cat-item" onclick="selectCat(this)"><div class="cat-emoji">🏠</div><div class="cat-label">Rent</div></div>
+        </div>
+      </div>
+
+      <!-- Payment method -->
+      <div class="form-section">
+        <div class="form-section-title">Payment Method</div>
+        <div class="payment-chips">
+          <button class="chip" onclick="selectPayment(this)">💵 Cash</button>
+          <button class="chip selected" onclick="selectPayment(this)">📱 UPI</button>
+          <button class="chip" onclick="selectPayment(this)">💳 Credit Card</button>
+          <button class="chip" onclick="selectPayment(this)">💳 Debit Card</button>
+          <button class="chip" onclick="selectPayment(this)">🏦 Net Banking</button>
+        </div>
+      </div>
+
+      <!-- Date + Details -->
+      <div class="form-section" style="padding-bottom:16px;">
+        <div class="form-section-title">Details</div>
+        <div class="input-row">
+          <div class="input-label">Date</div>
+          <input class="text-input" type="text" value="Today, March 24, 2026" readonly style="cursor:pointer; background:var(--surface-1);">
+        </div>
+        <div class="input-row">
+          <div class="input-label">Description *</div>
+          <input class="text-input" type="text" value="Swiggy order">
+        </div>
+        <div class="input-row">
+          <div class="input-label">Merchant (optional)</div>
+          <input class="text-input" type="text" value="Swiggy">
+        </div>
+        <div class="input-row" style="margin-bottom:0;">
+          <div class="input-label">Notes (optional)</div>
+          <input class="text-input" type="text" placeholder="Add a note...">
+        </div>
+      </div>
+
+      <div style="padding:16px 16px 32px;">
+        <button class="btn btn-filled btn-large" onclick="showScreen('s-home')">Save Expense</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ======================================================= -->
+  <!-- SCREEN 5: EMI CONVERSION SHEET (overlay on expense detail) -->
+  <!-- ======================================================= -->
+  <div class="screen" id="s-emi-sheet">
+    <div class="status-bar"><span>9:41</span><div class="status-icons">📶 🔋</div></div>
+
+    <!-- Background (dimmed expense detail) -->
+    <div class="app-bar">
+      <button class="icon-btn">←</button>
+      <span class="app-bar-title" style="font-size:16px; color:var(--on-surface);">Expense Detail</span>
+    </div>
+    <div style="padding:20px 20px; background:var(--surface); border-bottom:1px solid var(--outline-variant);">
+      <div style="display:flex; align-items:center; gap:16px; margin-bottom:16px;">
+        <div class="expense-icon-wrap" style="background:rgba(156,39,176,0.15); width:60px; height:60px; border-radius:18px; font-size:28px;">💻</div>
+        <div>
+          <div style="font-size:20px; font-weight:700; color:var(--on-surface);">MacBook Pro M3</div>
+          <div style="font-size:14px; color:var(--on-surface-var);">Shopping · Apple Store</div>
+        </div>
+      </div>
+      <div style="font-size:36px; font-weight:700; color:var(--primary-dark); letter-spacing:-1px;">₹1,25,000</div>
+      <div style="font-size:14px; color:var(--on-surface-var); margin-top:4px;">March 22, 2026 · Credit Card</div>
+    </div>
+
+    <!-- Bottom sheet overlay -->
+    <div class="sheet-overlay" onclick="event.target===this&&showScreen('s-home')">
+      <div class="bottom-sheet">
+        <div class="sheet-handle"></div>
+        <div class="sheet-title">Convert to EMI</div>
+        <div class="sheet-sub">MacBook Pro M3 · ₹1,25,000</div>
+
+        <div style="font-size:13px; font-weight:600; color:var(--on-surface-var); letter-spacing:0.5px; text-transform:uppercase; margin-bottom:8px;">Number of Installments</div>
+        <div class="stepper">
+          <button class="stepper-btn" onclick="changeEmi(-1)">−</button>
+          <span class="stepper-value" id="emi-count">6</span>
+          <button class="stepper-btn" onclick="changeEmi(1)">+</button>
+        </div>
+
+        <div style="font-size:13px; font-weight:600; color:var(--on-surface-var); letter-spacing:0.5px; text-transform:uppercase; margin-bottom:8px;">Interest Rate (optional)</div>
+        <div style="display:flex; align-items:center; gap:12px; margin-bottom:18px;">
+          <input class="text-input" type="number" value="0" placeholder="0" style="flex:1; height:44px;" oninput="updateEmi()">
+          <span style="font-size:18px; font-weight:600; color:var(--on-surface-var);">%</span>
+        </div>
+
+        <div class="installment-preview">
+          <div>
+            <div class="preview-label">Monthly Installment</div>
+            <div class="preview-period" id="emi-period">Apr – Sep 2026</div>
+          </div>
+          <div style="text-align:right;">
+            <div class="preview-amount" id="emi-amount">₹20,833</div>
+            <div style="font-size:12px; color:var(--primary-mid);">per month</div>
+          </div>
+        </div>
+
+        <button class="btn btn-filled btn-large" onclick="showScreen('s-emi-list')" style="margin-bottom:12px;">Create EMI Plan</button>
+        <button class="btn btn-text" onclick="showScreen('s-home')" style="width:100%; height:40px;">Cancel</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ======================================================= -->
+  <!-- SCREEN 6: EMI LIST -->
+  <!-- ======================================================= -->
+  <div class="screen" id="s-emi-list">
+    <div class="status-bar"><span>9:41</span><div class="status-icons">📶 🔋</div></div>
+    <div class="app-bar">
+      <span class="app-bar-title">EMI Tracker</span>
+    </div>
+
+    <div class="scroll-content" style="background:var(--bg); padding-top:12px;">
+
+      <!-- Summary strip -->
+      <div style="display:flex; gap:10px; padding:0 14px 12px;">
+        <div style="flex:1; background:var(--surface); border-radius:16px; padding:14px 16px; box-shadow:0 1px 3px rgba(0,0,0,0.07);">
+          <div style="font-size:12px; color:var(--on-surface-var); font-weight:500;">Active EMIs</div>
+          <div style="font-size:24px; font-weight:700; color:var(--on-surface); margin-top:2px;">2</div>
+        </div>
+        <div style="flex:1; background:var(--surface); border-radius:16px; padding:14px 16px; box-shadow:0 1px 3px rgba(0,0,0,0.07);">
+          <div style="font-size:12px; color:var(--on-surface-var); font-weight:500;">Due This Month</div>
+          <div style="font-size:24px; font-weight:700; color:var(--primary-dark); margin-top:2px;">₹26,249</div>
+        </div>
+      </div>
+
+      <div style="font-size:12px; font-weight:700; letter-spacing:1px; text-transform:uppercase; color:var(--on-surface-var); padding:0 16px 8px;">Active</div>
+
+      <!-- EMI Card 1 -->
+      <div class="emi-card">
+        <div class="emi-header">
+          <div>
+            <div class="emi-name">MacBook Pro M3</div>
+            <div style="font-size:13px; color:var(--on-surface-var);">Apple Store · Credit Card</div>
+          </div>
+          <div class="emi-badge">1 / 6</div>
+        </div>
+        <div style="display:flex; align-items:baseline; gap:6px; margin-top:6px;">
+          <div class="emi-amount">₹20,833</div>
+          <div style="font-size:13px; color:var(--on-surface-var);">/month</div>
+        </div>
+        <div class="emi-period">Apr 2026 – Sep 2026</div>
+        <div class="progress-bar"><div class="progress-fill" style="width:16.7%"></div></div>
+        <div class="emi-stats">
+          <span>₹20,833 paid</span>
+          <span>₹1,04,167 remaining</span>
+        </div>
+      </div>
+
+      <!-- EMI Card 2 -->
+      <div class="emi-card">
+        <div class="emi-header">
+          <div>
+            <div class="emi-name">iPhone 15 Pro</div>
+            <div style="font-size:13px; color:var(--on-surface-var);">Croma · EMI Card</div>
+          </div>
+          <div class="emi-badge">3 / 6</div>
+        </div>
+        <div style="display:flex; align-items:baseline; gap:6px; margin-top:6px;">
+          <div class="emi-amount">₹5,416</div>
+          <div style="font-size:13px; color:var(--on-surface-var);">/month</div>
+        </div>
+        <div class="emi-period">Jan 2026 – Jun 2026</div>
+        <div class="progress-bar"><div class="progress-fill" style="width:50%"></div></div>
+        <div class="emi-stats">
+          <span>₹16,248 paid</span>
+          <span>₹16,248 remaining</span>
+        </div>
+      </div>
+
+      <div style="height:16px;"></div>
+      <div style="font-size:12px; font-weight:700; letter-spacing:1px; text-transform:uppercase; color:var(--on-surface-var); padding:0 16px 8px;">Completed</div>
+
+      <!-- EMI Card 3 (completed) -->
+      <div class="emi-card" style="opacity:0.6;">
+        <div class="emi-header">
+          <div>
+            <div class="emi-name">OnePlus TV</div>
+            <div style="font-size:13px; color:var(--on-surface-var);">Flipkart · Debit Card</div>
+          </div>
+          <div style="background:rgba(76,175,80,0.15); color:#2E7D32; border-radius:20px; padding:3px 10px; font-size:12px; font-weight:600;">✓ Done</div>
+        </div>
+        <div style="display:flex; align-items:baseline; gap:6px; margin-top:6px;">
+          <div class="emi-amount" style="color:var(--on-surface-var);">₹3,333</div>
+          <div style="font-size:13px; color:var(--on-surface-var);">/month × 6</div>
+        </div>
+        <div class="emi-period">Aug 2025 – Jan 2026</div>
+        <div class="progress-bar"><div class="progress-fill" style="width:100%; background:#A5D6A7;"></div></div>
+      </div>
+
+      <div style="height:80px;"></div>
+    </div>
+
+    <div class="bottom-nav">
+      <div class="nav-item" onclick="showScreen('s-home')">
+        <div class="nav-pill">🏠</div>
+        <div class="nav-label">Home</div>
+      </div>
+      <div class="nav-item active">
+        <div class="nav-pill">📊</div>
+        <div class="nav-label">EMI</div>
+      </div>
+      <div class="nav-item">
+        <div class="nav-pill">📈</div>
+        <div class="nav-label">Analytics</div>
+      </div>
+      <div class="nav-item" onclick="showScreen('s-settings')">
+        <div class="nav-pill">⚙️</div>
+        <div class="nav-label">Settings</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ======================================================= -->
+  <!-- SCREEN 7: NOTIFICATION BANNER (over home) -->
+  <!-- ======================================================= -->
+  <div class="screen" id="s-notification">
+    <div class="status-bar" style="background:var(--surface);"><span>9:41</span><div class="status-icons">📶 🔋</div></div>
+    <div class="app-bar">
+      <button class="icon-btn">☰</button>
+      <span class="app-bar-title">Expense Analyst</span>
+      <button class="icon-btn">🔍</button>
+      <div class="avatar">A</div>
+    </div>
+
+    <!-- Notification Banner (animates in) -->
+    <div id="notif-banner" class="notif-banner">
+      <div class="notif-top">
+        <div class="notif-bank-icon">🏦</div>
+        <div>
+          <div class="notif-title">Rs 450 at Swiggy detected</div>
+          <div class="notif-sub">HDFC Bank · UPI · Just now</div>
+        </div>
+      </div>
+      <div class="notif-actions">
+        <button class="notif-dismiss" onclick="dismissNotif()">Dismiss</button>
+        <button class="notif-save" onclick="showScreen('s-add-expense')">Save as Expense →</button>
+      </div>
+    </div>
+
+    <!-- Rest of home screen (faded) -->
+    <div class="scroll-content" style="background:var(--bg); opacity:0.65;">
+      <div class="summary-card">
+        <div class="summary-month">March 2026</div>
+        <div class="summary-amount">₹14,780</div>
+        <div class="summary-sub">Total spent this month</div>
+      </div>
+      <div class="chips-row">
+        <button class="chip selected">All</button>
+        <button class="chip">🍕 Food</button>
+        <button class="chip">🚕 Transport</button>
+      </div>
+      <div class="date-header">Today · ₹230</div>
+      <div class="expense-card">
+        <div class="expense-icon-wrap" style="background:rgba(33,150,243,0.15);">🚕</div>
+        <div><div class="expense-merchant">Uber</div><div class="expense-desc">Transport · 9:15 AM</div></div>
+        <div class="expense-right"><div class="expense-amount">- ₹230</div><div class="expense-method">UPI</div></div>
+      </div>
+    </div>
+
+    <div class="bottom-nav">
+      <div class="nav-item active"><div class="nav-pill">🏠</div><div class="nav-label">Home</div></div>
+      <div class="nav-item"><div class="nav-pill">📊</div><div class="nav-label">EMI</div></div>
+      <div class="nav-item"><div class="nav-pill">📈</div><div class="nav-label">Analytics</div></div>
+      <div class="nav-item"><div class="nav-pill">⚙️</div><div class="nav-label">Settings</div></div>
+    </div>
+  </div>
+
+  <!-- ======================================================= -->
+  <!-- SCREEN 8: SETTINGS -->
+  <!-- ======================================================= -->
+  <div class="screen" id="s-settings">
+    <div class="status-bar"><span>9:41</span><div class="status-icons">📶 🔋</div></div>
+    <div class="app-bar">
+      <span class="app-bar-title">Settings</span>
+    </div>
+
+    <div class="scroll-content" style="background:var(--bg);">
+      <div class="empty-space"></div>
+
+      <!-- Preferences -->
+      <div class="settings-section-title">Preferences</div>
+      <div style="background:var(--surface); border-radius:16px; margin:0 12px; overflow:hidden; box-shadow:0 1px 3px rgba(0,0,0,0.06);">
+        <div class="settings-item">
+          <div class="s-icon">💱</div>
+          <div style="flex:1;"><div class="s-label">Home Currency</div><div class="s-sub">Used for all conversions</div></div>
+          <div class="s-value">🇮🇳 INR <span class="chevron">›</span></div>
+        </div>
+        <div class="divider" style="margin:0 16px;"></div>
+        <div class="settings-item">
+          <div class="s-icon">🎨</div>
+          <div style="flex:1;"><div class="s-label">Theme</div><div class="s-sub">App appearance</div></div>
+          <div class="s-value">System <span class="chevron">›</span></div>
+        </div>
+        <div class="divider" style="margin:0 16px;"></div>
+        <div class="settings-item">
+          <div class="s-icon">🌍</div>
+          <div style="flex:1;"><div class="s-label">Language & Region</div></div>
+          <div class="s-value">Auto <span class="chevron">›</span></div>
+        </div>
+      </div>
+
+      <!-- Notifications -->
+      <div class="settings-section-title">Notifications</div>
+      <div style="background:var(--surface); border-radius:16px; margin:0 12px; overflow:hidden; box-shadow:0 1px 3px rgba(0,0,0,0.06);">
+        <div class="settings-item">
+          <div class="s-icon">🔔</div>
+          <div style="flex:1;"><div class="s-label">Auto-capture Expenses</div><div class="s-sub">Parse bank SMS & notifications</div></div>
+          <div class="toggle-track"></div>
+        </div>
+        <div class="divider" style="margin:0 16px;"></div>
+        <div class="settings-item">
+          <div class="s-icon">🔐</div>
+          <div style="flex:1;"><div class="s-label">Notification Access</div><div class="s-sub">System permission</div></div>
+          <div class="granted-badge">✓ Granted</div>
+        </div>
+      </div>
+
+      <!-- Categories -->
+      <div class="settings-section-title">Categories</div>
+      <div style="background:var(--surface); border-radius:16px; margin:0 12px; overflow:hidden; box-shadow:0 1px 3px rgba(0,0,0,0.06);">
+        <div class="settings-item">
+          <div class="s-icon">🏷️</div>
+          <div style="flex:1;"><div class="s-label">Manage Categories</div><div class="s-sub">Add, edit, reorder</div></div>
+          <div class="s-value"><span class="chevron">›</span></div>
+        </div>
+      </div>
+
+      <!-- Data -->
+      <div class="settings-section-title">Data</div>
+      <div style="background:var(--surface); border-radius:16px; margin:0 12px; overflow:hidden; box-shadow:0 1px 3px rgba(0,0,0,0.06);">
+        <div class="settings-item">
+          <div class="s-icon">📤</div>
+          <div style="flex:1;"><div class="s-label">Export Expenses</div><div class="s-sub">CSV or PDF</div></div>
+          <div class="s-value"><span class="chevron">›</span></div>
+        </div>
+        <div class="divider" style="margin:0 16px;"></div>
+        <div class="settings-item">
+          <div class="s-icon">☁️</div>
+          <div style="flex:1;"><div class="s-label">Backup to Google Drive</div><div class="s-sub">Last backup: Never</div></div>
+          <div class="s-value"><span class="chevron">›</span></div>
+        </div>
+      </div>
+
+      <!-- About -->
+      <div class="settings-section-title">About</div>
+      <div style="background:var(--surface); border-radius:16px; margin:0 12px; overflow:hidden; box-shadow:0 1px 3px rgba(0,0,0,0.06);">
+        <div class="settings-item" style="cursor:default;">
+          <div class="s-icon">📱</div>
+          <div style="flex:1;"><div class="s-label">App Version</div></div>
+          <div class="s-value">1.0.0 (1)</div>
+        </div>
+        <div class="divider" style="margin:0 16px;"></div>
+        <div class="settings-item">
+          <div class="s-icon">💬</div>
+          <div style="flex:1;"><div class="s-label">Send Feedback</div></div>
+          <div class="s-value"><span class="chevron">›</span></div>
+        </div>
+        <div class="divider" style="margin:0 16px;"></div>
+        <div class="settings-item">
+          <div class="s-icon">🔒</div>
+          <div style="flex:1;"><div class="s-label">Privacy Policy</div></div>
+          <div class="s-value"><span class="chevron">›</span></div>
+        </div>
+      </div>
+
+      <div style="height:80px;"></div>
+    </div>
+
+    <div class="bottom-nav">
+      <div class="nav-item" onclick="showScreen('s-home')"><div class="nav-pill">🏠</div><div class="nav-label">Home</div></div>
+      <div class="nav-item" onclick="showScreen('s-emi-list')"><div class="nav-pill">📊</div><div class="nav-label">EMI</div></div>
+      <div class="nav-item"><div class="nav-pill">📈</div><div class="nav-label">Analytics</div></div>
+      <div class="nav-item active"><div class="nav-pill">⚙️</div><div class="nav-label">Settings</div></div>
+    </div>
+  </div>
+
+</div><!-- /phone-frame -->
+</div><!-- /phone-wrapper -->
+
+<!-- ============================================================ -->
+<!-- SCREEN NAVIGATION (outside phone) -->
+<!-- ============================================================ -->
+<div class="screen-nav">
+  <button class="nav-btn active" onclick="showScreen('s-onboard-currency')">1. Onboarding: Currency</button>
+  <button class="nav-btn" onclick="showScreen('s-onboard-notif')">2. Onboarding: Permission</button>
+  <button class="nav-btn" onclick="showScreen('s-home')">3. Home / Expense List</button>
+  <button class="nav-btn" onclick="showScreen('s-add-expense')">4. Add Expense</button>
+  <button class="nav-btn" onclick="showScreen('s-emi-sheet')">5. EMI Conversion</button>
+  <button class="nav-btn" onclick="showScreen('s-emi-list')">6. EMI List</button>
+  <button class="nav-btn" onclick="showScreen('s-notification')">7. Notification Banner</button>
+  <button class="nav-btn" onclick="showScreen('s-settings')">8. Settings</button>
+</div>
+
+<script>
+// ===== SCREEN NAVIGATION =====
+const screenMap = {
+  's-onboard-currency': 0,
+  's-onboard-notif': 1,
+  's-home': 2,
+  's-add-expense': 3,
+  's-emi-sheet': 4,
+  's-emi-list': 5,
+  's-notification': 6,
+  's-settings': 7,
+};
+
+function showScreen(id) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+
+  const navBtns = document.querySelectorAll('.screen-nav .nav-btn');
+  navBtns.forEach(b => b.classList.remove('active'));
+  if (screenMap[id] !== undefined) {
+    navBtns[screenMap[id]].classList.add('active');
+  }
+
+  // Reset notification banner when entering notification screen
+  if (id === 's-notification') {
+    const banner = document.getElementById('notif-banner');
+    banner.style.display = 'block';
+    banner.style.animation = 'none';
+    banner.offsetHeight; // reflow
+    banner.style.animation = '';
+  }
+}
+
+// ===== ONBOARDING: CURRENCY SELECTION =====
+function selectCurrency(el) {
+  document.querySelectorAll('.currency-item').forEach(item => {
+    item.classList.remove('selected');
+    const radio = item.querySelector('.radio');
+    if (radio) radio.classList.remove('on');
+  });
+  el.classList.add('selected');
+  const radio = el.querySelector('.radio');
+  if (radio) radio.classList.add('on');
+}
+
+// ===== CATEGORY SELECTION =====
+function selectCat(el) {
+  document.querySelectorAll('.cat-item').forEach(c => c.classList.remove('selected'));
+  el.classList.add('selected');
+}
+
+// ===== PAYMENT METHOD SELECTION =====
+function selectPayment(el) {
+  document.querySelectorAll('.payment-chips .chip').forEach(c => c.classList.remove('selected'));
+  el.classList.add('selected');
+}
+
+// ===== FILTER CHIPS =====
+function toggleChip(el) {
+  const isAll = el.textContent.trim() === 'All';
+  if (isAll) {
+    document.querySelectorAll('.chips-row .chip').forEach(c => c.classList.remove('selected'));
+    el.classList.add('selected');
+  } else {
+    document.querySelectorAll('.chips-row .chip').forEach(c => {
+      if (c.textContent.trim() === 'All') c.classList.remove('selected');
+    });
+    el.classList.toggle('selected');
+    const anySelected = Array.from(document.querySelectorAll('.chips-row .chip'))
+      .some(c => c.classList.contains('selected') && c.textContent.trim() !== 'All');
+    if (!anySelected) {
+      const allChip = document.querySelector('.chips-row .chip');
+      if (allChip) allChip.classList.add('selected');
+    }
+  }
+}
+
+// ===== EMI STEPPER =====
+let emiCount = 6;
+function changeEmi(delta) {
+  emiCount = Math.max(2, Math.min(36, emiCount + delta));
+  document.getElementById('emi-count').textContent = emiCount;
+  updateEmiPreview();
+}
+
+function updateEmiPreview() {
+  const total = 125000;
+  const rate = parseFloat(document.querySelector('#s-emi-sheet input[type=number]')?.value || 0);
+  let monthly;
+  if (rate > 0) {
+    const r = rate / 100 / 12;
+    monthly = Math.round(total * r * Math.pow(1+r, emiCount) / (Math.pow(1+r, emiCount) - 1));
+  } else {
+    monthly = Math.round(total / emiCount);
+  }
+  document.getElementById('emi-amount').textContent = '₹' + monthly.toLocaleString('en-IN');
+
+  const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  const start = new Date(2026, 3); // April 2026
+  const end = new Date(2026, 3 + emiCount - 1);
+  const startStr = months[start.getMonth()] + ' ' + start.getFullYear();
+  const endStr = months[end.getMonth()] + ' ' + end.getFullYear();
+  document.getElementById('emi-period').textContent = startStr + ' – ' + endStr;
+}
+
+function updateEmi() { updateEmiPreview(); }
+
+// ===== NOTIFICATION DISMISS =====
+function dismissNotif() {
+  const banner = document.getElementById('notif-banner');
+  banner.style.transition = 'all 0.3s ease';
+  banner.style.transform = 'translateY(-80px) scale(0.95)';
+  banner.style.opacity = '0';
+  setTimeout(() => { banner.style.display = 'none'; }, 300);
+}
+</script>
+</body>
+</html>

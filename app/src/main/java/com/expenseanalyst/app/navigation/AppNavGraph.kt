@@ -1,0 +1,207 @@
+package com.expenseanalyst.app.navigation
+
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.navigation.NavHostController
+import androidx.navigation.NavType
+import androidx.navigation.compose.NavHost
+import androidx.navigation.compose.composable
+import androidx.navigation.navArgument
+import com.expenseanalyst.app.MainViewModel
+import com.expenseanalyst.core.navigation.NavRoutes
+import com.expenseanalyst.feature.emi.ui.EmiCreateScreen
+import com.expenseanalyst.feature.emi.ui.EmiDetailScreen
+import com.expenseanalyst.feature.emi.ui.EmiListScreen
+import com.expenseanalyst.feature.expenses.ui.AddExpenseScreen
+import com.expenseanalyst.feature.expenses.ui.EditExpenseScreen
+import com.expenseanalyst.feature.expenses.ui.ExpenseDetailScreen
+import com.expenseanalyst.feature.expenses.ui.ExpenseListScreen
+import com.expenseanalyst.feature.notification.ui.NotificationBanner
+import com.expenseanalyst.feature.notification.ui.SmsImportScreen
+import com.expenseanalyst.feature.onboarding.ui.OnboardingScreen
+import com.expenseanalyst.feature.settings.ui.SettingsScreen
+
+@Composable
+fun AppNavGraph(
+    navController: NavHostController,
+    startDestination: String = NavRoutes.EXPENSE_LIST,
+    mainViewModel: MainViewModel? = null,
+    modifier: Modifier = Modifier
+) {
+    // Handle navigation triggered by system notification taps
+    val pendingRoute by (mainViewModel?.pendingRoute?.collectAsStateWithLifecycle()
+        ?: androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf<String?>(null) })
+    LaunchedEffect(pendingRoute) {
+        pendingRoute?.let { route ->
+            navController.navigate(route)
+            mainViewModel?.consumePendingRoute()
+        }
+    }
+
+    NavHost(
+        navController = navController,
+        startDestination = startDestination,
+        modifier = modifier
+    ) {
+        composable(NavRoutes.ONBOARDING) {
+            OnboardingScreen(
+                onComplete = { smsAutoStart ->
+                    if (smsAutoStart != null) {
+                        navController.navigate(NavRoutes.smsImport(smsAutoStart)) {
+                            popUpTo(NavRoutes.ONBOARDING) { inclusive = true }
+                        }
+                    } else {
+                        navController.navigate(NavRoutes.EXPENSE_LIST) {
+                            popUpTo(NavRoutes.ONBOARDING) { inclusive = true }
+                        }
+                    }
+                }
+            )
+        }
+
+        composable(NavRoutes.EXPENSE_LIST) {
+            Box(Modifier.fillMaxSize()) {
+                ExpenseListScreen(
+                    onAddExpense = { navController.navigate(NavRoutes.ADD_EXPENSE) },
+                    onImportFromSms = { navController.navigate(NavRoutes.SMS_IMPORT) },
+                    onExpenseClick = { id -> navController.navigate(NavRoutes.expenseDetail(id)) }
+                )
+                NotificationBanner(
+                    onSave = { parsed ->
+                        val accountStr = parsed.accountLast4?.let { last4 ->
+                            val bank = parsed.bankName.takeIf { it != "Unknown Bank" } ?: ""
+                            if (bank.isNotBlank()) "$bank *$last4" else "*$last4"
+                        }
+                        navController.navigate(
+                            NavRoutes.addExpenseFromNotification(
+                                amount = parsed.amount,
+                                currency = parsed.currencyCode,
+                                merchant = parsed.merchant,
+                                type = parsed.type.name,
+                                account = accountStr
+                            )
+                        )
+                    },
+                    modifier = Modifier.align(Alignment.TopCenter)
+                )
+            }
+        }
+
+        composable(
+            route = NavRoutes.ADD_EXPENSE_ROUTE,
+            arguments = listOf(
+                navArgument("amount") { type = NavType.StringType; defaultValue = "" },
+                navArgument("currency") { type = NavType.StringType; defaultValue = "" },
+                navArgument("merchant") { type = NavType.StringType; nullable = true; defaultValue = null },
+                navArgument("type") { type = NavType.StringType; defaultValue = "" },
+                navArgument("account") { type = NavType.StringType; nullable = true; defaultValue = null }
+            )
+        ) {
+            AddExpenseScreen(
+                onBack = { navController.popBackStack() },
+                onSaved = { navController.popBackStack() }
+            )
+        }
+
+        composable(
+            route = NavRoutes.EDIT_EXPENSE,
+            arguments = listOf(navArgument("expenseId") { type = NavType.LongType })
+        ) {
+            EditExpenseScreen(
+                onBack = { navController.popBackStack() },
+                onSaved = { navController.popBackStack() }
+            )
+        }
+
+        composable(
+            route = NavRoutes.EXPENSE_DETAIL,
+            arguments = listOf(navArgument("expenseId") { type = NavType.LongType })
+        ) {
+            ExpenseDetailScreen(
+                onBack = { navController.popBackStack() },
+                onEdit = { id -> navController.navigate(NavRoutes.editExpense(id)) },
+                onConvertToEmi = { id -> navController.navigate(NavRoutes.emiCreate(id)) }
+            )
+        }
+
+        composable(
+            route = NavRoutes.EMI_CREATE,
+            arguments = listOf(navArgument("expenseId") { type = NavType.LongType })
+        ) {
+            EmiCreateScreen(
+                onBack = { navController.popBackStack() },
+                onCreated = { groupId ->
+                    // Pop back to expense list and navigate to EMI detail
+                    navController.popBackStack(NavRoutes.EXPENSE_LIST, inclusive = false)
+                    navController.navigate(NavRoutes.emiDetail(groupId))
+                }
+            )
+        }
+
+        composable(NavRoutes.EMI_LIST) {
+            EmiListScreen(
+                onNavigateToDetail = { id -> navController.navigate(NavRoutes.emiDetail(id)) }
+            )
+        }
+
+        composable(
+            route = NavRoutes.EMI_DETAIL,
+            arguments = listOf(navArgument("emiGroupId") { type = NavType.LongType })
+        ) {
+            EmiDetailScreen(
+                onBack = { navController.popBackStack() }
+            )
+        }
+
+        composable(NavRoutes.SETTINGS) {
+            SettingsScreen(
+                onNavigateToSmsImport = { navController.navigate(NavRoutes.SMS_IMPORT) }
+            )
+        }
+
+        composable(
+            route = NavRoutes.SMS_IMPORT_ROUTE,
+            arguments = listOf(
+                navArgument("autoStart") {
+                    type = NavType.StringType
+                    nullable = true
+                    defaultValue = null
+                }
+            )
+        ) {
+            SmsImportScreen(
+                onBack = {
+                    val popped = navController.popBackStack()
+                    if (!popped) {
+                        // Came from onboarding (start dest was popped) — navigate to expense list
+                        navController.navigate(NavRoutes.EXPENSE_LIST) {
+                            popUpTo(NavRoutes.SMS_IMPORT_ROUTE) { inclusive = true }
+                        }
+                    }
+                },
+                onNavigateWithParsed = { parsed ->
+                    val accountStr = parsed.accountLast4?.let { last4 ->
+                        val bank = parsed.bankName.takeIf { it != "Unknown Bank" } ?: ""
+                        if (bank.isNotBlank()) "$bank *$last4" else "*$last4"
+                    }
+                    navController.navigate(
+                        NavRoutes.addExpenseFromNotification(
+                            amount = parsed.amount,
+                            currency = parsed.currencyCode,
+                            merchant = parsed.merchant,
+                            type = parsed.type.name,
+                            account = accountStr
+                        )
+                    )
+                },
+                onNavigateManually = { navController.navigate(NavRoutes.ADD_EXPENSE) }
+            )
+        }
+    }
+}

@@ -1,0 +1,678 @@
+package com.expenseanalyst.feature.expenses.ui
+
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilterChip
+import androidx.compose.material3.FilterChipDefaults
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.ListItem
+import androidx.compose.material3.ListItemDefaults
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SegmentedButton
+import androidx.compose.material3.SegmentedButtonDefaults
+import androidx.compose.material3.SingleChoiceSegmentedButtonRow
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.expenseanalyst.core.util.CurrencyCatalog
+import com.expenseanalyst.core.util.CurrencyFormatter
+import com.expenseanalyst.core.util.categoryIconVector
+import com.expenseanalyst.domain.model.AccountType
+import com.expenseanalyst.domain.model.Category
+import com.expenseanalyst.domain.model.PaymentMethod
+import com.expenseanalyst.domain.model.TransactionType
+
+@Composable
+fun AddExpenseScreen(
+    onBack: () -> Unit,
+    onSaved: () -> Unit,
+    viewModel: AddExpenseViewModel = hiltViewModel()
+) {
+    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+
+    LaunchedEffect(uiState.savedExpenseId) {
+        if (uiState.savedExpenseId != null) onSaved()
+    }
+
+    AddExpenseContent(
+        uiState = uiState,
+        titleOverride = "Add Expense",
+        onBack = onBack,
+        onAmountChange = viewModel::onAmountChange,
+        onTransactionTypeChange = viewModel::onTransactionTypeChange,
+        onCategorySelect = viewModel::onCategorySelect,
+        onShowCategorySheet = viewModel::showCategorySheet,
+        onDismissCategorySheet = viewModel::dismissCategorySheet,
+        onPaymentMethodChange = viewModel::onPaymentMethodChange,
+        onDescriptionChange = viewModel::onDescriptionChange,
+        onMerchantChange = viewModel::onMerchantChange,
+        onNoteChange = viewModel::onNoteChange,
+        onCurrencyChange = viewModel::onCurrencyChange,
+        onExchangeRateChange = viewModel::onExchangeRateChange,
+        onShowCurrencyPicker = viewModel::showCurrencyPicker,
+        onDismissCurrencyPicker = viewModel::dismissCurrencyPicker,
+        onCurrencySearchQueryChange = viewModel::onCurrencySearchQueryChange,
+        onShowAccountSheet = viewModel::showAccountSheet,
+        onDismissAccountSheet = viewModel::dismissAccountSheet,
+        onAccountSelect = viewModel::onAccountSelect,
+        onShowAddNewAccount = viewModel::showAddNewAccountForm,
+        onHideAddNewAccount = viewModel::hideAddNewAccountForm,
+        onNewAccountBankNameChange = viewModel::onNewAccountBankNameChange,
+        onNewAccountLastFourChange = viewModel::onNewAccountLastFourChange,
+        onNewAccountTypeChange = viewModel::onNewAccountTypeChange,
+        onSaveNewAccount = viewModel::saveNewAccount,
+        onSave = viewModel::saveExpense
+    )
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+internal fun AddExpenseContent(
+    uiState: AddExpenseUiState,
+    titleOverride: String = "Add Expense",
+    onBack: () -> Unit,
+    onAmountChange: (String) -> Unit,
+    onTransactionTypeChange: (TransactionType) -> Unit,
+    onCategorySelect: (Category) -> Unit,
+    onShowCategorySheet: () -> Unit,
+    onDismissCategorySheet: () -> Unit,
+    onPaymentMethodChange: (PaymentMethod) -> Unit,
+    onDescriptionChange: (String) -> Unit,
+    onMerchantChange: (String) -> Unit,
+    onNoteChange: (String) -> Unit,
+    onCurrencyChange: (String) -> Unit,
+    onExchangeRateChange: (String) -> Unit,
+    onShowCurrencyPicker: () -> Unit,
+    onDismissCurrencyPicker: () -> Unit,
+    onCurrencySearchQueryChange: (String) -> Unit,
+    onShowAccountSheet: () -> Unit,
+    onDismissAccountSheet: () -> Unit,
+    onAccountSelect: (Long) -> Unit,
+    onShowAddNewAccount: () -> Unit,
+    onHideAddNewAccount: () -> Unit,
+    onNewAccountBankNameChange: (String) -> Unit,
+    onNewAccountLastFourChange: (String) -> Unit,
+    onNewAccountTypeChange: (AccountType) -> Unit,
+    onSaveNewAccount: () -> Unit,
+    onSave: () -> Unit
+) {
+    val isExpense = uiState.transactionType == TransactionType.EXPENSE
+    val accentColor = if (isExpense) Color(0xFFFF5555) else MaterialTheme.colorScheme.primary
+    val categoryRows = uiState.categories.chunked(4)
+    val filteredCurrencies = CurrencyCatalog.all.filter { currency ->
+        val query = uiState.currencySearchQuery.trim()
+        query.isBlank() ||
+            currency.code.contains(query, ignoreCase = true) ||
+            currency.displayName.contains(query, ignoreCase = true)
+    }
+
+    // Currency picker sheet
+    if (uiState.isCurrencyPickerVisible) {
+        ModalBottomSheet(
+            onDismissRequest = onDismissCurrencyPicker,
+            containerColor = MaterialTheme.colorScheme.surface
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp)
+                    .navigationBarsPadding()
+            ) {
+                Text("Select Currency", style = MaterialTheme.typography.titleLarge, color = MaterialTheme.colorScheme.onSurface)
+                Spacer(Modifier.height(12.dp))
+                OutlinedTextField(
+                    value = uiState.currencySearchQuery,
+                    onValueChange = onCurrencySearchQueryChange,
+                    modifier = Modifier.fillMaxWidth(),
+                    label = { Text("Search currency code or name") },
+                    singleLine = true,
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = MaterialTheme.colorScheme.primary,
+                        focusedLabelColor = MaterialTheme.colorScheme.primary
+                    )
+                )
+                Spacer(Modifier.height(12.dp))
+                LazyColumn(modifier = Modifier.fillMaxWidth(), contentPadding = PaddingValues(bottom = 24.dp)) {
+                    items(filteredCurrencies.take(200)) { currency ->
+                        val selected = currency.code == uiState.currencyCode
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable { onCurrencyChange(currency.code) }
+                                .padding(vertical = 12.dp)
+                        ) {
+                            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                                Column {
+                                    Text(currency.code, style = MaterialTheme.typography.titleMedium, color = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface)
+                                    Text(currency.displayName, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                }
+                                Text(currency.symbol, style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            }
+                        }
+                        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
+                    }
+                }
+            }
+        }
+    }
+
+    // Category picker sheet
+    if (uiState.isCategorySheetVisible) {
+        ModalBottomSheet(
+            onDismissRequest = onDismissCategorySheet,
+            containerColor = MaterialTheme.colorScheme.surface
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp)
+                    .navigationBarsPadding()
+            ) {
+                Text("Select Category", style = MaterialTheme.typography.titleLarge, color = MaterialTheme.colorScheme.onSurface)
+                Spacer(Modifier.height(16.dp))
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    categoryRows.forEach { rowCategories ->
+                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                            rowCategories.forEach { category ->
+                                CategoryItem(
+                                    category = category,
+                                    selected = uiState.selectedCategory?.id == category.id,
+                                    onClick = { onCategorySelect(category) },
+                                    modifier = Modifier.width(72.dp)
+                                )
+                            }
+                        }
+                    }
+                }
+                Spacer(Modifier.height(24.dp))
+            }
+        }
+    }
+
+    // Account picker sheet
+    if (uiState.isAccountSheetVisible) {
+        ModalBottomSheet(
+            onDismissRequest = onDismissAccountSheet,
+            containerColor = MaterialTheme.colorScheme.surface
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp)
+                    .navigationBarsPadding()
+            ) {
+                Text("Select Account", style = MaterialTheme.typography.titleLarge, color = MaterialTheme.colorScheme.onSurface)
+                Spacer(Modifier.height(8.dp))
+                if (uiState.accounts.isEmpty() && !uiState.isAddingNewAccount) {
+                    Text("No accounts yet. Add one below.", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(vertical = 8.dp))
+                }
+                uiState.accounts.forEach { account ->
+                    ListItem(
+                        headlineContent = { Text(account.displayName, style = MaterialTheme.typography.bodyMedium) },
+                        supportingContent = { Text(account.accountType.label, style = MaterialTheme.typography.bodySmall) },
+                        trailingContent = {
+                            if (account.id == uiState.selectedAccountId) {
+                                Icon(Icons.Default.Check, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                            }
+                        },
+                        modifier = Modifier.clickable { onAccountSelect(account.id) },
+                        colors = ListItemDefaults.colors(containerColor = Color.Transparent)
+                    )
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
+                }
+                if (!uiState.isAddingNewAccount) {
+                    TextButton(
+                        onClick = onShowAddNewAccount,
+                        modifier = Modifier.padding(top = 4.dp)
+                    ) {
+                        Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(18.dp))
+                        Spacer(Modifier.width(4.dp))
+                        Text("Add new account")
+                    }
+                } else {
+                    Spacer(Modifier.height(12.dp))
+                    Text("New Account", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurface)
+                    Spacer(Modifier.height(12.dp))
+                    OutlinedTextField(
+                        value = uiState.newAccountBankName,
+                        onValueChange = onNewAccountBankNameChange,
+                        label = { Text("Bank / Wallet name *") },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = MaterialTheme.colorScheme.primary, focusedLabelColor = MaterialTheme.colorScheme.primary)
+                    )
+                    Spacer(Modifier.height(8.dp))
+                    OutlinedTextField(
+                        value = uiState.newAccountLastFour,
+                        onValueChange = onNewAccountLastFourChange,
+                        label = { Text("Last 4 digits (optional)") },
+                        singleLine = true,
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = MaterialTheme.colorScheme.primary, focusedLabelColor = MaterialTheme.colorScheme.primary)
+                    )
+                    Spacer(Modifier.height(8.dp))
+                    LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        items(AccountType.entries) { type ->
+                            FilterChip(
+                                selected = uiState.newAccountType == type,
+                                onClick = { onNewAccountTypeChange(type) },
+                                label = { Text(type.label, style = MaterialTheme.typography.labelSmall) },
+                                colors = FilterChipDefaults.filterChipColors(
+                                    selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
+                                    selectedLabelColor = MaterialTheme.colorScheme.onPrimaryContainer
+                                )
+                            )
+                        }
+                    }
+                    Spacer(Modifier.height(12.dp))
+                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End)) {
+                        TextButton(onClick = onHideAddNewAccount) { Text("Cancel") }
+                        Button(
+                            onClick = onSaveNewAccount,
+                            enabled = uiState.newAccountBankName.isNotBlank() && !uiState.isSavingAccount
+                        ) {
+                            if (uiState.isSavingAccount) {
+                                CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp, color = MaterialTheme.colorScheme.onPrimary)
+                            } else {
+                                Text("Save")
+                            }
+                        }
+                    }
+                }
+                Spacer(Modifier.height(8.dp))
+            }
+        }
+    }
+
+    Scaffold(
+        containerColor = MaterialTheme.colorScheme.background,
+        topBar = {
+            TopAppBar(
+                title = { Text(titleOverride, style = MaterialTheme.typography.titleLarge) },
+                windowInsets = androidx.compose.foundation.layout.WindowInsets(0, 0, 0, 0),
+                navigationIcon = {
+                    IconButton(onClick = onBack) {
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                    }
+                },
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = MaterialTheme.colorScheme.background,
+                    titleContentColor = MaterialTheme.colorScheme.onBackground,
+                    navigationIconContentColor = MaterialTheme.colorScheme.onBackground
+                )
+            )
+        },
+        bottomBar = {
+            Button(
+                onClick = onSave,
+                enabled = uiState.isValid && !uiState.isSaving,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 12.dp)
+                    .navigationBarsPadding()
+                    .height(56.dp),
+                shape = RoundedCornerShape(16.dp),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = MaterialTheme.colorScheme.primary,
+                    contentColor = MaterialTheme.colorScheme.onPrimary,
+                    disabledContainerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+                    disabledContentColor = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            ) {
+                if (uiState.isSaving) {
+                    CircularProgressIndicator(modifier = Modifier.size(20.dp), color = MaterialTheme.colorScheme.onPrimary, strokeWidth = 2.dp)
+                } else {
+                    Text("Save Expense", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                }
+            }
+        }
+    ) { padding ->
+        LazyColumn(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(padding)
+                .imePadding(),
+            contentPadding = PaddingValues(bottom = 48.dp)
+        ) {
+            // Amount + Type card
+            item {
+                Card(
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
+                    shape = RoundedCornerShape(20.dp),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer)
+                ) {
+                    Column(modifier = Modifier.padding(20.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                        SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
+                            SegmentedButton(
+                                selected = uiState.transactionType == TransactionType.EXPENSE,
+                                onClick = { onTransactionTypeChange(TransactionType.EXPENSE) },
+                                shape = SegmentedButtonDefaults.itemShape(index = 0, count = 4),
+                                colors = SegmentedButtonDefaults.colors(activeContainerColor = Color(0xFFFF5555).copy(alpha = 0.15f), activeContentColor = Color(0xFFFF5555))
+                            ) { Text("Expense", style = MaterialTheme.typography.labelLarge) }
+                            SegmentedButton(
+                                selected = uiState.transactionType == TransactionType.INCOME,
+                                onClick = { onTransactionTypeChange(TransactionType.INCOME) },
+                                shape = SegmentedButtonDefaults.itemShape(index = 1, count = 4),
+                                colors = SegmentedButtonDefaults.colors(activeContainerColor = MaterialTheme.colorScheme.primaryContainer, activeContentColor = MaterialTheme.colorScheme.onPrimaryContainer)
+                            ) { Text("Income", style = MaterialTheme.typography.labelLarge) }
+                            SegmentedButton(
+                                selected = uiState.transactionType == TransactionType.TRANSFER,
+                                onClick = { onTransactionTypeChange(TransactionType.TRANSFER) },
+                                shape = SegmentedButtonDefaults.itemShape(index = 2, count = 4),
+                                colors = SegmentedButtonDefaults.colors(activeContainerColor = MaterialTheme.colorScheme.secondaryContainer, activeContentColor = MaterialTheme.colorScheme.onSecondaryContainer)
+                            ) { Text("Transfer", style = MaterialTheme.typography.labelLarge) }
+                            SegmentedButton(
+                                selected = uiState.transactionType == TransactionType.PAYMENT,
+                                onClick = { onTransactionTypeChange(TransactionType.PAYMENT) },
+                                shape = SegmentedButtonDefaults.itemShape(index = 3, count = 4),
+                                colors = SegmentedButtonDefaults.colors(activeContainerColor = Color(0xFF7C5CBF).copy(alpha = 0.15f), activeContentColor = Color(0xFF7C5CBF))
+                            ) { Text("Payment", style = MaterialTheme.typography.labelLarge) }
+                        }
+                        Spacer(Modifier.height(16.dp))
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text(uiState.currencyCode, style = MaterialTheme.typography.headlineSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(end = 8.dp))
+                            Text(
+                                text = if (uiState.amountInput.isEmpty()) "0" else uiState.amountInput,
+                                fontSize = 48.sp, fontWeight = FontWeight.Bold,
+                                color = if (uiState.amountInput.isEmpty()) MaterialTheme.colorScheme.onSurfaceVariant else accentColor
+                            )
+                        }
+                        Spacer(Modifier.height(8.dp))
+                        OutlinedTextField(
+                            value = uiState.amountInput,
+                            onValueChange = onAmountChange,
+                            label = { Text("Enter amount") },
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                            singleLine = true,
+                            modifier = Modifier.fillMaxWidth(),
+                            colors = OutlinedTextFieldDefaults.colors(
+                                focusedBorderColor = accentColor, focusedLabelColor = accentColor, cursorColor = accentColor,
+                                unfocusedBorderColor = MaterialTheme.colorScheme.outline,
+                                unfocusedContainerColor = Color.Transparent, focusedContainerColor = Color.Transparent
+                            ),
+                            trailingIcon = {
+                                Row(
+                                    modifier = Modifier.clip(RoundedCornerShape(8.dp)).background(MaterialTheme.colorScheme.surfaceContainerHigh).clickable(onClick = onShowCurrencyPicker).padding(horizontal = 10.dp, vertical = 6.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Text(uiState.currencyCode, style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
+                                    Icon(Icons.Default.KeyboardArrowDown, contentDescription = null, modifier = Modifier.size(16.dp), tint = MaterialTheme.colorScheme.primary)
+                                }
+                            }
+                        )
+                        Spacer(Modifier.height(12.dp))
+                        Text("Home currency: ${uiState.homeCurrencyCode}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        if (uiState.currencyCode != uiState.homeCurrencyCode) {
+                            Spacer(Modifier.height(12.dp))
+                            OutlinedTextField(
+                                value = uiState.exchangeRateInput,
+                                onValueChange = onExchangeRateChange,
+                                label = { Text(if (uiState.suggestedExchangeRate == null) "Exchange rate *" else "Override rate (optional)") },
+                                supportingText = {
+                                    val msg = if (uiState.suggestedExchangeRate != null)
+                                        "Auto rate: 1 ${uiState.currencyCode} = ${String.format("%.4f", uiState.suggestedExchangeRate)} ${uiState.homeCurrencyCode}"
+                                    else "No cached rate yet. Enter how much 1 ${uiState.currencyCode} equals in ${uiState.homeCurrencyCode}."
+                                    Text(msg)
+                                },
+                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                                singleLine = true,
+                                modifier = Modifier.fillMaxWidth(),
+                                colors = OutlinedTextFieldDefaults.colors(
+                                    focusedBorderColor = accentColor, focusedLabelColor = accentColor, cursorColor = accentColor,
+                                    unfocusedBorderColor = MaterialTheme.colorScheme.outline,
+                                    unfocusedContainerColor = Color.Transparent, focusedContainerColor = Color.Transparent
+                                )
+                            )
+                        }
+                        uiState.computedHomeAmount?.let { homeAmount ->
+                            Spacer(Modifier.height(12.dp))
+                            Text("Home amount: ${CurrencyFormatter.format(homeAmount, uiState.homeCurrencyCode)}", style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.SemiBold)
+                        }
+                    }
+                }
+            }
+
+            item { Spacer(Modifier.height(16.dp)) }
+
+            // Account (mandatory)
+            item {
+                FormSection(title = "Account *") {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp)
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(
+                                if (uiState.selectedAccountId == null)
+                                    MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.25f)
+                                else MaterialTheme.colorScheme.surfaceContainerLow
+                            )
+                            .border(
+                                width = 1.dp,
+                                color = if (uiState.selectedAccountId == null)
+                                    MaterialTheme.colorScheme.error.copy(alpha = 0.4f)
+                                else Color.Transparent,
+                                shape = RoundedCornerShape(12.dp)
+                            )
+                            .clickable(onClick = onShowAccountSheet)
+                            .padding(14.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Text(
+                            text = uiState.selectedAccount?.displayName ?: "Select or add account",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = if (uiState.selectedAccountId == null)
+                                MaterialTheme.colorScheme.onSurfaceVariant
+                            else MaterialTheme.colorScheme.onSurface,
+                            modifier = Modifier.weight(1f)
+                        )
+                        Icon(Icons.Default.KeyboardArrowDown, contentDescription = null, modifier = Modifier.size(20.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                }
+            }
+
+            item { Spacer(Modifier.height(16.dp)) }
+
+            // Category (compact chip -> sheet)
+            item {
+                FormSection(title = "Category *") {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp)
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(MaterialTheme.colorScheme.surfaceContainerLow)
+                            .clickable(onClick = onShowCategorySheet)
+                            .padding(14.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        if (uiState.selectedCategory != null) {
+                            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                                Icon(
+                                    imageVector = categoryIconVector(uiState.selectedCategory.iconName),
+                                    contentDescription = null,
+                                    modifier = Modifier.size(20.dp),
+                                    tint = MaterialTheme.colorScheme.primary
+                                )
+                                Text(uiState.selectedCategory.name, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurface)
+                            }
+                        } else {
+                            Text("Select category", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                        Icon(Icons.Default.KeyboardArrowDown, contentDescription = null, modifier = Modifier.size(20.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                }
+            }
+
+            item { Spacer(Modifier.height(16.dp)) }
+
+            // Payment Method (horizontal scroll row)
+            item {
+                FormSection(title = "Payment Method") {
+                    LazyRow(
+                        contentPadding = PaddingValues(horizontal = 16.dp),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        items(PaymentMethod.entries) { method ->
+                            FilterChip(
+                                selected = uiState.paymentMethod == method,
+                                onClick = { onPaymentMethodChange(method) },
+                                label = { Text(method.name.replace("_", " "), style = MaterialTheme.typography.labelSmall) },
+                                colors = FilterChipDefaults.filterChipColors(
+                                    selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
+                                    selectedLabelColor = MaterialTheme.colorScheme.onPrimaryContainer
+                                ),
+                                border = FilterChipDefaults.filterChipBorder(
+                                    enabled = true,
+                                    selected = uiState.paymentMethod == method,
+                                    borderColor = MaterialTheme.colorScheme.outline,
+                                    selectedBorderColor = Color.Transparent
+                                )
+                            )
+                        }
+                    }
+                }
+            }
+
+            item { Spacer(Modifier.height(16.dp)) }
+
+            // Details
+            item {
+                FormSection(title = "Details") {
+                    Column(modifier = Modifier.padding(horizontal = 16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                        NeonTextField(value = uiState.merchantName, onValueChange = onMerchantChange, label = "Merchant *", accentColor = accentColor)
+                        NeonTextField(value = uiState.description, onValueChange = onDescriptionChange, label = "Description (optional)", accentColor = accentColor)
+                        NeonTextField(value = uiState.note, onValueChange = onNoteChange, label = "Note (optional)", accentColor = accentColor)
+                    }
+                }
+            }
+
+            item { Spacer(Modifier.height(24.dp)) }
+        }
+    }
+}
+
+@Composable
+private fun FormSection(title: String, content: @Composable () -> Unit) {
+    Column {
+        Text(
+            text = title.uppercase(),
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.primary,
+            fontWeight = FontWeight.Bold,
+            letterSpacing = 1.2.sp,
+            modifier = Modifier.padding(start = 16.dp, bottom = 10.dp)
+        )
+        content()
+    }
+}
+
+@Composable
+private fun CategoryItem(
+    category: Category,
+    selected: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val borderColor = if (selected) MaterialTheme.colorScheme.primary else Color.Transparent
+    Column(
+        modifier = modifier
+            .clip(RoundedCornerShape(16.dp))
+            .background(if (selected) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceContainerLow)
+            .border(1.5.dp, borderColor, RoundedCornerShape(16.dp))
+            .clickable(onClick = onClick)
+            .padding(vertical = 10.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(4.dp)
+    ) {
+        Icon(
+            imageVector = categoryIconVector(category.iconName),
+            contentDescription = category.name,
+            modifier = Modifier.size(24.dp),
+            tint = if (selected) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        Text(
+            text = category.name,
+            style = MaterialTheme.typography.labelSmall,
+            color = if (selected) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurfaceVariant,
+            textAlign = TextAlign.Center,
+            maxLines = 1
+        )
+    }
+}
+
+@Composable
+private fun NeonTextField(value: String, onValueChange: (String) -> Unit, label: String, accentColor: Color) {
+    OutlinedTextField(
+        value = value,
+        onValueChange = onValueChange,
+        label = { Text(label) },
+        singleLine = true,
+        modifier = Modifier.fillMaxWidth(),
+        colors = OutlinedTextFieldDefaults.colors(
+            focusedBorderColor = accentColor,
+            focusedLabelColor = accentColor,
+            cursorColor = accentColor,
+            unfocusedBorderColor = MaterialTheme.colorScheme.outline,
+            unfocusedContainerColor = Color.Transparent,
+            focusedContainerColor = Color.Transparent,
+            unfocusedTextColor = MaterialTheme.colorScheme.onSurface,
+            focusedTextColor = MaterialTheme.colorScheme.onSurface
+        )
+    )
+}
