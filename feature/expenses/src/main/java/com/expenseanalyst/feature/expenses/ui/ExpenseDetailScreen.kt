@@ -35,6 +35,7 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
@@ -43,6 +44,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -63,6 +65,7 @@ import com.expenseanalyst.core.util.categoryIconVector
 import com.expenseanalyst.domain.model.Category
 import com.expenseanalyst.domain.model.Expense
 import com.expenseanalyst.domain.model.MerchantRule
+import com.expenseanalyst.domain.model.Bill
 import com.expenseanalyst.domain.model.SourceType
 import com.expenseanalyst.domain.model.TransactionType
 
@@ -123,6 +126,19 @@ fun ExpenseDetailScreen(
         }
     }
 
+    if (uiState.showLinkBillSheet) {
+        ModalBottomSheet(
+            onDismissRequest = viewModel::dismissLinkBillSheet,
+            sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+        ) {
+            LinkBillSheetContent(
+                openBills = uiState.openBills,
+                onSelect = viewModel::linkToBill,
+                onDismiss = viewModel::dismissLinkBillSheet
+            )
+        }
+    }
+
     Scaffold(
         snackbarHost = { SnackbarHost(snackbarHostState) },
         containerColor = MaterialTheme.colorScheme.background,
@@ -169,9 +185,12 @@ fun ExpenseDetailScreen(
             else -> ExpenseDetailContent(
                 expense = uiState.expense!!,
                 existingRule = uiState.existingRule,
+                linkedBillName = uiState.linkedBillName,
+                hasOpenBills = uiState.openBills.isNotEmpty(),
                 onConvertToEmi = { onConvertToEmi(uiState.expense!!.id) },
                 onSetRule = viewModel::showRuleDialog,
                 onDeleteRule = viewModel::deleteRule,
+                onLinkBill = viewModel::showLinkBillSheet,
                 modifier = Modifier.padding(padding)
             )
         }
@@ -182,9 +201,12 @@ fun ExpenseDetailScreen(
 private fun ExpenseDetailContent(
     expense: Expense,
     existingRule: MerchantRule?,
+    linkedBillName: String?,
+    hasOpenBills: Boolean,
     onConvertToEmi: () -> Unit,
     onSetRule: () -> Unit,
     onDeleteRule: () -> Unit,
+    onLinkBill: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     val isIncome = expense.transactionType == TransactionType.INCOME
@@ -303,6 +325,39 @@ private fun ExpenseDetailContent(
                 }
                 DetailDivider()
                 DetailRow("Source", expense.sourceType.name.replace("_", " "))
+                // Bill link row — only visible for PAYMENT type
+                if (isPayment) {
+                    DetailDivider()
+                    if (linkedBillName != null) {
+                        DetailRow("Linked Bill", linkedBillName)
+                    } else {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(vertical = 6.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = "Linked Bill",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            TextButton(
+                                onClick = onLinkBill,
+                                enabled = hasOpenBills,
+                                contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 8.dp, vertical = 0.dp)
+                            ) {
+                                Text(
+                                    text = if (hasOpenBills) "Link to Bill" else "No open bills",
+                                    style = MaterialTheme.typography.labelMedium,
+                                    color = if (hasOpenBills) MaterialTheme.colorScheme.primary
+                                            else MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                        }
+                    }
+                }
                 // Auto-category rule row (for all auto-imported expenses; use merchant or description as pattern)
                 val rulePattern = (expense.merchantName?.takeIf { it.isNotBlank() } ?: expense.description.takeIf { it.isNotBlank() })
                 if (rulePattern != null &&
@@ -437,6 +492,67 @@ private fun DetailRow(label: String, value: String) {
 @Composable
 private fun DetailDivider() {
     HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
+}
+
+@Composable
+private fun LinkBillSheetContent(
+    openBills: List<Bill>,
+    onSelect: (Bill) -> Unit,
+    onDismiss: () -> Unit
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 24.dp)
+            .padding(bottom = 32.dp),
+        verticalArrangement = Arrangement.spacedBy(4.dp)
+    ) {
+        Text(
+            text = "Link to Bill",
+            style = MaterialTheme.typography.titleMedium,
+            fontWeight = FontWeight.SemiBold,
+            modifier = Modifier.padding(vertical = 16.dp)
+        )
+        if (openBills.isEmpty()) {
+            Text(
+                text = "No open bills found.",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(vertical = 8.dp)
+            )
+        } else {
+            openBills.forEach { bill ->
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable { onSelect(bill) }
+                        .padding(vertical = 12.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = bill.billerName,
+                            style = MaterialTheme.typography.bodyLarge,
+                            fontWeight = FontWeight.Medium,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                        val dueText = bill.totalDue?.let { "%.2f %s".format(it, bill.currencyCode) } ?: "Amount unknown"
+                        Text(
+                            text = "${bill.status.name.lowercase().replaceFirstChar { it.uppercase() }} · $dueText",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
+            }
+        }
+        Spacer(Modifier.height(8.dp))
+        TextButton(onClick = onDismiss, modifier = Modifier.align(Alignment.End)) {
+            Text("Cancel")
+        }
+    }
 }
 
 @OptIn(ExperimentalLayoutApi::class)
