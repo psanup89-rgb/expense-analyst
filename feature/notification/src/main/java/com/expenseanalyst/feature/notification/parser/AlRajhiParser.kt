@@ -31,8 +31,9 @@ class AlRajhiParser : TransactionParser {
     private val paymentMethodPattern = Regex("""(?i);\s*(?:Visa|Mastercard|Mada|Amex|Discover)[-\s]*([A-Za-z ]+)?""")
     private val refPattern = Regex("""(?i)ref(?:erence)?:?\s*(\w+)""")
     // Stops at newline OR known Al Rajhi field names (Amount, Fee, Balance, etc.) or end of string.
+    // Includes * for merchants like "GOOGLE*PA", "OPENAI *C"
     private val atPattern = Regex(
-        """(?i)\bat[:\s]\s*([A-Za-z0-9][A-Za-z0-9 _\-&./]*?)(?=\s*\n|\s+(?:Amount|Fee|Balance|Ref|Exchange|Country|Total|Available|on\s+\d)|\s*${'$'})"""
+        """(?i)\bat[:\s]\s*([A-Za-z0-9][A-Za-z0-9 _\-&./*]*?)(?=\s*\n|\s+(?:Amount|Fee|Balance|Ref|Exchange|Country|Total|Available|on\s+\d)|\s*${'$'})"""
     )
 
     override fun canParse(sender: String, body: String): Boolean =
@@ -53,16 +54,7 @@ class AlRajhiParser : TransactionParser {
         val merchant = atPattern.find(body)?.groupValues?.get(1)?.trim()
             ?.takeIf { it.isNotBlank() && it.length < 60 }
 
-        // Detect payment method (e.g., "Apple Pay", "Samsung Pay") from ";Visa-Apple Pay" syntax
-        val cardLine = body.lines().firstOrNull { it.contains(Regex("""(?i)card:|by:""")) }
-        val detectedPaymentMethodName: String? = cardLine?.let { line ->
-            when {
-                line.contains("apple pay", ignoreCase = true) -> "APPLE_PAY"
-                line.contains("samsung pay", ignoreCase = true) -> "SAMSUNG_PAY"
-                line.contains("google pay", ignoreCase = true) -> "GOOGLE_PAY"
-                else -> null
-            }
-        }
+        val detectedPaymentMethod = PaymentMethodDetector.detect(body)
 
         return ParsedTransaction(
             amount = amount,
@@ -72,7 +64,7 @@ class AlRajhiParser : TransactionParser {
             accountLast4 = accountLast4,
             referenceNumber = ref,
             bankName = bankName,
-            paymentMethodName = detectedPaymentMethodName
+            paymentMethodName = detectedPaymentMethod
         )
     }
 }

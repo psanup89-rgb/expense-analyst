@@ -37,9 +37,9 @@ Expense Analyst uses **MVVM + Clean Architecture** with a multi-module Gradle pr
 
 ### Domain Layer (`:domain`)
 Pure Kotlin module. Contains:
-- **Models**: `Expense`, `Category`, `EmiGroup`, `CurrencyRate`
-- **Repository interfaces**: `ExpenseRepository`, `CategoryRepository`, `CurrencyRepository`
-- **Use cases**: CRUD use cases for expenses/categories and currency helper use cases
+- **Models**: `Expense`, `Category`, `EmiGroup`, `CurrencyRate`, `Account`, `MerchantRule`, `PendingNotification`
+- **Repository interfaces**: `ExpenseRepository`, `CategoryRepository`, `CurrencyRepository`, `EmiRepository`, `OnboardingRepository`, `AccountRepository`, `MerchantRuleRepository`, `PendingNotificationRepository`, `AppPreferencesRepository`
+- **Use cases**: CRUD use cases for expenses/categories, currency helpers, EMI creation
 - **Shared conversion logic**: `domain/util/CurrencyConversion.kt`
 
 The domain module remains Android-free and is the only safe place for reusable business rules that must be shared across multiple features.
@@ -47,13 +47,12 @@ The domain module remains Android-free and is the only safe place for reusable b
 ### Data Layer (`:data`)
 Android module. Contains:
 - **Room database**: `ExpenseAnalystDatabase`
-- **Entities / relations / DAOs** for expenses, categories, EMI groups, and cached currency rates
+- **Entities / relations / DAOs** for all 7 entities (Expense, Category, EmiGroup, CurrencyRate, Account, MerchantRule, PendingNotification)
 - **Mappers** between Room entities and domain models
-- **Repository implementations** for expenses, categories, and currencies
+- **Repository implementations** for all 9 domain repository interfaces
 - **DataStore-backed preferences** for home currency
 - **Offline seed rates** via `SeedCurrencyRates`
-
-Current note: the data layer supports cached currency rates and stored home-currency conversions, but live ExchangeRate-API sync is still pending.
+- **Live currency sync**: `CurrencyApiService` fetches from ExchangeRate-API (`open.er-api.com`), cached in Room, refreshed daily via `isStale()` check
 
 ### Core Layer (`:core`)
 Android module. Contains:
@@ -69,10 +68,12 @@ Each feature is an Android library module containing:
 - **ViewModels**: `@HiltViewModel` classes with `UiState`
 - **Feature-specific workflow logic**
 
-Current implementation status:
-- `:feature:expenses` is the most complete feature and includes Home + Add Expense flows
-- `:feature:settings` now includes a working home-currency settings screen
-- `:feature:emi`, `:feature:onboarding`, and `:feature:notification` remain mostly placeholders or future work
+All feature modules are fully implemented:
+- `:feature:expenses` — Expense list (date-grouped, filtered, searchable), Add/Edit/Detail screens
+- `:feature:settings` — Home currency picker, notification toggle, SMS import trigger, about section
+- `:feature:emi` — Create EMI from expense, EMI list (active/completed), EMI detail with installment timeline
+- `:feature:onboarding` — 3-step flow: welcome → currency picker → notification access + SMS import
+- `:feature:notification` — 17 bank parsers, NotificationListenerService, SMS import (bulk/browse), notification banner, PaymentMethodDetector
 
 ### App Module (`:app`)
 - `ExpenseAnalystApp`: Application class with Hilt
@@ -80,7 +81,7 @@ Current implementation status:
 - `AppNavGraph`: central navigation
 - `MainBottomNav`: Home / EMI / Settings
 
-The app currently routes Home and Settings to real screens. EMI, onboarding, detail, and edit routes still need implementation.
+All routes are implemented: Home, Add/Edit/Detail Expense, EMI Create/List/Detail, Settings, SMS Import, Onboarding. Bottom nav: Home · EMI · Settings.
 
 ## Data Flow
 

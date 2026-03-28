@@ -13,6 +13,7 @@ object NavRoutes {
     const val EMI_CREATE = "emi_create/{expenseId}"
     const val SETTINGS = "settings"
     const val PENDING_INBOX = "pending_inbox"
+    const val BILLS = "bills"
     const val CURRENCY_PICKER = "currency_picker"
     const val SMS_IMPORT = "sms_import"
     const val SMS_IMPORT_ROUTE = "sms_import?autoStart={autoStart}"

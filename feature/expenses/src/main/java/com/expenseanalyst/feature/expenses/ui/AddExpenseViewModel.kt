@@ -5,12 +5,15 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.expenseanalyst.core.util.DateTimeUtil
 import com.expenseanalyst.domain.model.AccountType
+import com.expenseanalyst.domain.model.Bill
+import com.expenseanalyst.domain.model.BillStatus
 import com.expenseanalyst.domain.model.Category
 import com.expenseanalyst.domain.model.Expense
 import com.expenseanalyst.domain.model.PaymentMethod
 import com.expenseanalyst.domain.model.SourceType
 import com.expenseanalyst.domain.model.TransactionType
 import com.expenseanalyst.domain.repository.AccountRepository
+import com.expenseanalyst.domain.repository.BillRepository
 import com.expenseanalyst.domain.repository.CurrencyRepository
 import com.expenseanalyst.domain.repository.PendingNotificationRepository
 import com.expenseanalyst.domain.usecase.AddExpenseUseCase
@@ -40,7 +43,8 @@ class AddExpenseViewModel @Inject constructor(
     private val getAccountsUseCase: GetAccountsUseCase,
     private val accountRepository: AccountRepository,
     private val currencyRepository: CurrencyRepository,
-    private val pendingNotificationRepository: PendingNotificationRepository
+    private val pendingNotificationRepository: PendingNotificationRepository,
+    private val billRepository: BillRepository
 ) : ViewModel() {
 
     private val _form = MutableStateFlow(
@@ -249,6 +253,39 @@ class AddExpenseViewModel @Inject constructor(
             _form.update { it.copy(isSaving = true) }
             try {
                 val fromNotification = savedStateHandle.get<String>("amount")?.isNotBlank() == true
+                val merchantName = state.merchantName.trim().ifEmpty { null }
+                val sourceType = if (fromNotification) SourceType.NOTIFICATION_AUTO else SourceType.MANUAL
+
+                // Auto-link bill for PAYMENT transactions
+                var billId: Long? = null
+                if (state.transactionType == TransactionType.PAYMENT && merchantName != null) {
+                    val openBill = billRepository.findOpenBillByBiller(merchantName, state.selectedAccountId)
+                    billId = if (openBill != null) {
+                        // Update the bill's status based on how much is being paid
+                        val paid = state.computedHomeAmount ?: state.parsedAmount
+                        val billTotalDue = openBill.totalDue
+                        val newStatus = if (billTotalDue == null || paid >= billTotalDue) {
+                            BillStatus.SETTLED
+                        } else {
+                            BillStatus.PARTIAL
+                        }
+                        billRepository.updateBill(openBill.copy(status = newStatus))
+                        openBill.id
+                    } else {
+                        // Payment arrived before the statement — create a settled bill
+                        billRepository.saveBill(
+                            Bill(
+                                billerName = merchantName,
+                                accountId = state.selectedAccountId,
+                                currencyCode = state.currencyCode,
+                                status = BillStatus.SETTLED,
+                                sourceType = sourceType,
+                                createdAtMillis = System.currentTimeMillis()
+                            )
+                        )
+                    }
+                }
+
                 val expense = Expense(
                     amount = state.parsedAmount,
                     currencyCode = state.currencyCode,
@@ -259,10 +296,11 @@ class AddExpenseViewModel @Inject constructor(
                     paymentMethod = state.paymentMethod,
                     transactionType = state.transactionType,
                     date = state.date,
-                    merchantName = state.merchantName.trim().ifEmpty { null },
-                    sourceType = if (fromNotification) SourceType.NOTIFICATION_AUTO else SourceType.MANUAL,
+                    merchantName = merchantName,
+                    sourceType = sourceType,
                     note = state.note.trim().ifEmpty { null },
-                    accountId = state.selectedAccountId
+                    accountId = state.selectedAccountId,
+                    billId = billId
                 )
                 val id = addExpenseUseCase(expense)
                 // Clear the pending inbox item only after a successful save

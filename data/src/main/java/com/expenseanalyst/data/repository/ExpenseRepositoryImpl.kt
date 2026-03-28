@@ -68,4 +68,7 @@ class ExpenseRepositoryImpl @Inject constructor(
     override suspend fun restoreExpense(id: Long) {
         expenseDao.restore(id = id, updatedAt = DateTimeUtil.nowMillis())
     }
+
+    override fun getExpensesByBillId(billId: Long): Flow<List<Expense>> =
+        expenseDao.getExpensesByBillId(billId).map { list -> list.map { it.toDomain() } }
 }

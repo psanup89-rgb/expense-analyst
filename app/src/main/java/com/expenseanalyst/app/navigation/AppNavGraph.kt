@@ -19,6 +19,7 @@ import com.expenseanalyst.feature.emi.ui.EmiCreateScreen
 import com.expenseanalyst.feature.emi.ui.EmiDetailScreen
 import com.expenseanalyst.feature.emi.ui.EmiListScreen
 import com.expenseanalyst.feature.expenses.ui.AddExpenseScreen
+import com.expenseanalyst.feature.expenses.ui.BillsScreen
 import com.expenseanalyst.feature.expenses.ui.EditExpenseScreen
 import com.expenseanalyst.feature.expenses.ui.ExpenseDetailScreen
 import com.expenseanalyst.feature.expenses.ui.ExpenseListScreen
@@ -166,6 +167,10 @@ fun AppNavGraph(
                     )
                 }
             )
+        }
+
+        composable(NavRoutes.BILLS) {
+            BillsScreen()
         }
 
         composable(NavRoutes.EMI_LIST) {

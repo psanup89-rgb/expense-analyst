@@ -58,7 +58,8 @@ class WalletParser : TransactionParser {
             merchant = merchant,
             accountLast4 = null,
             referenceNumber = null,
-            bankName = bankName
+            bankName = bankName,
+            paymentMethodName = PaymentMethodDetector.detect(body) ?: "WALLET"
         )
     }
 }

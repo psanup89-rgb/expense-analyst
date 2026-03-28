@@ -14,15 +14,23 @@ object ParserRegistry {
         AxisParser(),
         KotakParser(),
         YesBankParser(),
+        IdfcFirstBankParser(),
+        OneCardParser(),
         // Saudi banks
         AlRajhiParser(),
         StcBankParser(),
         AlinmaParser(),
         D360Parser(),
+        // UAE banks
+        EmiratesNbdParser(),
+        // Toll / FASTag
+        FasTagParser(),
         // Digital wallets
         WalletParser(),
         // UPI apps
         UpiParser(),
+        // Bill payment apps (body-fingerprint detection)
+        MubasherParser(),
         // Generic fallback
         GenericParser()
     )

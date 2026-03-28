@@ -43,7 +43,8 @@ class StcBankParser : TransactionParser {
             merchant = merchant?.takeIf { it.isNotBlank() && it.length < 60 },
             accountLast4 = null,
             referenceNumber = ref,
-            bankName = bankName
+            bankName = bankName,
+            paymentMethodName = PaymentMethodDetector.detect(body) ?: "WALLET"
         )
     }
 }

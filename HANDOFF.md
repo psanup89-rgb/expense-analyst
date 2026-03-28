@@ -3,42 +3,60 @@
 **Last updated**: 2026-03-28
 **DB version**: 9
 **Build status**: `./gradlew clean assembleDebug` passes
-**Device tested**: Samsung S24 Ultra (SM-S948B), connected via ADB
+**Device tested**: Samsung S26 Ultra (SM-S948B), connected via ADB
 
 ---
 
-## What Was Built in the Last Session (2026-03-28)
+## What Was Built in the Latest Session (2026-03-28, continued)
 
-### Parser Improvements
+### New Parsers (4 added)
+- **`EmiratesNbdParser`**: Emirates NBD (UAE). Handles POS Purchase and Online Purchase formats. Extracts merchant from `Merchant:`, card from `Card: Visa card XX4388`, currency from `Amount: SAR X`. Detects wallet overlays from `(Apple Pay)` on first line. Infers card type (Credit/Debit/Mada) from `Card:` line.
+- **`IdfcFirstBankParser`**: IDFC First Bank (India). 5 patterns: CC spend (with fun prefixes like "Delicious Purchase!"), savings debit/credit, card payment confirmation, interest credit. Handles `INR.62.00` (dot after INR) format.
+- **`FasTagParser`**: FASTag/LivQuik toll and parking (India). Extracts toll location from `in LOCATION at DATE` and parking location from `at LOCATION, DATE`. PaymentMethod hardcoded to `WALLET`.
+- **`OneCardParser`**: OneCard/Federal Bank credit card (India). Handles spend (`paid X at MERCHANT`), payment received, refund. Multi-currency (INR, AED, USD, EUR, GBP).
+
+### Parser Fixes (6 modified)
+- **`AxisParser`**: Added UPI compact merchant extraction (`UPI/P2M/txnid/MERCHANT Not you?`). Broadened account pattern for `A/c no. XX0426`, `CC no. XX4502`.
+- **`HdfcParser`**: Broadened account pattern for `HDFC Bank XX7823`, `A/C No 7823`, `card ending 1041`, `ENDING WITH 1041`. Added PAYMENT type for card payment confirmations. Added merchant extraction from `Info:`, `towards...UMRN`, `For IMPS/NEFT -NAME-`.
+- **`IciciParser`**: Added `card` to account pattern for `Credit Card XX9008`. Added PAYMENT type for `Payment received on Credit Card`.
+- **`SbiParser`**: Broadened account pattern to handle `Card ending XX83` (2-4 digit account numbers). Added PAYMENT type detection.
+- **`YesBankParser`**: Account pattern now matches `Ac X2919` (single X prefix). Added UPI/NEFT merchant extraction from `/To:` and `/From:` patterns.
+- **`AlRajhiParser`**: Added `*` to atPattern character class for merchants like `GOOGLE*PA`, `OPENAI *C`.
+
+### PaymentMethodDetector (new shared utility)
+- Created `PaymentMethodDetector.kt` — centralized payment method inference from SMS body text.
+- Detects: APPLE_PAY, SAMSUNG_PAY, GOOGLE_PAY, UPI, NET_BANKING, CREDIT_CARD, DEBIT_CARD.
+- **All 15 parsers now set `paymentMethodName`** using this detector (previously only Al Rajhi and Emirates NBD did).
+- Context-aware fallbacks: IDFC CC spend → `CREDIT_CARD`, FASTag → `WALLET`, STC Bank → `WALLET`, OneCard → `CREDIT_CARD`, UpiParser → `UPI`.
+
+### SMS Import Improvements
+- **Payment method now used during import**: Previously hardcoded `PaymentMethod.OTHER` for all imported SMS. Now maps `parsed.paymentMethodName` → `PaymentMethod` enum.
+- **Smarter dedup**: Primary check = exact SMS body hash (identical SMS = duplicate). Fallback = amount + day + merchant name (for old records without rawSmsBody). Previously was just amount + day, which incorrectly deduped two different transactions with the same amount on the same day.
+
+### Previous Session (same date, earlier)
+
+#### Parser Improvements
 - **`AlRajhiParser`**: Added content-based `canParse()` — now detects Al Rajhi SMS when sent from a regular phone number (not just the bank sender ID). Fixed `atPattern` regex to stop at newlines so "ALDREES 8" is correctly extracted. Detects payment method (Apple Pay, Samsung Pay, Google Pay) from `;Visa-Apple Pay` syntax in the card line.
 - **`GenericParser`**: Now extracts merchant from `At: X` patterns and account last-4 from `Card:XXXX` — useful as a fallback for any bank SMS with these patterns.
 
-### Payment Method as First-Class Field
+#### Payment Method as First-Class Field
 - Added `APPLE_PAY`, `SAMSUNG_PAY`, `GOOGLE_PAY` to `PaymentMethod` enum with `.label` property (all values now have labels; `.label` replaces `.name.replace("_", " ")` everywhere).
 - `ParsedTransaction`: added `paymentMethodName: String?` (stores enum name e.g. "APPLE_PAY") and `rawBody: String?`.
-- `AlRajhiParser` sets `paymentMethodName` when a wallet is detected; `bankName` stays "Al Rajhi Bank" — the actual bank account, not the payment method.
 - Payment method flows: `ParsedTransaction` → `PendingNotification.paymentMethod` → nav arg `paymentMethod` → `AddExpenseViewModel` sets the correct chip.
 - Selected payment method chip always appears first in the LazyRow.
 
-### Raw SMS Preview in Add Expense
-- `ParsedTransaction.rawBody` is set immediately after parsing in `SmsReceiver`/`SmsTestReceiver` (`.copy(rawBody = body)`).
-- `PendingNotification.rawBody` stored in DB column `raw_body` (migration v7→v8).
-- `AddExpenseViewModel` loads `rawBody` from the pending notification via `pendingId`, sets `AddExpenseUiState.rawSmsBody`.
-- `AddExpenseScreen` shows a collapsible **"Source SMS"** card at the bottom — visible only when `rawSmsBody` is not null (auto-detected expenses only). Manual adds never see it.
+#### Raw SMS Preview in Add Expense
+- `AddExpenseScreen` shows a collapsible **"Source SMS"** card at the bottom — visible only when `rawSmsBody` is not null (auto-detected expenses only).
 
-### pendingId Threading (Source SMS available everywhere)
-- `PendingNotificationManager` now injects `@ApplicationContext` and posts the system tray notification *inside* the save coroutine (after DB insert returns the ID). This ensures `pendingId` is always available in the notification tap intent.
-- `TransactionAlertNotification` has new extras: `EXTRA_PENDING_ID`, `EXTRA_PAYMENT_METHOD`.
-- `MainActivity.handleIntent()` reads both extras and passes them to the nav route.
+#### pendingId Threading (Source SMS available everywhere)
+- `PendingNotificationManager` posts system tray notification *inside* the save coroutine (after DB insert returns the ID).
 - Source SMS card now appears when adding from: system tray notification, in-app banner, OR pending inbox — all three paths.
-- `SmsReceiver`, `SmsTestReceiver`, `TransactionNotificationService` no longer call `TransactionAlertNotification.post()` directly — the manager handles it after save.
 
-### Account Matching Improvements
-- Match logic requires **both** bank name and last-4 to match when both are known. Old OR logic caused "Apple Pay *7573" to incorrectly match "Al Rajhi Bank *7573".
-- When payment method is a digital wallet and the matched account is not CREDIT_CARD, the account is **upgraded in-place** to CREDIT_CARD with a rebuilt display name.
-- New accounts created via wallet payments default to `AccountType.CREDIT_CARD`.
+#### Account Matching Improvements
+- Match logic requires **both** bank name and last-4 to match when both are known.
+- When payment method is a digital wallet and the matched account is not CREDIT_CARD, the account is **upgraded in-place** to CREDIT_CARD.
 
-### DB Migrations This Session
+#### DB Migrations
 - **v7→v8**: `ALTER TABLE pending_notifications ADD COLUMN raw_body TEXT`
 - **v8→v9**: `ALTER TABLE pending_notifications ADD COLUMN payment_method TEXT`
 
@@ -59,7 +77,7 @@
 | Expense Detail | ✅ | "Teach App" rule card (SMS_AUTO/NOTIFICATION_AUTO with merchant only), collapsible SMS |
 | Pending Inbox | ✅ | Bottom nav tab with badge count, persists until added or dismissed |
 | EMI Create/List/Detail | ✅ | Split with optional interest, timeline view, cancel remaining |
-| SMS Import | ✅ | Bulk (all / last 30d), deduped by (amount, day), merchant rules applied |
+| SMS Import | ✅ | Bulk (all / last 30d), deduped by (SMS body hash → amount+day+merchant fallback), payment method from parsers, merchant rules applied |
 | Settings | ⚠️ | Currency picker, notification toggle, test notification button. **Missing**: theme toggle, category management |
 
 ### Domain Models (`:domain`)
@@ -122,22 +140,26 @@ AddExpenseViewModel.init:
   → reads pendingId → loads PendingNotification → sets rawSmsBody + paymentMethod
 ```
 
-### Parser Status
-| Parser | Detection | Notes |
-|--------|-----------|-------|
-| AlRajhiParser | Sender OR body content | Merchant from At:, Apple/Samsung/Google Pay detection |
-| StcBankParser | Sender | ✅ |
-| AlinmaParser | Sender | ✅ |
-| D360Parser | Sender | ✅ |
-| HdfcParser | Sender | ✅ |
-| SbiParser | Sender | ✅ |
-| IciciParser | Sender | ✅ |
-| AxisParser | Sender | ✅ Multi-currency |
-| KotakParser | Sender | ✅ |
-| YesBankParser | Sender | ✅ |
-| WalletParser | Sender | ✅ |
-| UpiParser | Sender | ✅ |
-| GenericParser | Always (fallback) | ✅ At: merchant + Card: account extraction |
+### Parser Status (17 parsers, ordered by ParserRegistry priority)
+| # | Parser | Detection | Notes |
+|---|--------|-----------|-------|
+| 1 | HdfcParser | Sender `hdfc` | UPI, NEFT, card payment, `Info:` merchant, broad account patterns |
+| 2 | SbiParser | Sender `sbi` | `Info:` merchant, card ending XX83, PAYMENT type |
+| 3 | IciciParser | Sender `icici` | `Info:` merchant, Credit Card XX9008, PAYMENT type |
+| 4 | AxisParser | Sender `axis` | Multi-currency (SAR/USD/AED/EUR/GBP), UPI/P2M compact merchant, Forex cards |
+| 5 | KotakParser | Sender `kotak` | ✅ |
+| 6 | YesBankParser | Sender `yes` + body `YES BANK` | `Ac X2919`, UPI `/To:`, NEFT `/From:` |
+| 7 | IdfcFirstBankParser | Sender `idfcfb` | 5 patterns: CC spend, savings debit/credit, card payment, interest |
+| 8 | OneCardParser | Sender `onecrd` | Multi-currency, spend/payment/refund |
+| 9 | AlRajhiParser | Sender OR body content | `At:` merchant, Apple/Samsung/Google Pay, `GOOGLE*PA` merchants |
+| 10 | StcBankParser | Sender `stc` | ✅ Fallback WALLET |
+| 11 | AlinmaParser | Sender `alinma` | ✅ |
+| 12 | D360Parser | Sender `d360` | ✅ |
+| 13 | EmiratesNbdParser | Sender OR body fingerprint | POS/Online Purchase, `Card: Visa/Credit/Debit/Mada`, `Merchant:`, multi-currency |
+| 14 | FasTagParser | Sender `qwfstg` | Toll + parking locations, hardcoded WALLET |
+| 15 | WalletParser | Sender Apple/Google/Samsung Pay | ✅ Fallback WALLET |
+| 16 | UpiParser | Sender or `UPI` in body | ✅ Fallback UPI |
+| 17 | GenericParser | Always (fallback) | At: merchant + Card: account extraction, PaymentMethodDetector |
 
 ### Intelligence Engine
 - `MerchantRule` persisted in `merchant_rules` table

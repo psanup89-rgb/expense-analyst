@@ -28,6 +28,7 @@ fun ExpenseWithCategory.toDomain() = Expense(
     accountId = expense.accountId,
     accountDisplayName = account?.displayName,
     rawSmsBody = expense.rawSmsBody,
+    billId = expense.billId,
     isDeleted = expense.isDeleted
 )
 
@@ -51,6 +52,7 @@ fun Expense.toEntity(createdAt: Long, updatedAt: Long) = ExpenseEntity(
     accountNumber = null,
     accountId = accountId,
     rawSmsBody = rawSmsBody,
+    billId = billId,
     isDeleted = isDeleted,
     createdAtUtcMillis = createdAt,
     updatedAtUtcMillis = updatedAt

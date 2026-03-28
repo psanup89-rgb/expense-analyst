@@ -40,7 +40,8 @@ class D360Parser : TransactionParser {
             merchant = merchant,
             accountLast4 = null,
             referenceNumber = ref,
-            bankName = bankName
+            bankName = bankName,
+            paymentMethodName = PaymentMethodDetector.detect(body)
         )
     }
 }

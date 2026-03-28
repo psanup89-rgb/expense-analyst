@@ -63,4 +63,8 @@ interface ExpenseDao {
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertAll(expenses: List<ExpenseEntity>)
+
+    @Transaction
+    @Query("SELECT * FROM expenses WHERE is_deleted = 0 AND bill_id = :billId ORDER BY date_utc_millis DESC")
+    fun getExpensesByBillId(billId: Long): Flow<List<ExpenseWithCategory>>
 }

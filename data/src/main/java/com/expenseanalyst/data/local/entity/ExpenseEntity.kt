@@ -49,6 +49,7 @@ data class ExpenseEntity(
     @ColumnInfo(name = "account_number") val accountNumber: String? = null,
     @ColumnInfo(name = "account_id") val accountId: Long? = null,
     @ColumnInfo(name = "raw_sms_body") val rawSmsBody: String? = null,
+    @ColumnInfo(name = "bill_id") val billId: Long? = null,
     @ColumnInfo(name = "is_deleted", defaultValue = "0") val isDeleted: Boolean = false,
     @ColumnInfo(name = "created_at_utc_millis") val createdAtUtcMillis: Long,
     @ColumnInfo(name = "updated_at_utc_millis") val updatedAtUtcMillis: Long

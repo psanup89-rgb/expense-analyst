@@ -1,6 +1,6 @@
 # Feature Specifications & Acceptance Criteria
 
-**Last updated**: 2026-03-26
+**Last updated**: 2026-03-28
 **Phase 1 + 1.5**: Complete
 **Phase 2**: Not started
 
@@ -57,10 +57,10 @@
 - [x] In-app banner: "₹450 at Swiggy detected. Tap to save."
 - [x] Tapping banner opens Add Expense pre-filled with parsed data
 - [x] "Dismiss" option on banner
-- [x] Supported banks: HDFC, SBI, ICICI, Axis (incl. Forex cards), Kotak, Yes Bank, Al Rajhi, STC Bank, Alinma, D360, Google Wallet/Pay, Apple Pay, Samsung Pay, UPI apps, generic fallback
+- [x] Supported banks: HDFC, SBI, ICICI, Axis (incl. Forex cards), Kotak, Yes Bank, IDFC First Bank, OneCard (Federal Bank), Al Rajhi, STC Bank, Alinma, D360, Emirates NBD, FASTag (LivQuik), Google Wallet/Pay, Apple Pay, Samsung Pay, UPI apps, generic fallback
 - [x] Settings toggle to enable/disable auto-capture
 - [x] Android system tray notification when transaction detected (tapping pre-fills AddExpense)
-- [x] Bulk SMS import from device inbox (all-time or last 30 days) with (amount+day) dedup
+- [x] Bulk SMS import from device inbox (all-time or last 30 days) with smart dedup (primary: SMS body hash; fallback: amount+day+merchant)
 - [x] Merchant rules ("Teach App") — user-defined pattern→category, applied before keyword matching
 - [x] PAYMENT transaction type for credit card / bill payments (purple, excluded from expense totals)
 - [ ] Duplicate detection for live notification capture (bulk import has it; live notifications do not)

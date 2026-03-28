@@ -99,10 +99,17 @@ class SmsImportViewModel @Inject constructor(
                 currencyRepository.getRates().first().associateBy { it.currencyCode }
             }.getOrElse { emptyMap() }
 
-            // Existing expenses used for in-memory duplicate check (amount + day)
-            val existingKeys = expenseRepository.getExpensesSnapshot()
+            // Existing expenses used for in-memory duplicate check.
+            // Primary key: rawSmsBody hash (exact SMS match).
+            // Fallback key: amount + day + merchant (for expenses without rawSmsBody).
+            val existingSmsAuto = expenseRepository.getExpensesSnapshot()
                 .filter { it.sourceType == SourceType.SMS_AUTO }
-                .mapTo(mutableSetOf()) { dedupeKey(it.amount, it.date.toEpochMilliseconds()) }
+            val existingBodyKeys = existingSmsAuto
+                .filter { !it.rawSmsBody.isNullOrBlank() }
+                .mapTo(mutableSetOf()) { it.rawSmsBody!!.trim().hashCode() }
+            val existingFallbackKeys = existingSmsAuto
+                .filter { it.rawSmsBody.isNullOrBlank() }
+                .mapTo(mutableSetOf()) { dedupeKeyFallback(it.amount, it.date.toEpochMilliseconds(), it.merchantName) }
 
             // Read SMS
             val sinceMillis = if (lastMonthOnly) {
@@ -128,16 +135,24 @@ class SmsImportViewModel @Inject constructor(
                     return@forEachIndexed
                 }
 
-                // Dedup: same amount on same calendar day
-                val key = dedupeKey(parsed.amount, sms.timestampMs)
-                if (key in existingKeys) {
+                // Dedup: exact SMS body match (primary), or amount+day+merchant (fallback)
+                val bodyKey = sms.body.trim().hashCode()
+                if (bodyKey in existingBodyKeys) {
                     skipped++
                     _uiState.value = SmsImportUiState.BulkImporting(
                         processed = index + 1, total = smsList.size
                     )
                     return@forEachIndexed
                 }
-                existingKeys.add(key)
+                val fallbackKey = dedupeKeyFallback(parsed.amount, sms.timestampMs, parsed.merchant)
+                if (fallbackKey in existingFallbackKeys) {
+                    skipped++
+                    _uiState.value = SmsImportUiState.BulkImporting(
+                        processed = index + 1, total = smsList.size
+                    )
+                    return@forEachIndexed
+                }
+                existingBodyKeys.add(bodyKey)
 
                 val transactionType = when (parsed.type) {
                     TransactionDirection.CREDIT -> TransactionType.INCOME
@@ -186,6 +201,11 @@ class SmsImportViewModel @Inject constructor(
                     id
                 }
 
+                // Map parsed payment method name to PaymentMethod enum
+                val paymentMethod = parsed.paymentMethodName?.let { name ->
+                    runCatching { PaymentMethod.valueOf(name) }.getOrNull()
+                } ?: PaymentMethod.OTHER
+
                 // Build a stub expense to run CurrencyConversion.resolve()
                 val stubExpense = Expense(
                     amount = parsed.amount,
@@ -194,7 +214,7 @@ class SmsImportViewModel @Inject constructor(
                     exchangeRate = null,
                     description = "",
                     category = category,
-                    paymentMethod = PaymentMethod.OTHER,
+                    paymentMethod = paymentMethod,
                     transactionType = transactionType,
                     date = Instant.fromEpochMilliseconds(sms.timestampMs),
                     merchantName = merchantName,
@@ -324,10 +344,14 @@ class SmsImportViewModel @Inject constructor(
         }
     }
 
-    /** Key for duplicate detection: amount (rounded to 2 dp) + calendar day (UTC). */
-    private fun dedupeKey(amount: Double, epochMillis: Long): String {
+    /**
+     * Fallback dedup key for old expenses that don't have rawSmsBody stored.
+     * Uses amount + calendar day + merchant name for better accuracy than amount+day alone.
+     */
+    private fun dedupeKeyFallback(amount: Double, epochMillis: Long, merchant: String?): String {
         val roundedAmount = "%.2f".format(amount)
         val dayBucket = epochMillis / 86_400_000
-        return "$roundedAmount:$dayBucket"
+        val merchantKey = merchant?.trim()?.lowercase() ?: ""
+        return "$roundedAmount:$dayBucket:$merchantKey"
     }
 }

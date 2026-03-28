@@ -2,6 +2,7 @@ package com.expenseanalyst.feature.notification.service
 
 import android.service.notification.NotificationListenerService
 import android.service.notification.StatusBarNotification
+import com.expenseanalyst.feature.notification.parser.BillStatementParserRegistry
 import com.expenseanalyst.feature.notification.parser.ParserRegistry
 import dagger.hilt.android.AndroidEntryPoint
 import javax.inject.Inject
@@ -25,6 +26,7 @@ import javax.inject.Inject
 class TransactionNotificationService : NotificationListenerService() {
 
     @Inject lateinit var pendingManager: PendingNotificationManager
+    @Inject lateinit var billStatementManager: BillStatementManager
 
     /** Package IDs that typically carry bank/payment notifications. */
     private val financialPackages = setOf(
@@ -64,12 +66,18 @@ class TransactionNotificationService : NotificationListenerService() {
         // (e.g. "VD-HDFCBK-T"), which bank parsers use to identify themselves. Fall back to
         // package name so app-based notifications (Google Pay, PhonePe) still work.
         val effectiveSender = title.ifBlank { packageName }
-        val parsed = ParserRegistry.parse(sender = effectiveSender, body = bigText.ifBlank { body })
+        val effectiveBody = bigText.ifBlank { body }
+
+        val parsed = ParserRegistry.parse(sender = effectiveSender, body = effectiveBody)
+        if (parsed != null) {
+            if (parsed.amount <= 0 || parsed.amount > 10_000_000) return
+            pendingManager.enqueue(parsed)
+            return
+        }
+
+        // Second chance: bill statement notification
+        val statement = BillStatementParserRegistry.parse(sender = effectiveSender, body = effectiveBody)
             ?: return
-
-        // Only enqueue if amount is plausible (> 0 and < 10 million)
-        if (parsed.amount <= 0 || parsed.amount > 10_000_000) return
-
-        pendingManager.enqueue(parsed)
+        billStatementManager.process(statement)
     }
 }

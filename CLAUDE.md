@@ -46,7 +46,7 @@ Android-first expense tracking app that reads bank SMS/notifications to auto-cre
 - `@HiltViewModel` on all ViewModels
 - Each module has a `di/` package with `@Module` classes
 - `@AndroidEntryPoint` on `MainActivity` and `TransactionNotificationService`
-- 7 repository interfaces in `:domain`: Expense, Category, Currency, EMI, Onboarding, **Account**, **MerchantRule**
+- 9 repository interfaces in `:domain`: Expense, Category, Currency, EMI, Onboarding, **Account**, **MerchantRule**, **PendingNotification**, **AppPreferences**
 
 ---
 
@@ -86,9 +86,12 @@ Android-first expense tracking app that reads bank SMS/notifications to auto-cre
 - Service: `feature/notification/service/TransactionNotificationService` (NotificationListenerService)
 - Parsers: `feature/notification/parser/` — one file per bank, all implement `TransactionParser`
 - Registry: `ParserRegistry` tries parsers in priority order; `GenericParser` is last resort
+- 17 parsers: HDFC, SBI, ICICI, Axis, Kotak, YesBank, IdfcFirstBank, OneCard, AlRajhi, StcBank, Alinma, D360, EmiratesNBD, FASTag, Wallet, UPI, Generic
 - `TransactionDirection`: `DEBIT | CREDIT | PAYMENT` (PAYMENT = bill/card payment confirmation)
+- `PaymentMethodDetector` — shared utility that infers payment method (Credit Card, UPI, Net Banking, Apple Pay, etc.) from SMS body text. Used by all parsers.
 - Parsed result flows via `PendingNotificationManager` → `NotificationBanner` UI **and** Android system tray notification (`TransactionAlertNotification.post()`)
 - `MainViewModel.pendingRoute` receives tray notification taps; `AppNavGraph` navigates once
+- **SMS Import dedup**: Primary = raw SMS body hash; fallback = amount + day + merchant (for old records without rawSmsBody)
 - **Parser bug to avoid**: two-group amount regex — `groupValues[1]` is `""` not `null` when only group 2 matches. Always use `.takeIf { it.isNotBlank() }` when extracting from either group.
 - See `docs/NOTIFICATION_PARSING.md` for SOP on adding new parsers
 
@@ -109,7 +112,7 @@ Android-first expense tracking app that reads bank SMS/notifications to auto-cre
 app/src/main/              → MainActivity, NavGraph, DI wiring, MainBottomNav
 core/src/main/             → Theme, reusable components, CurrencyFormatter, DateTimeUtil, CurrencyCatalog
 domain/src/main/           → Models, repository interfaces, use cases, CurrencyConversion
-data/src/main/             → Room DB (6 entities/DAOs, v6), repositories, CurrencyApiService, SeedCurrencyRates
+data/src/main/             → Room DB (7 entities/DAOs, v9), repositories, CurrencyApiService, SeedCurrencyRates
 feature/expenses/          → Expense list, add, edit, detail screens + ViewModels
 feature/emi/               → EMI create, list, detail screens + ViewModels
 feature/notification/      → NotificationListenerService, parsers, banner UI

@@ -11,9 +11,11 @@ import com.expenseanalyst.data.local.dao.CategoryDao
 import com.expenseanalyst.data.local.dao.CurrencyRateDao
 import com.expenseanalyst.data.local.dao.EmiGroupDao
 import com.expenseanalyst.data.local.dao.ExpenseDao
+import com.expenseanalyst.data.local.dao.BillDao
 import com.expenseanalyst.data.local.dao.MerchantRuleDao
 import com.expenseanalyst.data.local.dao.PendingNotificationDao
 import com.expenseanalyst.data.local.entity.AccountEntity
+import com.expenseanalyst.data.local.entity.BillEntity
 import com.expenseanalyst.data.local.entity.CategoryEntity
 import com.expenseanalyst.data.local.entity.CurrencyRateEntity
 import com.expenseanalyst.data.local.entity.EmiGroupEntity
@@ -30,9 +32,10 @@ import com.expenseanalyst.data.local.entity.PendingNotificationEntity
         CurrencyRateEntity::class,
         AccountEntity::class,
         MerchantRuleEntity::class,
-        PendingNotificationEntity::class
+        PendingNotificationEntity::class,
+        BillEntity::class
     ],
-    version = 9,
+    version = 10,
     exportSchema = true
 )
 abstract class ExpenseAnalystDatabase : RoomDatabase() {
@@ -43,6 +46,7 @@ abstract class ExpenseAnalystDatabase : RoomDatabase() {
     abstract fun accountDao(): AccountDao
     abstract fun merchantRuleDao(): MerchantRuleDao
     abstract fun pendingNotificationDao(): PendingNotificationDao
+    abstract fun billDao(): BillDao
 
     companion object {
         const val DATABASE_NAME = "expense_analyst.db"
@@ -73,6 +77,31 @@ abstract class ExpenseAnalystDatabase : RoomDatabase() {
         private val MIGRATION_8_9 = object : Migration(8, 9) {
             override fun migrate(db: SupportSQLiteDatabase) {
                 db.execSQL("ALTER TABLE pending_notifications ADD COLUMN payment_method TEXT")
+            }
+        }
+
+        private val MIGRATION_9_10 = object : Migration(9, 10) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    """
+                    CREATE TABLE IF NOT EXISTS bills (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                        biller_name TEXT NOT NULL,
+                        account_id INTEGER,
+                        total_due REAL,
+                        minimum_due REAL,
+                        currency_code TEXT NOT NULL,
+                        due_date_millis INTEGER,
+                        statement_period_start_millis INTEGER,
+                        statement_period_end_millis INTEGER,
+                        status TEXT NOT NULL,
+                        source_type TEXT NOT NULL,
+                        created_at_millis INTEGER NOT NULL,
+                        is_deleted INTEGER NOT NULL DEFAULT 0
+                    )
+                    """.trimIndent()
+                )
+                db.execSQL("ALTER TABLE expenses ADD COLUMN bill_id INTEGER")
             }
         }
 
@@ -147,7 +176,7 @@ abstract class ExpenseAnalystDatabase : RoomDatabase() {
                 ExpenseAnalystDatabase::class.java,
                 DATABASE_NAME
             )
-                .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9)
+                .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10)
                 .addCallback(SeedDatabaseCallback())
                 .build()
         }

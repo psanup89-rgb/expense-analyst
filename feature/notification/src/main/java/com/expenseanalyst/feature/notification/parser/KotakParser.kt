@@ -42,7 +42,8 @@ class KotakParser : TransactionParser {
             merchant = merchant,
             accountLast4 = accountLast4,
             referenceNumber = ref,
-            bankName = bankName
+            bankName = bankName,
+            paymentMethodName = PaymentMethodDetector.detect(body)
         )
     }
 }

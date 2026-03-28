@@ -7,6 +7,7 @@ import com.expenseanalyst.data.local.dao.CategoryDao
 import com.expenseanalyst.data.local.dao.CurrencyRateDao
 import com.expenseanalyst.data.local.dao.EmiGroupDao
 import com.expenseanalyst.data.local.dao.ExpenseDao
+import com.expenseanalyst.data.local.dao.BillDao
 import com.expenseanalyst.data.local.dao.MerchantRuleDao
 import com.expenseanalyst.data.local.dao.PendingNotificationDao
 import dagger.Module
@@ -64,6 +65,11 @@ object DatabaseModule {
     @Provides
     fun providePendingNotificationDao(database: ExpenseAnalystDatabase): PendingNotificationDao {
         return database.pendingNotificationDao()
+    }
+
+    @Provides
+    fun provideBillDao(database: ExpenseAnalystDatabase): BillDao {
+        return database.billDao()
     }
 
     @Provides

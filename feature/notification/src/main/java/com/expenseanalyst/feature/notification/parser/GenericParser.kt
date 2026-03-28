@@ -59,7 +59,8 @@ class GenericParser : TransactionParser {
             merchant = merchant,
             accountLast4 = accountLast4,
             referenceNumber = null,
-            bankName = bankName
+            bankName = bankName,
+            paymentMethodName = PaymentMethodDetector.detect(body)
         )
     }
 }

@@ -11,6 +11,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Inbox
+import androidx.compose.material.icons.filled.Receipt
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Badge
 import androidx.compose.material3.BadgedBox
@@ -44,7 +45,7 @@ fun MainBottomNav(
 ) {
     val items = listOf(
         BottomNavItem(NavRoutes.EXPENSE_LIST, Icons.Default.Home, "Home"),
-        BottomNavItem(NavRoutes.PENDING_INBOX, Icons.Default.Inbox, "Inbox", pendingInboxCount),
+        BottomNavItem(NavRoutes.BILLS, Icons.Default.Receipt, "Bills"),
         BottomNavItem(NavRoutes.EMI_LIST, Icons.Default.CalendarMonth, "EMI"),
         BottomNavItem(NavRoutes.SETTINGS, Icons.Default.Settings, "Settings")
     )

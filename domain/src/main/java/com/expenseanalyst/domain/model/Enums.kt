@@ -20,3 +20,7 @@ enum class TransactionType {
 enum class SourceType {
     MANUAL, SMS_AUTO, NOTIFICATION_AUTO
 }
+
+enum class BillStatus {
+    PENDING, PARTIAL, SETTLED
+}

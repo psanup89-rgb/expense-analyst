@@ -16,4 +16,5 @@ interface ExpenseRepository {
     suspend fun updateExpense(expense: Expense)
     suspend fun softDeleteExpense(id: Long)
     suspend fun restoreExpense(id: Long)
+    fun getExpensesByBillId(billId: Long): Flow<List<Expense>>
 }

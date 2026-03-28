@@ -4,6 +4,7 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.provider.Telephony
+import com.expenseanalyst.feature.notification.parser.BillStatementParserRegistry
 import com.expenseanalyst.feature.notification.parser.ParserRegistry
 import dagger.hilt.android.AndroidEntryPoint
 import javax.inject.Inject
@@ -23,8 +24,8 @@ import javax.inject.Inject
 @AndroidEntryPoint
 class SmsReceiver : BroadcastReceiver() {
 
-    @Inject
-    lateinit var pendingManager: PendingNotificationManager
+    @Inject lateinit var pendingManager: PendingNotificationManager
+    @Inject lateinit var billStatementManager: BillStatementManager
 
     private val financialKeywords = Regex(
         """(?i)\b(?:debited|credited|debit|credit|rs\.?|inr|sar|paid|upi|bank|purchase|balance|card|amount|transaction|withdrawn|transferred)\b"""
@@ -42,9 +43,16 @@ class SmsReceiver : BroadcastReceiver() {
 
         if (body.isBlank() || !financialKeywords.containsMatchIn(body)) return
 
-        val parsed = ParserRegistry.parse(sender = sender, body = body)?.copy(rawBody = body) ?: return
-        if (parsed.amount <= 0 || parsed.amount > 10_000_000) return
+        val parsed = ParserRegistry.parse(sender = sender, body = body)?.copy(rawBody = body)
+        if (parsed != null) {
+            if (parsed.amount <= 0 || parsed.amount > 10_000_000) return
+            pendingManager.enqueue(parsed)
+            return
+        }
 
-        pendingManager.enqueue(parsed)
+        // Second chance: bill statement (not a debit/credit, but an outstanding balance notification)
+        val statement = BillStatementParserRegistry.parse(sender = sender, body = body)
+            ?.copy(rawBody = body) ?: return
+        billStatementManager.process(statement)
     }
 }
