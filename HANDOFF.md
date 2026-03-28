@@ -1,201 +1,137 @@
 # Expense Analyst — Handoff Document
 
-**Last updated**: 2026-03-28
-**DB version**: 9
-**Build status**: `./gradlew clean assembleDebug` passes
-**Device tested**: Samsung S26 Ultra (SM-S948B), connected via ADB
+**Last updated**: 2026-03-29
+**DB version**: 10
+**Build status**: `./gradlew clean assembleDebug` ✅ passing
+**Device tested**: Samsung Galaxy S26 Ultra (SM-S948B), connected via ADB
+**Branch**: `main` (all work pushed)
 
 ---
 
-## What Was Built in the Latest Session (2026-03-28, continued)
+## What Was Built This Session (2026-03-28 → 2026-03-29)
 
-### New Parsers (4 added)
-- **`EmiratesNbdParser`**: Emirates NBD (UAE). Handles POS Purchase and Online Purchase formats. Extracts merchant from `Merchant:`, card from `Card: Visa card XX4388`, currency from `Amount: SAR X`. Detects wallet overlays from `(Apple Pay)` on first line. Infers card type (Credit/Debit/Mada) from `Card:` line.
-- **`IdfcFirstBankParser`**: IDFC First Bank (India). 5 patterns: CC spend (with fun prefixes like "Delicious Purchase!"), savings debit/credit, card payment confirmation, interest credit. Handles `INR.62.00` (dot after INR) format.
-- **`FasTagParser`**: FASTag/LivQuik toll and parking (India). Extracts toll location from `in LOCATION at DATE` and parking location from `at LOCATION, DATE`. PaymentMethod hardcoded to `WALLET`.
-- **`OneCardParser`**: OneCard/Federal Bank credit card (India). Handles spend (`paid X at MERCHANT`), payment received, refund. Multi-currency (INR, AED, USD, EUR, GBP).
+### 1. Bills Tracking Feature (DB v9→v10) — commit `9516af4`
 
-### Parser Fixes (6 modified)
-- **`AxisParser`**: Added UPI compact merchant extraction (`UPI/P2M/txnid/MERCHANT Not you?`). Broadened account pattern for `A/c no. XX0426`, `CC no. XX4502`.
-- **`HdfcParser`**: Broadened account pattern for `HDFC Bank XX7823`, `A/C No 7823`, `card ending 1041`, `ENDING WITH 1041`. Added PAYMENT type for card payment confirmations. Added merchant extraction from `Info:`, `towards...UMRN`, `For IMPS/NEFT -NAME-`.
-- **`IciciParser`**: Added `card` to account pattern for `Credit Card XX9008`. Added PAYMENT type for `Payment received on Credit Card`.
-- **`SbiParser`**: Broadened account pattern to handle `Card ending XX83` (2-4 digit account numbers). Added PAYMENT type detection.
-- **`YesBankParser`**: Account pattern now matches `Ac X2919` (single X prefix). Added UPI/NEFT merchant extraction from `/To:` and `/From:` patterns.
-- **`AlRajhiParser`**: Added `*` to atPattern character class for merchants like `GOOGLE*PA`, `OPENAI *C`.
+Full bill lifecycle: statement SMS → PENDING Bill → payment linked → SETTLED.
 
-### PaymentMethodDetector (new shared utility)
-- Created `PaymentMethodDetector.kt` — centralized payment method inference from SMS body text.
-- Detects: APPLE_PAY, SAMSUNG_PAY, GOOGLE_PAY, UPI, NET_BANKING, CREDIT_CARD, DEBIT_CARD.
-- **All 15 parsers now set `paymentMethodName`** using this detector (previously only Al Rajhi and Emirates NBD did).
-- Context-aware fallbacks: IDFC CC spend → `CREDIT_CARD`, FASTag → `WALLET`, STC Bank → `WALLET`, OneCard → `CREDIT_CARD`, UpiParser → `UPI`.
+**New files created:**
+- `domain/model/Bill.kt` — data class with billerName, totalDue, minimumDue, dueDateMillis, status (PENDING/PARTIAL/SETTLED)
+- `domain/repository/BillRepository.kt` — interface with `findOpenBillByBiller(billerName, accountId)`
+- `data/local/entity/BillEntity.kt` — Room entity for `bills` table
+- `data/local/dao/BillDao.kt` — queries including `findOpenByBiller()` filtering PENDING + PARTIAL
+- `data/repository/BillRepositoryImpl.kt`
+- `feature/notification/parser/ParsedBillStatement.kt` + `BillStatementParser.kt` interface
+- `feature/notification/parser/BillStatementParserRegistry.kt` — 4 parsers tried in order
+- `feature/notification/parser/EmiratesNbdStatementParser.kt` — sender `enbd` + body `statement`
+- `feature/notification/parser/AlRajhiStatementParser.kt` — sender `rajhi/74100` + body
+- `feature/notification/parser/HdfcStatementParser.kt` — sender `hdfc` + `total amt due` format
+- `feature/notification/parser/GenericStatementParser.kt` — strict fallback (body must have `statement` + `total due`)
+- `feature/notification/service/BillStatementManager.kt` — `@Singleton`, creates/updates Bill from parsed statement
+- `feature/expenses/ui/BillsUiState.kt`, `BillsViewModel.kt`, `BillsScreen.kt`
+- `feature/notification/parser/MubasherParser.kt` — body fingerprint, always PAYMENT direction
+- `feature/notification/parser/PaymentMethodDetector.kt` — centralised payment method inference
+- `feature/notification/parser/EmiratesNbdParser.kt`, `IdfcFirstBankParser.kt`, `FasTagParser.kt`, `OneCardParser.kt`
 
-### SMS Import Improvements
-- **Payment method now used during import**: Previously hardcoded `PaymentMethod.OTHER` for all imported SMS. Now maps `parsed.paymentMethodName` → `PaymentMethod` enum.
-- **Smarter dedup**: Primary check = exact SMS body hash (identical SMS = duplicate). Fallback = amount + day + merchant name (for old records without rawSmsBody). Previously was just amount + day, which incorrectly deduped two different transactions with the same amount on the same day.
+**Files modified:**
+- `domain/model/Enums.kt` — added `BillStatus { PENDING, PARTIAL, SETTLED }`
+- `domain/model/Expense.kt` — added `billId: Long? = null`
+- `domain/repository/ExpenseRepository.kt` — added `getExpensesByBillId(billId)`
+- `data/local/ExpenseAnalystDatabase.kt` — bumped to v10, added MIGRATION_9_10 (bills table + expense.bill_id), added BillEntity, BillDao
+- `data/local/entity/ExpenseEntity.kt` — added `bill_id` column
+- `data/local/dao/ExpenseDao.kt` — added `getExpensesByBillId` query
+- `data/mapper/ExpenseMapper.kt` — maps `billId` in both directions
+- `data/repository/ExpenseRepositoryImpl.kt` — implements `getExpensesByBillId`
+- `data/di/DatabaseModule.kt` — provides `BillDao`
+- `data/di/RepositoryModule.kt` — binds `BillRepository`
+- `feature/notification/parser/ParserRegistry.kt` — added MubasherParser before GenericParser
+- `feature/notification/service/SmsReceiver.kt` — fallback to `BillStatementParserRegistry` when transaction parse fails
+- `feature/notification/service/TransactionNotificationService.kt` — same fallback
+- `feature/expenses/ui/AddExpenseViewModel.kt` — on PAYMENT save: finds open bill → links expense.billId → updates bill status
+- `core/navigation/NavRoutes.kt` — added `BILLS = "bills"`
+- `app/navigation/AppNavGraph.kt` — registered `BillsScreen`
+- `app/ui/MainBottomNav.kt` — Home · Bills · EMI · Settings
 
-### Previous Session (same date, earlier)
+**Build issue fixed during this work**: KSP reported "cannot resolve BillRepository" — root cause was Kotlin smart cast on cross-module nullable properties (`openBill.totalDue`, `bill.dueDateMillis`). Fix: extract to local `val` before null comparison. See `skills/ksp-cross-module-smart-cast.md`.
 
-#### Parser Improvements
-- **`AlRajhiParser`**: Added content-based `canParse()` — now detects Al Rajhi SMS when sent from a regular phone number (not just the bank sender ID). Fixed `atPattern` regex to stop at newlines so "ALDREES 8" is correctly extracted. Detects payment method (Apple Pay, Samsung Pay, Google Pay) from `;Visa-Apple Pay` syntax in the card line.
-- **`GenericParser`**: Now extracts merchant from `At: X` patterns and account last-4 from `Card:XXXX` — useful as a fallback for any bank SMS with these patterns.
+### 2. Bill Statement Parsing in Bulk Import — commit `a97f4d0`
 
-#### Payment Method as First-Class Field
-- Added `APPLE_PAY`, `SAMSUNG_PAY`, `GOOGLE_PAY` to `PaymentMethod` enum with `.label` property (all values now have labels; `.label` replaces `.name.replace("_", " ")` everywhere).
-- `ParsedTransaction`: added `paymentMethodName: String?` (stores enum name e.g. "APPLE_PAY") and `rawBody: String?`.
-- Payment method flows: `ParsedTransaction` → `PendingNotification.paymentMethod` → nav arg `paymentMethod` → `AddExpenseViewModel` sets the correct chip.
-- Selected payment method chip always appears first in the LazyRow.
+`SmsImportViewModel.startBulkImport()` now tries `BillStatementParserRegistry` when `ParserRegistry.parse()` returns null. Import result screen shows "Bills detected: N". `BillStatementManager` injected into `SmsImportViewModel`.
 
-#### Raw SMS Preview in Add Expense
-- `AddExpenseScreen` shows a collapsible **"Source SMS"** card at the bottom — visible only when `rawSmsBody` is not null (auto-detected expenses only).
+### 3. Manual Bill Linking from Expense Detail — commit `c217c98`
 
-#### pendingId Threading (Source SMS available everywhere)
-- `PendingNotificationManager` posts system tray notification *inside* the save coroutine (after DB insert returns the ID).
-- Source SMS card now appears when adding from: system tray notification, in-app banner, OR pending inbox — all three paths.
+PAYMENT expenses in detail screen now show:
+- "Linked Bill: [name]" row if already linked
+- "Link to Bill" button → `ModalBottomSheet` listing open bills if not linked
+- "No open bills" (disabled) if none exist
+`ExpenseDetailViewModel` extended with `BillRepository`, `ExpenseRepository`, open bills flow, `linkToBill()`.
 
-#### Account Matching Improvements
-- Match logic requires **both** bank name and last-4 to match when both are known.
-- When payment method is a digital wallet and the matched account is not CREDIT_CARD, the account is **upgraded in-place** to CREDIT_CARD.
+### 4. Inbox Tab Restored — commit `3fe3c7d`
 
-#### DB Migrations
-- **v7→v8**: `ALTER TABLE pending_notifications ADD COLUMN raw_body TEXT`
-- **v8→v9**: `ALTER TABLE pending_notifications ADD COLUMN payment_method TEXT`
+Bottom nav was accidentally set to Home · Bills · EMI · Settings when Bills was added. Fixed back to Home · Inbox (badged) · Bills · EMI · Settings. Added `NavRoutes.PENDING_INBOX` back to `showBottomNav` in `MainActivity`.
 
----
+### 5. Inbox Dismiss Confirmation — commit `710300f`
 
-## Full Implementation Status
+Both dismiss paths in `PendingInboxScreen` now confirm first:
+- Single dismiss: "This transaction has not been added to your expenses yet. Are you sure?"
+- Clear All: shows count of items that would be lost
+`PendingInboxViewModel` refactored to `requestDismiss()` / `confirmDismiss()` / `cancelDismiss()` pattern.
 
-### Modules (9 total)
-`:app` · `:core` · `:domain` · `:data` · `:feature:expenses` · `:feature:emi` · `:feature:notification` · `:feature:settings` · `:feature:onboarding`
+### 6. Project Memory System — no commit yet (part of session wrap-up)
 
-### Screens
-| Screen | Status | Notes |
-|--------|--------|-------|
-| Onboarding (3-step) | ✅ | Welcome → currency → notification access. SMS bulk import offered at end. |
-| Expense List | ✅ | Date-grouped, search, category+payment filters, month nav, swipe-delete+undo |
-| Add Expense | ✅ | Merchant* (mandatory), Description, Note, 4 types, collapsible Source SMS card |
-| Edit Expense | ✅ | Pre-filled, recalculates homeAmount on currency change |
-| Expense Detail | ✅ | "Teach App" rule card (SMS_AUTO/NOTIFICATION_AUTO with merchant only), collapsible SMS |
-| Pending Inbox | ✅ | Bottom nav tab with badge count, persists until added or dismissed |
-| EMI Create/List/Detail | ✅ | Split with optional interest, timeline view, cancel remaining |
-| SMS Import | ✅ | Bulk (all / last 30d), deduped by (SMS body hash → amount+day+merchant fallback), payment method from parsers, merchant rules applied |
-| Settings | ⚠️ | Currency picker, notification toggle, test notification button. **Missing**: theme toggle, category management |
-
-### Domain Models (`:domain`)
-```
-Expense          — amount, homeAmount, exchangeRate, merchantName*, description, note,
-                   category, paymentMethod, transactionType, date, sourceType, accountId,
-                   rawSmsBody, emiGroupId, emiInstallmentNumber, isDeleted
-Account          — id, bankName, lastFour, accountType, displayName
-MerchantRule     — id, merchantPattern, categoryId, categoryName, createdAt
-PendingNotification — id, amount, currencyCode, merchantName, bankName, accountLast4,
-                      transactionType, detectedAtMillis, rawBody, paymentMethod
-Category         — id, name, iconName, colorHex, isDefault, sortOrder
-EmiGroup         — id, totalAmount, currencyCode, numberOfInstallments, installmentAmount,
-                   interestRate, startDate, description, categoryId, paymentMethod
-CurrencyRate     — currencyCode, rateToBase, lastUpdatedUtcMillis
-```
-
-### Enums
-- `PaymentMethod(label)`: CASH, UPI, CREDIT_CARD, DEBIT_CARD, NET_BANKING, WALLET, APPLE_PAY, SAMSUNG_PAY, GOOGLE_PAY, OTHER
-- `TransactionType`: EXPENSE, INCOME, TRANSFER, PAYMENT
-- `AccountType(label)`: SAVINGS, CURRENT, CREDIT_CARD, DEBIT_CARD, FOREX_CARD, WALLET, OTHER
-- `SourceType`: MANUAL, SMS_AUTO, NOTIFICATION_AUTO
-- `TransactionDirection`: DEBIT, CREDIT, PAYMENT (parser-internal, in `feature/notification`)
-
-### Repository Interfaces (`:domain`)
-`ExpenseRepository` · `CategoryRepository` · `CurrencyRepository` · `EmiRepository` · `OnboardingRepository` · `AccountRepository` · `MerchantRuleRepository` · `PendingNotificationRepository`
-
-### DB Migration History
-| Version | Change |
-|---------|--------|
-| v1→v2 | Add Misc category |
-| v2→v3 | Add account_number to expenses; rename DEBIT→EXPENSE, CREDIT→INCOME |
-| v3→v4 | Create accounts table; add account_id to expenses |
-| v4→v5 | Add raw_sms_body to expenses |
-| v5→v6 | Create merchant_rules table + unique index |
-| v6→v7 | Create pending_notifications table |
-| v7→v8 | Add raw_body column to pending_notifications |
-| v8→v9 | Add payment_method column to pending_notifications |
-
-### Notification Pipeline (current)
-```
-SMS / Notification received
-  → SmsReceiver or TransactionNotificationService
-  → ParserRegistry.parse(sender, body).copy(rawBody = body)
-  → PendingNotificationManager.enqueue(parsed)
-      → repository.save() → returns savedId
-      → _lastPendingId.value = savedId
-      → TransactionAlertNotification.post(context, parsed, savedId)
-  → _pending StateFlow → NotificationBanner (in-app)
-  → _lastPendingId StateFlow → NotificationBanner passes to nav
-
-Tray tap intent → MainActivity.handleIntent()
-  → reads EXTRA_PENDING_ID, EXTRA_PAYMENT_METHOD
-  → MainViewModel.setPendingRoute(route with pendingId + paymentMethod)
-  → AppNavGraph LaunchedEffect → navigates
-
-AddExpenseViewModel.init:
-  → reads paymentMethod nav arg → sets PaymentMethod chip
-  → reads account nav arg → matches or creates account (bank+last4 both required)
-  → reads pendingId → loads PendingNotification → sets rawSmsBody + paymentMethod
-```
-
-### Parser Status (17 parsers, ordered by ParserRegistry priority)
-| # | Parser | Detection | Notes |
-|---|--------|-----------|-------|
-| 1 | HdfcParser | Sender `hdfc` | UPI, NEFT, card payment, `Info:` merchant, broad account patterns |
-| 2 | SbiParser | Sender `sbi` | `Info:` merchant, card ending XX83, PAYMENT type |
-| 3 | IciciParser | Sender `icici` | `Info:` merchant, Credit Card XX9008, PAYMENT type |
-| 4 | AxisParser | Sender `axis` | Multi-currency (SAR/USD/AED/EUR/GBP), UPI/P2M compact merchant, Forex cards |
-| 5 | KotakParser | Sender `kotak` | ✅ |
-| 6 | YesBankParser | Sender `yes` + body `YES BANK` | `Ac X2919`, UPI `/To:`, NEFT `/From:` |
-| 7 | IdfcFirstBankParser | Sender `idfcfb` | 5 patterns: CC spend, savings debit/credit, card payment, interest |
-| 8 | OneCardParser | Sender `onecrd` | Multi-currency, spend/payment/refund |
-| 9 | AlRajhiParser | Sender OR body content | `At:` merchant, Apple/Samsung/Google Pay, `GOOGLE*PA` merchants |
-| 10 | StcBankParser | Sender `stc` | ✅ Fallback WALLET |
-| 11 | AlinmaParser | Sender `alinma` | ✅ |
-| 12 | D360Parser | Sender `d360` | ✅ |
-| 13 | EmiratesNbdParser | Sender OR body fingerprint | POS/Online Purchase, `Card: Visa/Credit/Debit/Mada`, `Merchant:`, multi-currency |
-| 14 | FasTagParser | Sender `qwfstg` | Toll + parking locations, hardcoded WALLET |
-| 15 | WalletParser | Sender Apple/Google/Samsung Pay | ✅ Fallback WALLET |
-| 16 | UpiParser | Sender or `UPI` in body | ✅ Fallback UPI |
-| 17 | GenericParser | Always (fallback) | At: merchant + Card: account extraction, PaymentMethodDetector |
-
-### Intelligence Engine
-- `MerchantRule` persisted in `merchant_rules` table
-- `CategoryInference.infer()`: user rules first (contains, case-insensitive) → keyword matching
-- "Teach App" card on Expense Detail (visible for SMS_AUTO/NOTIFICATION_AUTO with merchant)
-- `ExpenseDetailViewModel`: `existingRule: StateFlow<MerchantRule?>`, `saveRule()`, `deleteRule()`
+Created at project root: `PROJECT.md`, `STATUS.md`, `AGENTS.md`, `CHANGELOG.md`, `OPEN_QUESTIONS.md`, `CONSTRAINTS.md`, `skills/`.
 
 ---
 
-## Known Gaps
+## What Was NOT Finished
 
-| Gap | Priority | Notes |
-|-----|----------|-------|
-| Duplicate detection (live notifications) | Medium | Bulk import deduped; live notifications not |
-| Settings: theme toggle | Low | Not implemented |
-| Settings: category management | Low | Not implemented |
-| Paging (Paging 3) | Low | Currently loads all records |
-| Bills section | Medium | Track credit card statements; needs Bill model + migration + screen |
-| Offline exchange rate entry | Low | No UI to manually enter rate when API unavailable |
-| DAO/ViewModel/UI tests | Medium | Parser tests exist; no DAO/ViewModel/UI tests yet |
-| ProGuard/R8 rules | Medium | Release build not verified |
+| Item | Reason |
+|------|--------|
+| Live notification dedup | Not in scope this session — identified as recommended next task |
+| Bill detail drill-down screen | Not requested — bills tab shows list only, no tap navigation |
+| Parser tests for new parsers | Not in scope — MubasherParser, EmiratesNbdParser etc have no unit tests yet |
+| HANDOFF.md was stale going into this session | It said DB v9 and missing Bills feature — now corrected (this file) |
+| README.md DB version | Still says v9 — minor, not critical |
 
 ---
 
-## Phase 2 Backlog
-Analytics dashboard · Budgets & alerts · CSV/PDF export · Google Drive backup · Home screen widget · Bulk operations
+## First Action for Next Agent
 
-## Phase 3 Backlog
-iOS (KMP) · Smart categorization · Recurring detection · Receipt photos · Split expenses · Income tracking
+Read `STATUS.md` → implement **live notification dedup** in `PendingNotificationManager.enqueue()`.
+
+Exact scope:
+1. Add `findByBodyHash(hash: Int): PendingNotification?` to `PendingNotificationRepository` interface and `PendingNotificationDao`
+2. In `PendingNotificationManager.enqueue(parsed)`: compute `parsed.rawBody?.trim()?.hashCode()`, query for recent match (last 60s), skip if found
+3. Also check `ExpenseRepository.getExpensesSnapshot()` for same hash in SMS_AUTO expenses — skip if already saved
+
+No DB migration needed. Self-contained in `feature/notification` + `domain`.
+
+---
+
+## Gotchas and Non-Obvious Things
+
+1. **KSP smart cast bug**: Cross-module nullable property checks (e.g. `if (openBill.totalDue == null || paid >= openBill.totalDue)`) fail to compile with "smart cast impossible". Always extract to `val billTotalDue = openBill.totalDue` first. See `skills/ksp-cross-module-smart-cast.md`.
+
+2. **KSP stale state**: Always `./gradlew clean assembleDebug`, never just `assembleDebug`. This applies especially after: adding new Hilt-injected classes, adding new Room entities, or adding new DAO methods.
+
+3. **Bottom nav + showBottomNav must match**: When adding a new bottom nav destination, update BOTH `MainBottomNav.kt` items list AND the `showBottomNav` list in `MainActivity.kt`. Forgetting one causes the nav bar to disappear or show on wrong screens.
+
+4. **5-tab bottom nav is Material 3 maximum**: Current nav is at the limit (Home · Inbox · Bills · EMI · Settings). Any new top-level destination must replace an existing one or live as a nested route.
+
+5. **Bill statement parser false-positive risk**: `GenericStatementParser` is deliberately strict. If loosening its `canParse()` regex, test against the full SMS corpus — regular transaction SMS from some banks mention "statement" in passing.
+
+6. **MubasherParser uses body fingerprint**: Sender from Mubasher is a numeric shortcode, not a recognisable name. Detection is based on body content (`Reason:.*Bills Payment` or `Amount:SAR`). See `skills/parser-body-fingerprint.md` for the full pattern.
+
+7. **`combine()` with 5+ flows**: `uiState` in several ViewModels uses `combine()` with 5 flows. Kotlin's `combine` is overloaded up to 5 parameters — beyond 5, use nested `combine()` calls.
+
+8. **Device is S26 Ultra (SM-S948B)**: The `adb devices` display name says "SM-S948B - 16". Do not infer the marketing name from this — trust the user's stated device name.
 
 ---
 
 ## Handoff Checklist for Next Agent
-1. Read `CLAUDE.md` for all conventions, architecture rules, and critical build gotchas
-2. Run `./gradlew clean assembleDebug` before making any changes (always use `clean`)
-3. DB is at **v9** — any new schema change needs `MIGRATION_9_10` + version bump in `@Database(version = 10)`
-4. After parser changes: `./gradlew :feature:notification:testDebugUnitTest`
-5. See `.claude/skills/build-verify.md` if KSP fails
-6. **Update this file** at end of every session
+
+1. Read `CLAUDE.md` (conventions, architecture, build commands)
+2. Read this file and `STATUS.md`
+3. Run `./gradlew clean assembleDebug` — confirm it passes
+4. DB is at **v10** — next migration is `MIGRATION_10_11`
+5. Check `skills/` directory for relevant patterns before starting
+6. Update `STATUS.md` and this file at end of session
