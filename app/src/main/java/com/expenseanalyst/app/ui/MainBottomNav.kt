@@ -45,6 +45,7 @@ fun MainBottomNav(
 ) {
     val items = listOf(
         BottomNavItem(NavRoutes.EXPENSE_LIST, Icons.Default.Home, "Home"),
+        BottomNavItem(NavRoutes.PENDING_INBOX, Icons.Default.Inbox, "Inbox", badge = pendingInboxCount),
         BottomNavItem(NavRoutes.BILLS, Icons.Default.Receipt, "Bills"),
         BottomNavItem(NavRoutes.EMI_LIST, Icons.Default.CalendarMonth, "EMI"),
         BottomNavItem(NavRoutes.SETTINGS, Icons.Default.Settings, "Settings")

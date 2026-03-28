@@ -64,6 +64,7 @@ class MainActivity : ComponentActivity() {
 
                 val showBottomNav = currentRoute in listOf(
                     NavRoutes.EXPENSE_LIST,
+                    NavRoutes.PENDING_INBOX,
                     NavRoutes.BILLS,
                     NavRoutes.EMI_LIST,
                     NavRoutes.SETTINGS
