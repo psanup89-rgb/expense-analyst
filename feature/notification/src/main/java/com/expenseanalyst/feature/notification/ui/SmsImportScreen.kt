@@ -8,6 +8,7 @@ import android.provider.Settings
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
+import androidx.compose.ui.graphics.Color
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -231,6 +232,7 @@ fun SmsImportScreen(
                         saved = state.saved,
                         skipped = state.skipped,
                         failed = state.failed,
+                        billsFound = state.billsFound,
                         onDone = onBack
                     )
                 }
@@ -352,6 +354,7 @@ private fun BulkImportDoneContent(
     saved: Int,
     skipped: Int,
     failed: Int,
+    billsFound: Int = 0,
     onDone: () -> Unit
 ) {
     Column(
@@ -418,6 +421,16 @@ private fun BulkImportDoneContent(
                     label = "Duplicates skipped",
                     value = skipped.toString(),
                     valueColor = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+            if (billsFound > 0) {
+                androidx.compose.material3.HorizontalDivider(
+                    color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)
+                )
+                SummaryRow(
+                    label = "Bills detected",
+                    value = billsFound.toString(),
+                    valueColor = Color(0xFF7C5CBF)
                 )
             }
             if (failed > 0) {

@@ -29,7 +29,8 @@ sealed interface SmsImportUiState {
         val totalScanned: Int,
         val saved: Int,
         val skipped: Int,
-        val failed: Int
+        val failed: Int,
+        val billsFound: Int = 0
     ) : SmsImportUiState
 }
 

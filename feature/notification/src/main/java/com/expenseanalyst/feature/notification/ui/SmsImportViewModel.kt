@@ -17,9 +17,11 @@ import com.expenseanalyst.domain.repository.ExpenseRepository
 import com.expenseanalyst.domain.repository.MerchantRuleRepository
 import com.expenseanalyst.domain.util.CategoryInference
 import com.expenseanalyst.domain.util.CurrencyConversion
+import com.expenseanalyst.feature.notification.parser.BillStatementParserRegistry
 import com.expenseanalyst.feature.notification.parser.ParsedTransaction
 import com.expenseanalyst.feature.notification.parser.ParserRegistry
 import com.expenseanalyst.feature.notification.parser.TransactionDirection
+import com.expenseanalyst.feature.notification.service.BillStatementManager
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
@@ -40,7 +42,8 @@ class SmsImportViewModel @Inject constructor(
     private val categoryRepository: CategoryRepository,
     private val currencyRepository: CurrencyRepository,
     private val accountRepository: AccountRepository,
-    private val merchantRuleRepository: MerchantRuleRepository
+    private val merchantRuleRepository: MerchantRuleRepository,
+    private val billStatementManager: BillStatementManager
 ) : ViewModel() {
 
     /** Non-null when launched from onboarding with a pre-selected import range. */
@@ -122,13 +125,22 @@ class SmsImportViewModel @Inject constructor(
             val toSave = mutableListOf<Expense>()
             var skipped = 0
             var failed = 0
+            var billsFound = 0
             // Cache accountId lookups to avoid redundant DB calls within the same import
             val accountCache = mutableMapOf<Pair<String, String?>, Long>()
 
             smsList.forEachIndexed { index, sms ->
                 val parsed = ParserRegistry.parse(sms.sender, sms.body)
                 if (parsed == null) {
-                    failed++
+                    // Second chance: bill statement SMS (outstanding balance / credit card statement)
+                    val statement = BillStatementParserRegistry.parse(sms.sender, sms.body)
+                        ?.copy(rawBody = sms.body)
+                    if (statement != null) {
+                        billStatementManager.process(statement)
+                        billsFound++
+                    } else {
+                        failed++
+                    }
                     _uiState.value = SmsImportUiState.BulkImporting(
                         processed = index + 1, total = smsList.size
                     )
@@ -242,7 +254,8 @@ class SmsImportViewModel @Inject constructor(
                 totalScanned = smsList.size,
                 saved = toSave.size,
                 skipped = skipped,
-                failed = failed
+                failed = failed,
+                billsFound = billsFound
             )
         }
     }
