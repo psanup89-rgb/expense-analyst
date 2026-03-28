@@ -1,7 +1,6 @@
 package com.expenseanalyst.app.ui
 
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -11,7 +10,10 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material.icons.filled.Home
+import androidx.compose.material.icons.filled.Inbox
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material3.Badge
+import androidx.compose.material3.BadgedBox
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBarItem
@@ -30,16 +32,19 @@ import com.expenseanalyst.core.navigation.NavRoutes
 data class BottomNavItem(
     val route: String,
     val icon: ImageVector,
-    val label: String
+    val label: String,
+    val badge: Int = 0
 )
 
 @Composable
 fun MainBottomNav(
     currentRoute: String?,
+    pendingInboxCount: Int,
     onNavigate: (String) -> Unit
 ) {
     val items = listOf(
         BottomNavItem(NavRoutes.EXPENSE_LIST, Icons.Default.Home, "Home"),
+        BottomNavItem(NavRoutes.PENDING_INBOX, Icons.Default.Inbox, "Inbox", pendingInboxCount),
         BottomNavItem(NavRoutes.EMI_LIST, Icons.Default.CalendarMonth, "EMI"),
         BottomNavItem(NavRoutes.SETTINGS, Icons.Default.Settings, "Settings")
     )
@@ -66,11 +71,30 @@ fun MainBottomNav(
                     selected = selected,
                     onClick = { onNavigate(item.route) },
                     icon = {
-                        Icon(
-                            imageVector = item.icon,
-                            contentDescription = item.label,
-                            modifier = Modifier.size(24.dp)
-                        )
+                        if (item.badge > 0) {
+                            BadgedBox(
+                                badge = {
+                                    Badge {
+                                        Text(
+                                            text = if (item.badge > 99) "99+" else item.badge.toString(),
+                                            style = MaterialTheme.typography.labelSmall
+                                        )
+                                    }
+                                }
+                            ) {
+                                Icon(
+                                    imageVector = item.icon,
+                                    contentDescription = item.label,
+                                    modifier = Modifier.size(24.dp)
+                                )
+                            }
+                        } else {
+                            Icon(
+                                imageVector = item.icon,
+                                contentDescription = item.label,
+                                modifier = Modifier.size(24.dp)
+                            )
+                        }
                     },
                     label = {
                         Text(

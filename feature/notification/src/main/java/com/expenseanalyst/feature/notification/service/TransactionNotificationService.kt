@@ -71,7 +71,5 @@ class TransactionNotificationService : NotificationListenerService() {
         if (parsed.amount <= 0 || parsed.amount > 10_000_000) return
 
         pendingManager.enqueue(parsed)
-        // Also post a system notification so the user is alerted when the app is not in foreground
-        TransactionAlertNotification.post(applicationContext, parsed)
     }
 }

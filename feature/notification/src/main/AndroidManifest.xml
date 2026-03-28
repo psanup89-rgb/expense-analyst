@@ -1,2 +1,38 @@
 <?xml version="1.0" encoding="utf-8"?>
-<manifest xmlns:android="http://schemas.android.com/apk/res/android"/>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <!--
+        SmsReceiver: intercepts incoming SMS directly from the system.
+        This is the primary path for bank transaction detection — it fires
+        even when the app is not in the foreground and does not require the
+        user to manually enable Notification Access.
+
+        android:permission="android.permission.BROADCAST_SMS" ensures only
+        the system SMS stack can trigger this receiver (prevents spoofing).
+        android:priority="999" processes it before other receivers.
+    -->
+    <application>
+        <receiver
+            android:name=".service.SmsReceiver"
+            android:exported="true"
+            android:permission="android.permission.BROADCAST_SMS">
+            <intent-filter android:priority="999">
+                <action android:name="android.provider.Telephony.SMS_RECEIVED" />
+            </intent-filter>
+        </receiver>
+
+        <!--
+            Debug-only test trigger: allows adb to fire a fake bank SMS through
+            the full pipeline (parser → notification) without needing a real PDU.
+            Ignored in release builds via BuildConfig.DEBUG check in code.
+        -->
+        <receiver
+            android:name=".service.SmsTestReceiver"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="com.expenseanalyst.TEST_SMS" />
+            </intent-filter>
+        </receiver>
+    </application>
+
+</manifest>

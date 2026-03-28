@@ -39,6 +39,14 @@ class GenericParser : TransactionParser {
             else -> "INR" // default for Indian context
         }
 
+        // Try to extract merchant from "At: Merchant" or "at Merchant" pattern
+        val merchant = Regex("""(?i)\bat[:\s]\s*([A-Za-z0-9][A-Za-z0-9 _\-&./]*?)(?=\s*\n|\s+(?:Amount|Fee|Balance|Ref|Exchange|Country|Total|Available)|\s*$)""")
+            .find(body)?.groupValues?.get(1)?.trim()?.takeIf { it.isNotBlank() && it.length < 60 }
+
+        // Try to extract last-4 from "Card:7573" or "card ending 1234"
+        val accountLast4 = Regex("""(?i)(?:card|account|by)[:\s]*(?:ending|no\.?|number)?\s*[xX*]*(\d{4})""")
+            .find(body)?.groupValues?.get(1)
+
         val direction = when {
             isPayment -> TransactionDirection.PAYMENT
             isDebit -> TransactionDirection.DEBIT
@@ -48,8 +56,8 @@ class GenericParser : TransactionParser {
             amount = amount,
             currencyCode = currencyCode,
             type = direction,
-            merchant = null,
-            accountLast4 = null,
+            merchant = merchant,
+            accountLast4 = accountLast4,
             referenceNumber = null,
             bankName = bankName
         )

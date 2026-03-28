@@ -64,9 +64,11 @@ class MainActivity : ComponentActivity() {
 
                 val showBottomNav = currentRoute in listOf(
                     NavRoutes.EXPENSE_LIST,
+                    NavRoutes.PENDING_INBOX,
                     NavRoutes.EMI_LIST,
                     NavRoutes.SETTINGS
                 )
+                val pendingInboxCount by viewModel.pendingInboxCount.collectAsStateWithLifecycle()
 
                 Scaffold(
                     modifier = Modifier.fillMaxSize(),
@@ -74,6 +76,7 @@ class MainActivity : ComponentActivity() {
                         if (showBottomNav) {
                             MainBottomNav(
                                 currentRoute = currentRoute,
+                                pendingInboxCount = pendingInboxCount,
                                 onNavigate = { route ->
                                     navController.navigate(route) {
                                         popUpTo(NavRoutes.EXPENSE_LIST) { saveState = true }
@@ -108,23 +111,49 @@ class MainActivity : ComponentActivity() {
             val currency = intent.getStringExtra(TransactionAlertNotification.EXTRA_CURRENCY) ?: "SAR"
             val merchant = intent.getStringExtra(TransactionAlertNotification.EXTRA_MERCHANT)
             val type = intent.getStringExtra(TransactionAlertNotification.EXTRA_TYPE) ?: "DEBIT"
+            val account = intent.getStringExtra(TransactionAlertNotification.EXTRA_ACCOUNT)
+            val paymentMethod = intent.getStringExtra(TransactionAlertNotification.EXTRA_PAYMENT_METHOD)
+            val pendingId = intent.getLongExtra(TransactionAlertNotification.EXTRA_PENDING_ID, -1L)
+                .takeIf { it > 0 }
             val route = NavRoutes.addExpenseFromNotification(
                 amount = amount,
                 currency = currency,
                 merchant = merchant,
-                type = type
+                type = type,
+                account = account,
+                paymentMethod = paymentMethod,
+                pendingId = pendingId
             )
             viewModel.setPendingRoute(route)
         }
     }
 
     private fun requestNotificationPermissionIfNeeded() {
+        val toRequest = mutableListOf<String>()
+
+        // SMS permissions — needed for SmsReceiver to intercept live bank SMS
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.RECEIVE_SMS)
+            != PackageManager.PERMISSION_GRANTED
+        ) {
+            toRequest.add(Manifest.permission.RECEIVE_SMS)
+        }
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.READ_SMS)
+            != PackageManager.PERMISSION_GRANTED
+        ) {
+            toRequest.add(Manifest.permission.READ_SMS)
+        }
+
+        // POST_NOTIFICATIONS — Android 13+ only
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             if (ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS)
                 != PackageManager.PERMISSION_GRANTED
             ) {
-                requestPermissions(arrayOf(Manifest.permission.POST_NOTIFICATIONS), 0)
+                toRequest.add(Manifest.permission.POST_NOTIFICATIONS)
             }
+        }
+
+        if (toRequest.isNotEmpty()) {
+            requestPermissions(toRequest.toTypedArray(), 0)
         }
     }
 }

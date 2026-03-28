@@ -273,7 +273,7 @@ private fun ExpenseDetailContent(
                 DetailDivider()
                 DetailRow("Time", DateTimeUtil.formatTime(expense.date))
                 DetailDivider()
-                DetailRow("Payment", expense.paymentMethod.name.replace("_", " "))
+                DetailRow("Payment", expense.paymentMethod.label)
                 // account display wired via accountId in future
                 DetailDivider()
                 DetailRow("Type", expense.transactionType.name.lowercase().replaceFirstChar { it.uppercase() })

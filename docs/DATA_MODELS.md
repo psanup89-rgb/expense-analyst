@@ -2,9 +2,9 @@
 
 ## Database: Room (SQLite)
 - Database class: `ExpenseAnalystDatabase`
-- **Current schema version: `6`**
+- **Current schema version: `9`**
 - Room schema export is enabled under `data/schemas/`
-- All migrations are inline in `ExpenseAnalystDatabase.kt` (v1→v2→...→v6)
+- All migrations are inline in `ExpenseAnalystDatabase.kt` (v1→v2→...→v9)
 - Home currency preference is stored separately in DataStore, not in Room
 
 ---
@@ -113,6 +113,22 @@ User-defined merchant→category mapping for intelligent auto-categorization.
 | created_at_utc_millis | INTEGER | NOT NULL | |
 
 **Index**: `idx_merchant_rules_pattern` (UNIQUE) on `merchant_pattern`
+
+### pending_notifications
+Transactions detected from SMS/notifications awaiting user action (add or dismiss).
+
+| Column | Type | Constraints | Description |
+|--------|------|-------------|-------------|
+| id | INTEGER | PK, autoGenerate | |
+| amount | REAL | NOT NULL | Parsed transaction amount |
+| currency_code | TEXT | NOT NULL | ISO 4217 |
+| merchant_name | TEXT | NULLABLE | Parsed merchant/payee |
+| bank_name | TEXT | NOT NULL | e.g. "Al Rajhi Bank" |
+| account_last4 | TEXT | NULLABLE | Last 4 digits |
+| transaction_type | TEXT | NOT NULL | DEBIT, CREDIT, or PAYMENT |
+| detected_at_millis | INTEGER | NOT NULL | When detected |
+| raw_body | TEXT | NULLABLE | Original SMS / notification text (shown as "Source SMS" in AddExpense) |
+| payment_method | TEXT | NULLABLE | PaymentMethod enum name e.g. "APPLE_PAY" |
 
 ### currency_rates
 Cached exchange rates for offline support.

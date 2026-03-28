@@ -26,10 +26,13 @@ object TransactionAlertNotification {
     const val EXTRA_CURRENCY = "notif_currency"
     const val EXTRA_MERCHANT = "notif_merchant"
     const val EXTRA_TYPE = "notif_type"
+    const val EXTRA_ACCOUNT = "notif_account"
+    const val EXTRA_PAYMENT_METHOD = "notif_payment_method"
+    const val EXTRA_PENDING_ID = "notif_pending_id"
 
     private var nextNotifId = 2000
 
-    fun post(context: Context, parsed: ParsedTransaction) {
+    fun post(context: Context, parsed: ParsedTransaction, pendingId: Long? = null) {
         val manager = context.getSystemService(NotificationManager::class.java) ?: return
 
         // Create channel (no-op if already exists)
@@ -51,6 +54,13 @@ object TransactionAlertNotification {
                 putExtra(EXTRA_CURRENCY, parsed.currencyCode)
                 putExtra(EXTRA_MERCHANT, parsed.merchant)
                 putExtra(EXTRA_TYPE, parsed.type.name)
+                val accountStr = parsed.accountLast4?.let { last4 ->
+                    val bank = parsed.bankName.takeIf { it != "Unknown Bank" } ?: ""
+                    if (bank.isNotBlank()) "$bank *$last4" else "*$last4"
+                }
+                putExtra(EXTRA_ACCOUNT, accountStr)
+                putExtra(EXTRA_PAYMENT_METHOD, parsed.paymentMethodName)
+                if (pendingId != null) putExtra(EXTRA_PENDING_ID, pendingId)
                 flags = Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP
             } ?: return
 

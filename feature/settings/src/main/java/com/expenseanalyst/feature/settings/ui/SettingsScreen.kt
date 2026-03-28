@@ -20,11 +20,13 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Scaffold
@@ -41,8 +43,10 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import androidx.core.app.NotificationManagerCompat
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.expenseanalyst.core.util.CurrencyCatalog
@@ -51,6 +55,8 @@ import com.expenseanalyst.core.util.CurrencyCatalog
 fun SettingsScreen(
     onBack: (() -> Unit)? = null,
     onNavigateToSmsImport: () -> Unit = {},
+    onTestNotification: () -> Unit = {},
+    onGrantNotificationAccess: () -> Unit = {},
     viewModel: SettingsViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
@@ -73,7 +79,9 @@ fun SettingsScreen(
         onCurrencySearchQueryChange = viewModel::onCurrencySearchQueryChange,
         onCurrencySelected = viewModel::updateHomeCurrency,
         onNotificationCaptureToggle = viewModel::toggleNotificationCapture,
-        onNavigateToSmsImport = onNavigateToSmsImport
+        onNavigateToSmsImport = onNavigateToSmsImport,
+        onTestNotification = onTestNotification,
+        onGrantNotificationAccess = onGrantNotificationAccess
     )
 }
 
@@ -88,7 +96,9 @@ private fun SettingsContent(
     onCurrencySearchQueryChange: (String) -> Unit,
     onCurrencySelected: (String) -> Unit,
     onNotificationCaptureToggle: (Boolean) -> Unit,
-    onNavigateToSmsImport: () -> Unit
+    onNavigateToSmsImport: () -> Unit,
+    onTestNotification: () -> Unit,
+    onGrantNotificationAccess: () -> Unit
 ) {
     val filteredCurrencies = CurrencyCatalog.all.filter { currency ->
         val query = uiState.currencySearchQuery.trim()
@@ -268,6 +278,11 @@ private fun SettingsContent(
 
             // Notifications section
             item {
+                val ctx = LocalContext.current
+                val notifListenerGranted = remember(ctx) {
+                    NotificationManagerCompat.getEnabledListenerPackages(ctx)
+                        .any { it == ctx.packageName }
+                }
                 Card(
                     modifier = Modifier.fillMaxWidth(),
                     colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer)
@@ -291,7 +306,7 @@ private fun SettingsContent(
                                     color = MaterialTheme.colorScheme.onSurface
                                 )
                                 Text(
-                                    text = "Show banner when bank SMS or push notification is detected",
+                                    text = "Show banner when bank SMS is received",
                                     style = MaterialTheme.typography.bodySmall,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
@@ -306,6 +321,51 @@ private fun SettingsContent(
                                 )
                             )
                         }
+                        Spacer(Modifier.height(12.dp))
+                        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
+                        Spacer(Modifier.height(12.dp))
+                        // Notification listener status
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    text = "Notification access",
+                                    style = MaterialTheme.typography.labelLarge,
+                                    color = MaterialTheme.colorScheme.onSurface
+                                )
+                                Text(
+                                    text = if (notifListenerGranted) "Granted — push notifications from bank apps captured"
+                                           else "Not granted — only SMS will be captured",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = if (notifListenerGranted) Color(0xFF4CAF50)
+                                            else MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                            if (!notifListenerGranted) {
+                                Spacer(Modifier.height(8.dp))
+                                OutlinedButton(onClick = onGrantNotificationAccess) {
+                                    Text("Grant", style = MaterialTheme.typography.labelMedium)
+                                }
+                            }
+                        }
+                        Spacer(Modifier.height(12.dp))
+                        // Test the full notification pipeline
+                        FilledTonalButton(
+                            onClick = onTestNotification,
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = androidx.compose.foundation.shape.RoundedCornerShape(10.dp)
+                        ) {
+                            Text("Test Notification")
+                        }
+                        Text(
+                            text = "Fires a fake SAR 150 transaction — you should see a system tray notification AND an in-app banner.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.padding(top = 4.dp)
+                        )
                     }
                 }
             }

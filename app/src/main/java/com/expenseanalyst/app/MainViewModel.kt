@@ -1,8 +1,14 @@
 package com.expenseanalyst.app
 
+import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.expenseanalyst.domain.repository.OnboardingRepository
+import com.expenseanalyst.domain.repository.PendingNotificationRepository
+import com.expenseanalyst.feature.notification.parser.ParsedTransaction
+import com.expenseanalyst.feature.notification.parser.TransactionDirection
+import com.expenseanalyst.feature.notification.service.PendingNotificationManager
+import com.expenseanalyst.feature.notification.service.TransactionAlertNotification
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -13,12 +19,17 @@ import javax.inject.Inject
 
 @HiltViewModel
 class MainViewModel @Inject constructor(
-    onboardingRepository: OnboardingRepository
+    onboardingRepository: OnboardingRepository,
+    private val pendingManager: PendingNotificationManager,
+    pendingNotificationRepository: PendingNotificationRepository
 ) : ViewModel() {
 
     /**
      * null = still loading, true = onboarding done, false = needs onboarding
      */
+    val pendingInboxCount: StateFlow<Int> = pendingNotificationRepository.getCount()
+        .stateIn(scope = viewModelScope, started = SharingStarted.Eagerly, initialValue = 0)
+
     val isOnboardingCompleted: StateFlow<Boolean?> = onboardingRepository
         .isOnboardingCompleted()
         .stateIn(
@@ -40,5 +51,26 @@ class MainViewModel @Inject constructor(
 
     fun consumePendingRoute() {
         _pendingRoute.value = null
+    }
+
+    /**
+     * Fires a fake SAR 150.00 transaction through the full notification pipeline:
+     * - System tray notification (to verify POST_NOTIFICATIONS + channel setup)
+     * - In-app banner (to verify PendingNotificationManager → NotificationBanner flow)
+     *
+     * Use the "Test Notification" button in Settings to trigger this.
+     */
+    fun testNotification(context: Context) {
+        val fake = ParsedTransaction(
+            amount = 150.00,
+            currencyCode = "SAR",
+            type = TransactionDirection.DEBIT,
+            merchant = "Test Merchant",
+            accountLast4 = "1234",
+            referenceNumber = "TEST001",
+            bankName = "Test Bank"
+        )
+        pendingManager.enqueue(fake)
+        TransactionAlertNotification.post(context.applicationContext, fake)
     }
 }

@@ -27,6 +27,7 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
@@ -55,6 +56,9 @@ import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -568,11 +572,13 @@ internal fun AddExpenseContent(
                         contentPadding = PaddingValues(horizontal = 16.dp),
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        items(PaymentMethod.entries) { method ->
+                        val ordered = listOf(uiState.paymentMethod) +
+                            PaymentMethod.entries.filter { it != uiState.paymentMethod }
+                        items(ordered) { method ->
                             FilterChip(
                                 selected = uiState.paymentMethod == method,
                                 onClick = { onPaymentMethodChange(method) },
-                                label = { Text(method.name.replace("_", " "), style = MaterialTheme.typography.labelSmall) },
+                                label = { Text(method.label, style = MaterialTheme.typography.labelSmall) },
                                 colors = FilterChipDefaults.filterChipColors(
                                     selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
                                     selectedLabelColor = MaterialTheme.colorScheme.onPrimaryContainer
@@ -602,7 +608,58 @@ internal fun AddExpenseContent(
                 }
             }
 
+            // Raw SMS preview (only shown when pre-filled from a notification/SMS)
+            if (!uiState.rawSmsBody.isNullOrBlank()) {
+                item { Spacer(Modifier.height(16.dp)) }
+                item { RawSmsPreviewCard(rawBody = uiState.rawSmsBody) }
+            }
+
             item { Spacer(Modifier.height(24.dp)) }
+        }
+    }
+}
+
+@Composable
+private fun RawSmsPreviewCard(rawBody: String) {
+    var expanded by remember { mutableStateOf(false) }
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
+        shape = RoundedCornerShape(12.dp)
+    ) {
+        Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp)) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable { expanded = !expanded },
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    "Source SMS",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.primary,
+                    fontWeight = FontWeight.Bold,
+                    letterSpacing = 1.2.sp
+                )
+                Icon(
+                    imageVector = if (expanded) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown,
+                    contentDescription = if (expanded) "Collapse" else "Expand",
+                    modifier = Modifier.size(18.dp),
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+            if (expanded) {
+                Spacer(Modifier.height(8.dp))
+                Text(
+                    text = rawBody,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace
+                )
+            }
         }
     }
 }

@@ -43,11 +43,12 @@ import java.util.Locale
  */
 @Composable
 fun NotificationBanner(
-    onSave: (ParsedTransaction) -> Unit,
+    onSave: (ParsedTransaction, pendingId: Long?) -> Unit,
     modifier: Modifier = Modifier,
     viewModel: NotificationBannerViewModel = hiltViewModel()
 ) {
     val pending by viewModel.pending.collectAsStateWithLifecycle()
+    val lastPendingId by viewModel.lastPendingId.collectAsStateWithLifecycle()
 
     AnimatedVisibility(
         visible = pending != null,
@@ -60,7 +61,7 @@ fun NotificationBanner(
                 transaction = tx,
                 onSave = {
                     viewModel.consume()
-                    onSave(tx)
+                    onSave(tx, lastPendingId)
                 },
                 onDismiss = viewModel::dismiss
             )

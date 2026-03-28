@@ -1,0 +1,548 @@
+{
+  "formatVersion": 1,
+  "database": {
+    "version": 9,
+    "identityHash": "53fa15fe4b72b8d26794d2ac33533c45",
+    "entities": [
+      {
+        "tableName": "expenses",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `amount` REAL NOT NULL, `currency_code` TEXT NOT NULL, `home_amount` REAL, `exchange_rate` REAL, `description` TEXT NOT NULL, `category_id` INTEGER NOT NULL, `payment_method` TEXT NOT NULL, `transaction_type` TEXT NOT NULL, `date_utc_millis` INTEGER NOT NULL, `merchant_name` TEXT, `source_type` TEXT NOT NULL, `source_sender` TEXT, `emi_group_id` INTEGER, `emi_installment_number` INTEGER, `note` TEXT, `account_number` TEXT, `account_id` INTEGER, `raw_sms_body` TEXT, `is_deleted` INTEGER NOT NULL DEFAULT 0, `created_at_utc_millis` INTEGER NOT NULL, `updated_at_utc_millis` INTEGER NOT NULL, FOREIGN KEY(`category_id`) REFERENCES `categories`(`id`) ON UPDATE NO ACTION ON DELETE NO ACTION , FOREIGN KEY(`account_id`) REFERENCES `accounts`(`id`) ON UPDATE NO ACTION ON DELETE SET NULL )",
+        "fields": [
+          {
+            "fieldPath": "id",
+            "columnName": "id",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "amount",
+            "columnName": "amount",
+            "affinity": "REAL",
+            "notNull": true
+          },
+          {
+            "fieldPath": "currencyCode",
+            "columnName": "currency_code",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "homeAmount",
+            "columnName": "home_amount",
+            "affinity": "REAL"
+          },
+          {
+            "fieldPath": "exchangeRate",
+            "columnName": "exchange_rate",
+            "affinity": "REAL"
+          },
+          {
+            "fieldPath": "description",
+            "columnName": "description",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "categoryId",
+            "columnName": "category_id",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "paymentMethod",
+            "columnName": "payment_method",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "transactionType",
+            "columnName": "transaction_type",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "dateUtcMillis",
+            "columnName": "date_utc_millis",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "merchantName",
+            "columnName": "merchant_name",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "sourceType",
+            "columnName": "source_type",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "sourceSender",
+            "columnName": "source_sender",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "emiGroupId",
+            "columnName": "emi_group_id",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "emiInstallmentNumber",
+            "columnName": "emi_installment_number",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "note",
+            "columnName": "note",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "accountNumber",
+            "columnName": "account_number",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "accountId",
+            "columnName": "account_id",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "rawSmsBody",
+            "columnName": "raw_sms_body",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "isDeleted",
+            "columnName": "is_deleted",
+            "affinity": "INTEGER",
+            "notNull": true,
+            "defaultValue": "0"
+          },
+          {
+            "fieldPath": "createdAtUtcMillis",
+            "columnName": "created_at_utc_millis",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "updatedAtUtcMillis",
+            "columnName": "updated_at_utc_millis",
+            "affinity": "INTEGER",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": true,
+          "columnNames": [
+            "id"
+          ]
+        },
+        "indices": [
+          {
+            "name": "idx_expenses_date",
+            "unique": false,
+            "columnNames": [
+              "date_utc_millis"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `idx_expenses_date` ON `${TABLE_NAME}` (`date_utc_millis`)"
+          },
+          {
+            "name": "idx_expenses_category",
+            "unique": false,
+            "columnNames": [
+              "category_id"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `idx_expenses_category` ON `${TABLE_NAME}` (`category_id`)"
+          },
+          {
+            "name": "idx_expenses_emi_group",
+            "unique": false,
+            "columnNames": [
+              "emi_group_id"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `idx_expenses_emi_group` ON `${TABLE_NAME}` (`emi_group_id`)"
+          },
+          {
+            "name": "idx_expenses_deleted",
+            "unique": false,
+            "columnNames": [
+              "is_deleted"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `idx_expenses_deleted` ON `${TABLE_NAME}` (`is_deleted`)"
+          },
+          {
+            "name": "idx_expenses_account",
+            "unique": false,
+            "columnNames": [
+              "account_id"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `idx_expenses_account` ON `${TABLE_NAME}` (`account_id`)"
+          }
+        ],
+        "foreignKeys": [
+          {
+            "table": "categories",
+            "onDelete": "NO ACTION",
+            "onUpdate": "NO ACTION",
+            "columns": [
+              "category_id"
+            ],
+            "referencedColumns": [
+              "id"
+            ]
+          },
+          {
+            "table": "accounts",
+            "onDelete": "SET NULL",
+            "onUpdate": "NO ACTION",
+            "columns": [
+              "account_id"
+            ],
+            "referencedColumns": [
+              "id"
+            ]
+          }
+        ]
+      },
+      {
+        "tableName": "categories",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `name` TEXT NOT NULL, `icon_name` TEXT NOT NULL, `color_hex` TEXT NOT NULL, `is_default` INTEGER NOT NULL, `sort_order` INTEGER NOT NULL)",
+        "fields": [
+          {
+            "fieldPath": "id",
+            "columnName": "id",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "name",
+            "columnName": "name",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "iconName",
+            "columnName": "icon_name",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "colorHex",
+            "columnName": "color_hex",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "isDefault",
+            "columnName": "is_default",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "sortOrder",
+            "columnName": "sort_order",
+            "affinity": "INTEGER",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": true,
+          "columnNames": [
+            "id"
+          ]
+        }
+      },
+      {
+        "tableName": "emi_groups",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `total_amount` REAL NOT NULL, `currency_code` TEXT NOT NULL, `number_of_installments` INTEGER NOT NULL, `installment_amount` REAL NOT NULL, `interest_rate` REAL, `start_date_utc_millis` INTEGER NOT NULL, `description` TEXT NOT NULL, `category_id` INTEGER NOT NULL, `payment_method` TEXT NOT NULL, `created_at_utc_millis` INTEGER NOT NULL)",
+        "fields": [
+          {
+            "fieldPath": "id",
+            "columnName": "id",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "totalAmount",
+            "columnName": "total_amount",
+            "affinity": "REAL",
+            "notNull": true
+          },
+          {
+            "fieldPath": "currencyCode",
+            "columnName": "currency_code",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "numberOfInstallments",
+            "columnName": "number_of_installments",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "installmentAmount",
+            "columnName": "installment_amount",
+            "affinity": "REAL",
+            "notNull": true
+          },
+          {
+            "fieldPath": "interestRate",
+            "columnName": "interest_rate",
+            "affinity": "REAL"
+          },
+          {
+            "fieldPath": "startDateUtcMillis",
+            "columnName": "start_date_utc_millis",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "description",
+            "columnName": "description",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "categoryId",
+            "columnName": "category_id",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "paymentMethod",
+            "columnName": "payment_method",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "createdAtUtcMillis",
+            "columnName": "created_at_utc_millis",
+            "affinity": "INTEGER",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": true,
+          "columnNames": [
+            "id"
+          ]
+        }
+      },
+      {
+        "tableName": "currency_rates",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`currency_code` TEXT NOT NULL, `rate_to_base` REAL NOT NULL, `last_updated_utc_millis` INTEGER NOT NULL, PRIMARY KEY(`currency_code`))",
+        "fields": [
+          {
+            "fieldPath": "currencyCode",
+            "columnName": "currency_code",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "rateToBase",
+            "columnName": "rate_to_base",
+            "affinity": "REAL",
+            "notNull": true
+          },
+          {
+            "fieldPath": "lastUpdatedUtcMillis",
+            "columnName": "last_updated_utc_millis",
+            "affinity": "INTEGER",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "currency_code"
+          ]
+        }
+      },
+      {
+        "tableName": "accounts",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `bank_name` TEXT NOT NULL, `last_four` TEXT, `account_type` TEXT NOT NULL, `display_name` TEXT NOT NULL)",
+        "fields": [
+          {
+            "fieldPath": "id",
+            "columnName": "id",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "bankName",
+            "columnName": "bank_name",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "lastFour",
+            "columnName": "last_four",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "accountType",
+            "columnName": "account_type",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "displayName",
+            "columnName": "display_name",
+            "affinity": "TEXT",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": true,
+          "columnNames": [
+            "id"
+          ]
+        },
+        "indices": [
+          {
+            "name": "idx_accounts_bank_last4",
+            "unique": true,
+            "columnNames": [
+              "bank_name",
+              "last_four"
+            ],
+            "orders": [],
+            "createSql": "CREATE UNIQUE INDEX IF NOT EXISTS `idx_accounts_bank_last4` ON `${TABLE_NAME}` (`bank_name`, `last_four`)"
+          }
+        ]
+      },
+      {
+        "tableName": "merchant_rules",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `merchant_pattern` TEXT NOT NULL, `category_id` INTEGER NOT NULL, `category_name` TEXT NOT NULL, `created_at_utc_millis` INTEGER NOT NULL)",
+        "fields": [
+          {
+            "fieldPath": "id",
+            "columnName": "id",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "merchantPattern",
+            "columnName": "merchant_pattern",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "categoryId",
+            "columnName": "category_id",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "categoryName",
+            "columnName": "category_name",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "createdAtUtcMillis",
+            "columnName": "created_at_utc_millis",
+            "affinity": "INTEGER",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": true,
+          "columnNames": [
+            "id"
+          ]
+        },
+        "indices": [
+          {
+            "name": "idx_merchant_rules_pattern",
+            "unique": true,
+            "columnNames": [
+              "merchant_pattern"
+            ],
+            "orders": [],
+            "createSql": "CREATE UNIQUE INDEX IF NOT EXISTS `idx_merchant_rules_pattern` ON `${TABLE_NAME}` (`merchant_pattern`)"
+          }
+        ]
+      },
+      {
+        "tableName": "pending_notifications",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `amount` REAL NOT NULL, `currency_code` TEXT NOT NULL, `merchant_name` TEXT, `bank_name` TEXT NOT NULL, `account_last4` TEXT, `transaction_type` TEXT NOT NULL, `detected_at_millis` INTEGER NOT NULL, `raw_body` TEXT, `payment_method` TEXT)",
+        "fields": [
+          {
+            "fieldPath": "id",
+            "columnName": "id",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "amount",
+            "columnName": "amount",
+            "affinity": "REAL",
+            "notNull": true
+          },
+          {
+            "fieldPath": "currencyCode",
+            "columnName": "currency_code",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "merchantName",
+            "columnName": "merchant_name",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "bankName",
+            "columnName": "bank_name",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "accountLast4",
+            "columnName": "account_last4",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "transactionType",
+            "columnName": "transaction_type",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "detectedAtMillis",
+            "columnName": "detected_at_millis",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "rawBody",
+            "columnName": "raw_body",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "paymentMethod",
+            "columnName": "payment_method",
+            "affinity": "TEXT"
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": true,
+          "columnNames": [
+            "id"
+          ]
+        }
+      }
+    ],
+    "setupQueries": [
+      "CREATE TABLE IF NOT EXISTS room_master_table (id INTEGER PRIMARY KEY,identity_hash TEXT)",
+      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '53fa15fe4b72b8d26794d2ac33533c45')"
+    ]
+  }
+}

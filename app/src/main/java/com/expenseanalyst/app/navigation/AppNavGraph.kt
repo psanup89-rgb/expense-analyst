@@ -23,6 +23,7 @@ import com.expenseanalyst.feature.expenses.ui.EditExpenseScreen
 import com.expenseanalyst.feature.expenses.ui.ExpenseDetailScreen
 import com.expenseanalyst.feature.expenses.ui.ExpenseListScreen
 import com.expenseanalyst.feature.notification.ui.NotificationBanner
+import com.expenseanalyst.feature.notification.ui.PendingInboxScreen
 import com.expenseanalyst.feature.notification.ui.SmsImportScreen
 import com.expenseanalyst.feature.onboarding.ui.OnboardingScreen
 import com.expenseanalyst.feature.settings.ui.SettingsScreen
@@ -73,7 +74,7 @@ fun AppNavGraph(
                     onExpenseClick = { id -> navController.navigate(NavRoutes.expenseDetail(id)) }
                 )
                 NotificationBanner(
-                    onSave = { parsed ->
+                    onSave = { parsed, pendingId ->
                         val accountStr = parsed.accountLast4?.let { last4 ->
                             val bank = parsed.bankName.takeIf { it != "Unknown Bank" } ?: ""
                             if (bank.isNotBlank()) "$bank *$last4" else "*$last4"
@@ -84,7 +85,9 @@ fun AppNavGraph(
                                 currency = parsed.currencyCode,
                                 merchant = parsed.merchant,
                                 type = parsed.type.name,
-                                account = accountStr
+                                account = accountStr,
+                                pendingId = pendingId,
+                                paymentMethod = parsed.paymentMethodName
                             )
                         )
                     },
@@ -100,7 +103,9 @@ fun AppNavGraph(
                 navArgument("currency") { type = NavType.StringType; defaultValue = "" },
                 navArgument("merchant") { type = NavType.StringType; nullable = true; defaultValue = null },
                 navArgument("type") { type = NavType.StringType; defaultValue = "" },
-                navArgument("account") { type = NavType.StringType; nullable = true; defaultValue = null }
+                navArgument("account") { type = NavType.StringType; nullable = true; defaultValue = null },
+                navArgument("pendingId") { type = NavType.LongType; defaultValue = -1L },
+                navArgument("paymentMethod") { type = NavType.StringType; nullable = true; defaultValue = null }
             )
         ) {
             AddExpenseScreen(
@@ -144,6 +149,25 @@ fun AppNavGraph(
             )
         }
 
+        composable(NavRoutes.PENDING_INBOX) {
+            PendingInboxScreen(
+                onBack = { navController.popBackStack() },
+                onAddExpense = { amount, currency, merchant, type, account, pendingId, paymentMethod ->
+                    navController.navigate(
+                        NavRoutes.addExpenseFromNotification(
+                            amount = amount,
+                            currency = currency,
+                            merchant = merchant,
+                            type = type,
+                            account = account,
+                            pendingId = pendingId,
+                            paymentMethod = paymentMethod
+                        )
+                    )
+                }
+            )
+        }
+
         composable(NavRoutes.EMI_LIST) {
             EmiListScreen(
                 onNavigateToDetail = { id -> navController.navigate(NavRoutes.emiDetail(id)) }
@@ -160,8 +184,16 @@ fun AppNavGraph(
         }
 
         composable(NavRoutes.SETTINGS) {
+            val context = androidx.compose.ui.platform.LocalContext.current
             SettingsScreen(
-                onNavigateToSmsImport = { navController.navigate(NavRoutes.SMS_IMPORT) }
+                onNavigateToSmsImport = { navController.navigate(NavRoutes.SMS_IMPORT) },
+                onTestNotification = { mainViewModel?.testNotification(context) },
+                onGrantNotificationAccess = {
+                    context.startActivity(
+                        android.content.Intent(android.provider.Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS)
+                            .addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
+                    )
+                }
             )
         }
 

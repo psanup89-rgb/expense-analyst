@@ -12,12 +12,14 @@ import com.expenseanalyst.data.local.dao.CurrencyRateDao
 import com.expenseanalyst.data.local.dao.EmiGroupDao
 import com.expenseanalyst.data.local.dao.ExpenseDao
 import com.expenseanalyst.data.local.dao.MerchantRuleDao
+import com.expenseanalyst.data.local.dao.PendingNotificationDao
 import com.expenseanalyst.data.local.entity.AccountEntity
 import com.expenseanalyst.data.local.entity.CategoryEntity
 import com.expenseanalyst.data.local.entity.CurrencyRateEntity
 import com.expenseanalyst.data.local.entity.EmiGroupEntity
 import com.expenseanalyst.data.local.entity.ExpenseEntity
 import com.expenseanalyst.data.local.entity.MerchantRuleEntity
+import com.expenseanalyst.data.local.entity.PendingNotificationEntity
 
 
 @Database(
@@ -27,9 +29,10 @@ import com.expenseanalyst.data.local.entity.MerchantRuleEntity
         EmiGroupEntity::class,
         CurrencyRateEntity::class,
         AccountEntity::class,
-        MerchantRuleEntity::class
+        MerchantRuleEntity::class,
+        PendingNotificationEntity::class
     ],
-    version = 6,
+    version = 9,
     exportSchema = true
 )
 abstract class ExpenseAnalystDatabase : RoomDatabase() {
@@ -39,6 +42,7 @@ abstract class ExpenseAnalystDatabase : RoomDatabase() {
     abstract fun currencyRateDao(): CurrencyRateDao
     abstract fun accountDao(): AccountDao
     abstract fun merchantRuleDao(): MerchantRuleDao
+    abstract fun pendingNotificationDao(): PendingNotificationDao
 
     companion object {
         const val DATABASE_NAME = "expense_analyst.db"
@@ -63,6 +67,37 @@ abstract class ExpenseAnalystDatabase : RoomDatabase() {
         private val MIGRATION_4_5 = object : Migration(4, 5) {
             override fun migrate(db: SupportSQLiteDatabase) {
                 db.execSQL("ALTER TABLE expenses ADD COLUMN raw_sms_body TEXT")
+            }
+        }
+
+        private val MIGRATION_8_9 = object : Migration(8, 9) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE pending_notifications ADD COLUMN payment_method TEXT")
+            }
+        }
+
+        private val MIGRATION_7_8 = object : Migration(7, 8) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE pending_notifications ADD COLUMN raw_body TEXT")
+            }
+        }
+
+        private val MIGRATION_6_7 = object : Migration(6, 7) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    """
+                    CREATE TABLE IF NOT EXISTS pending_notifications (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                        amount REAL NOT NULL,
+                        currency_code TEXT NOT NULL,
+                        merchant_name TEXT,
+                        bank_name TEXT NOT NULL,
+                        account_last4 TEXT,
+                        transaction_type TEXT NOT NULL,
+                        detected_at_millis INTEGER NOT NULL
+                    )
+                    """.trimIndent()
+                )
             }
         }
 
@@ -112,7 +147,7 @@ abstract class ExpenseAnalystDatabase : RoomDatabase() {
                 ExpenseAnalystDatabase::class.java,
                 DATABASE_NAME
             )
-                .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6)
+                .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9)
                 .addCallback(SeedDatabaseCallback())
                 .build()
         }

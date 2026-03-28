@@ -19,20 +19,27 @@ class AlRajhiParser : TransactionParser {
     override val bankName = "Al Rajhi Bank"
 
     private val senderPattern = Regex("""(?i)(?:alrajhi|al.rajhi|rajhi|74100)""")
+    // Content fingerprint: typical Al Rajhi SMS body patterns
+    private val bodyFingerprintPattern = Regex(
+        """(?i)(?:pos\s+purchase|online\s+purchase|purchase|debited|credited).*?(?:sar|ر\.س).*?(?:balance|amount|at\s*:)""",
+        RegexOption.DOT_MATCHES_ALL
+    )
     private val amountSarPattern = Regex("""(?i)(?:sar|ر\.س|sr)\s*([\d,]+\.?\d*)|([\d,]+\.?\d*)\s*(?:sar|ر\.س|sr)""")
     // Handles: "card ending 1234", "Card:7573", "By:7573", "account no. 5678"
     private val cardPattern = Regex("""(?i)(?:card|account|by)[:\s]*(?:ending|no\.?|number)?\s*[xX*]*(\d{4})""")
+    // Matches payment method label after card digits, e.g. ";Visa-Apple Pay", ";Visa", ";Mastercard"
+    private val paymentMethodPattern = Regex("""(?i);\s*(?:Visa|Mastercard|Mada|Amex|Discover)[-\s]*([A-Za-z ]+)?""")
     private val refPattern = Regex("""(?i)ref(?:erence)?:?\s*(\w+)""")
-    // Handles "at Merchant on <date>", "At:Merchant Balance:", "At: Merchant Fee 8VAT:", etc.
-    // Stops at known Al Rajhi field names (Fee, Balance, Exchange, Country, Total, Ref, Available)
-    // or end of string.
-    private val atPattern = Regex("""(?i)\bat[:\s]\s*([A-Za-z0-9][A-Za-z0-9 _\-&./]*?)(?=\s+(?:Fee|Balance|Ref|Exchange|Country|Total|Available|on\s+\d)|\s*${'$'})""")
+    // Stops at newline OR known Al Rajhi field names (Amount, Fee, Balance, etc.) or end of string.
+    private val atPattern = Regex(
+        """(?i)\bat[:\s]\s*([A-Za-z0-9][A-Za-z0-9 _\-&./]*?)(?=\s*\n|\s+(?:Amount|Fee|Balance|Ref|Exchange|Country|Total|Available|on\s+\d)|\s*${'$'})"""
+    )
 
     override fun canParse(sender: String, body: String): Boolean =
-        senderPattern.containsMatchIn(sender)
+        senderPattern.containsMatchIn(sender) || bodyFingerprintPattern.containsMatchIn(body)
 
     override fun parse(sender: String, body: String): ParsedTransaction? {
-        val isDebit = Regex("""(?i)\b(?:purchase|purchased|debited|deducted|خصم|مشتريات)\b""").containsMatchIn(body)
+        val isDebit = Regex("""(?i)\b(?:pos\s+purchase|purchase|purchased|debited|deducted|خصم|مشتريات)\b""").containsMatchIn(body)
         val isCredit = Regex("""(?i)\b(?:credited|received|أضيف|إيداع)\b""").containsMatchIn(body)
         if (!isDebit && !isCredit) return null
 
@@ -46,6 +53,17 @@ class AlRajhiParser : TransactionParser {
         val merchant = atPattern.find(body)?.groupValues?.get(1)?.trim()
             ?.takeIf { it.isNotBlank() && it.length < 60 }
 
+        // Detect payment method (e.g., "Apple Pay", "Samsung Pay") from ";Visa-Apple Pay" syntax
+        val cardLine = body.lines().firstOrNull { it.contains(Regex("""(?i)card:|by:""")) }
+        val detectedPaymentMethodName: String? = cardLine?.let { line ->
+            when {
+                line.contains("apple pay", ignoreCase = true) -> "APPLE_PAY"
+                line.contains("samsung pay", ignoreCase = true) -> "SAMSUNG_PAY"
+                line.contains("google pay", ignoreCase = true) -> "GOOGLE_PAY"
+                else -> null
+            }
+        }
+
         return ParsedTransaction(
             amount = amount,
             currencyCode = "SAR",
@@ -53,7 +71,8 @@ class AlRajhiParser : TransactionParser {
             merchant = merchant,
             accountLast4 = accountLast4,
             referenceNumber = ref,
-            bankName = bankName
+            bankName = bankName,
+            paymentMethodName = detectedPaymentMethodName
         )
     }
 }

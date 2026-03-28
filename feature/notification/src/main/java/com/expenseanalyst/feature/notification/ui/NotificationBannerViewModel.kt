@@ -29,6 +29,8 @@ class NotificationBannerViewModel @Inject constructor(
         initialValue = null
     )
 
+    val lastPendingId: StateFlow<Long?> = pendingManager.lastPendingId
+
     fun consume(): ParsedTransaction? = pendingManager.consume()
 
     fun dismiss() = pendingManager.dismiss()

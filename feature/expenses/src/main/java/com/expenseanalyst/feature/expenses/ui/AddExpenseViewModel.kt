@@ -12,6 +12,7 @@ import com.expenseanalyst.domain.model.SourceType
 import com.expenseanalyst.domain.model.TransactionType
 import com.expenseanalyst.domain.repository.AccountRepository
 import com.expenseanalyst.domain.repository.CurrencyRepository
+import com.expenseanalyst.domain.repository.PendingNotificationRepository
 import com.expenseanalyst.domain.usecase.AddExpenseUseCase
 import com.expenseanalyst.domain.usecase.GetAccountsUseCase
 import com.expenseanalyst.domain.usecase.GetCategoriesUseCase
@@ -38,7 +39,8 @@ class AddExpenseViewModel @Inject constructor(
     private val getCategoriesUseCase: GetCategoriesUseCase,
     private val getAccountsUseCase: GetAccountsUseCase,
     private val accountRepository: AccountRepository,
-    private val currencyRepository: CurrencyRepository
+    private val currencyRepository: CurrencyRepository,
+    private val pendingNotificationRepository: PendingNotificationRepository
 ) : ViewModel() {
 
     private val _form = MutableStateFlow(
@@ -77,25 +79,70 @@ class AddExpenseViewModel @Inject constructor(
         viewModelScope.launch {
             if (currencyRepository.isStale()) currencyRepository.refreshRates()
         }
+        // Apply payment method from nav arg (notification tap path)
+        val paymentMethodArg = savedStateHandle.get<String>("paymentMethod")?.takeIf { it.isNotBlank() }
+        if (paymentMethodArg != null) {
+            val pm = PaymentMethod.entries.find { it.name == paymentMethodArg }
+            if (pm != null) _form.update { it.copy(paymentMethod = pm) }
+        }
+
         val accountNavArg = savedStateHandle.get<String>("account")?.takeIf { it.isNotBlank() }
         if (accountNavArg != null) {
             viewModelScope.launch {
                 val allAccounts = getAccountsUseCase().first()
                 val last4 = Regex("""\*(\d{4})""").find(accountNavArg)?.groupValues?.get(1)
                 val bankName = accountNavArg.substringBefore("*").trim().ifEmpty { null }
+                // When both bankName and last4 are known, require both to match.
+                // Matching on last4 alone is too broad — different banks can share card digits.
                 val matched = allAccounts.find { account ->
-                    (last4 != null && account.lastFour == last4) ||
-                        (bankName != null && account.bankName.contains(bankName, ignoreCase = true))
+                    val bankMatches = bankName != null &&
+                        account.bankName.contains(bankName, ignoreCase = true)
+                    val last4Matches = last4 != null && account.lastFour == last4
+                    when {
+                        bankName != null && last4 != null -> bankMatches && last4Matches
+                        bankName != null -> bankMatches
+                        else -> last4Matches
+                    }
                 }
+                val isWalletPayment = paymentMethodArg in listOf("APPLE_PAY", "SAMSUNG_PAY", "GOOGLE_PAY")
+                val inferredType = if (isWalletPayment) AccountType.CREDIT_CARD else AccountType.OTHER
+
                 if (matched != null) {
+                    // If the account type is less specific (e.g. Savings/Other) but we now know
+                    // it's a credit card (wallet payment), upgrade the type in-place.
+                    if (isWalletPayment && matched.accountType != AccountType.CREDIT_CARD) {
+                        val displayName = if (matched.lastFour != null)
+                            "${matched.bankName} *${matched.lastFour} · ${AccountType.CREDIT_CARD.label}"
+                        else "${matched.bankName} · ${AccountType.CREDIT_CARD.label}"
+                        accountRepository.updateAccount(
+                            matched.copy(accountType = AccountType.CREDIT_CARD, displayName = displayName)
+                        )
+                    }
                     _form.update { it.copy(selectedAccountId = matched.id) }
                 } else if (bankName != null) {
                     val newId = accountRepository.findOrCreate(
                         bankName = bankName,
                         lastFour = last4,
-                        accountType = AccountType.OTHER
+                        accountType = inferredType
                     )
                     _form.update { it.copy(selectedAccountId = newId) }
+                }
+            }
+        }
+
+        // Load rawSmsBody and paymentMethod from pending notification (inbox path)
+        val pendingIdArg = savedStateHandle.get<Long>("pendingId")?.takeIf { it > 0 }
+        if (pendingIdArg != null) {
+            viewModelScope.launch {
+                val pending = pendingNotificationRepository.getById(pendingIdArg) ?: return@launch
+                val updates = mutableListOf<AddExpenseUiState.() -> AddExpenseUiState>()
+                if (pending.rawBody != null) updates.add { copy(rawSmsBody = pending.rawBody) }
+                if (pending.paymentMethod != null && paymentMethodArg == null) {
+                    val pm = PaymentMethod.entries.find { it.name == pending.paymentMethod }
+                    if (pm != null) updates.add { copy(paymentMethod = pm) }
+                }
+                if (updates.isNotEmpty()) {
+                    _form.update { state -> updates.fold(state) { acc, fn -> fn(acc) } }
                 }
             }
         }
@@ -218,6 +265,9 @@ class AddExpenseViewModel @Inject constructor(
                     accountId = state.selectedAccountId
                 )
                 val id = addExpenseUseCase(expense)
+                // Clear the pending inbox item only after a successful save
+                val pendingId = savedStateHandle.get<Long>("pendingId")?.takeIf { it > 0 }
+                if (pendingId != null) pendingNotificationRepository.delete(pendingId)
                 _form.update { it.copy(isSaving = false, savedExpenseId = id) }
             } catch (e: Exception) {
                 _form.update { it.copy(isSaving = false, error = "Failed to save expense") }

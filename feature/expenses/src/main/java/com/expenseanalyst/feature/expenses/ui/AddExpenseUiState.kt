@@ -34,7 +34,8 @@ data class AddExpenseUiState(
     val categories: List<Category> = emptyList(),
     val isSaving: Boolean = false,
     val savedExpenseId: Long? = null,
-    val error: String? = null
+    val error: String? = null,
+    val rawSmsBody: String? = null
 ) {
     val selectedAccount: Account? get() = accounts.find { it.id == selectedAccountId }
 

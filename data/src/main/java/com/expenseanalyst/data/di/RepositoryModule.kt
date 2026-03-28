@@ -2,6 +2,7 @@ package com.expenseanalyst.data.di
 
 import com.expenseanalyst.data.repository.AccountRepositoryImpl
 import com.expenseanalyst.data.repository.MerchantRuleRepositoryImpl
+import com.expenseanalyst.data.repository.PendingNotificationRepositoryImpl
 import com.expenseanalyst.data.repository.AppPreferencesRepositoryImpl
 import com.expenseanalyst.data.repository.CategoryRepositoryImpl
 import com.expenseanalyst.data.repository.CurrencyRepositoryImpl
@@ -10,6 +11,7 @@ import com.expenseanalyst.data.repository.ExpenseRepositoryImpl
 import com.expenseanalyst.data.repository.OnboardingRepositoryImpl
 import com.expenseanalyst.domain.repository.AccountRepository
 import com.expenseanalyst.domain.repository.MerchantRuleRepository
+import com.expenseanalyst.domain.repository.PendingNotificationRepository
 import com.expenseanalyst.domain.repository.AppPreferencesRepository
 import com.expenseanalyst.domain.repository.CategoryRepository
 import com.expenseanalyst.domain.repository.CurrencyRepository
@@ -57,4 +59,8 @@ abstract class RepositoryModule {
     @Binds
     @Singleton
     abstract fun bindMerchantRuleRepository(impl: MerchantRuleRepositoryImpl): MerchantRuleRepository
+
+    @Binds
+    @Singleton
+    abstract fun bindPendingNotificationRepository(impl: PendingNotificationRepositoryImpl): PendingNotificationRepository
 }

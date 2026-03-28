@@ -23,6 +23,7 @@ android {
 dependencies {
     implementation(project(":core"))
     implementation(project(":domain"))
+    implementation(libs.core.ktx)
 
     implementation(platform(libs.compose.bom))
     implementation(libs.compose.ui)

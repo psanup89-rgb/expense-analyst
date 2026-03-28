@@ -272,7 +272,7 @@ private fun ExpenseListContent(
                             FilterChip(
                                 selected = uiState.selectedPaymentMethod == method,
                                 onClick = { onPaymentMethodFilter(if (uiState.selectedPaymentMethod == method) null else method) },
-                                label = { Text(method.name.replace("_", " "), style = MaterialTheme.typography.labelMedium) },
+                                label = { Text(method.label, style = MaterialTheme.typography.labelMedium) },
                                 colors = FilterChipDefaults.filterChipColors(
                                     selectedContainerColor = MaterialTheme.colorScheme.secondaryContainer,
                                     selectedLabelColor = MaterialTheme.colorScheme.onSecondaryContainer
@@ -546,7 +546,7 @@ fun ExpenseCard(
                 )
                 Spacer(Modifier.height(2.dp))
                 Text(
-                    text = expense.accountDisplayName ?: expense.paymentMethod.name.replace("_", " "),
+                    text = expense.accountDisplayName ?: expense.paymentMethod.label,
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
