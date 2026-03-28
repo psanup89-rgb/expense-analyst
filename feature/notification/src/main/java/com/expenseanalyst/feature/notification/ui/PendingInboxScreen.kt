@@ -21,6 +21,7 @@ import androidx.compose.material.icons.filled.ArrowDownward
 import androidx.compose.material.icons.filled.ArrowUpward
 import androidx.compose.material.icons.filled.Inbox
 import androidx.compose.material.icons.filled.Payment
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
@@ -59,6 +60,44 @@ fun PendingInboxScreen(
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
 
+    if (uiState.pendingDismissId != null) {
+        AlertDialog(
+            onDismissRequest = viewModel::cancelDismiss,
+            title = { Text("Dismiss transaction?") },
+            text = { Text("This transaction has not been added to your expenses yet. Are you sure you want to dismiss it?") },
+            confirmButton = {
+                TextButton(
+                    onClick = viewModel::confirmDismiss,
+                    colors = androidx.compose.material3.ButtonDefaults.textButtonColors(
+                        contentColor = MaterialTheme.colorScheme.error
+                    )
+                ) { Text("Dismiss") }
+            },
+            dismissButton = {
+                TextButton(onClick = viewModel::cancelDismiss) { Text("Cancel") }
+            }
+        )
+    }
+
+    if (uiState.showDismissAllConfirm) {
+        AlertDialog(
+            onDismissRequest = viewModel::cancelDismissAll,
+            title = { Text("Clear all transactions?") },
+            text = { Text("None of these transactions have been added to your expenses yet. Clearing will permanently remove all ${uiState.items.size} pending items.") },
+            confirmButton = {
+                TextButton(
+                    onClick = viewModel::confirmDismissAll,
+                    colors = androidx.compose.material3.ButtonDefaults.textButtonColors(
+                        contentColor = MaterialTheme.colorScheme.error
+                    )
+                ) { Text("Clear All") }
+            },
+            dismissButton = {
+                TextButton(onClick = viewModel::cancelDismissAll) { Text("Cancel") }
+            }
+        )
+    }
+
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
         topBar = {
@@ -72,7 +111,7 @@ fun PendingInboxScreen(
                 },
                 actions = {
                     if (uiState.items.isNotEmpty()) {
-                        TextButton(onClick = viewModel::dismissAll) {
+                        TextButton(onClick = viewModel::requestDismissAll) {
                             Text("Clear All", color = MaterialTheme.colorScheme.error)
                         }
                     }
@@ -134,7 +173,7 @@ fun PendingInboxScreen(
                                 item.paymentMethod
                             )
                         },
-                        onDismiss = { viewModel.dismiss(item.id) }
+                        onDismiss = { viewModel.requestDismiss(item.id) }
                     )
                 }
             }
