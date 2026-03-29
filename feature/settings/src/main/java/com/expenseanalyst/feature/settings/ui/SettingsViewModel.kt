@@ -28,15 +28,24 @@ class SettingsViewModel @Inject constructor(
     private val formState = MutableStateFlow(SettingsUiState())
 
     val uiState = combine(
-        currencyRepository.getHomeCurrency(),
-        appPreferencesRepository.isNotificationCaptureEnabled(),
-        appPreferencesRepository.getThemeMode(),
-        formState
-    ) { homeCurrency, notificationEnabled, themeMode, state ->
+        combine(
+            currencyRepository.getHomeCurrency(),
+            appPreferencesRepository.isNotificationCaptureEnabled(),
+            appPreferencesRepository.getThemeMode(),
+            formState
+        ) { homeCurrency, notificationEnabled, themeMode, state ->
+            state.copy(
+                homeCurrencyCode = homeCurrency,
+                notificationCaptureEnabled = notificationEnabled,
+                themeMode = themeMode
+            )
+        },
+        appPreferencesRepository.isGooglePlacesEnabled(),
+        appPreferencesRepository.getGooglePlacesApiKey()
+    ) { state, googleEnabled, googleKey ->
         state.copy(
-            homeCurrencyCode = homeCurrency,
-            notificationCaptureEnabled = notificationEnabled,
-            themeMode = themeMode
+            googlePlacesEnabled = googleEnabled,
+            googlePlacesApiKey = googleKey
         )
     }.stateIn(
         scope = viewModelScope,
@@ -63,6 +72,20 @@ class SettingsViewModel @Inject constructor(
             appPreferencesRepository.setNotificationCaptureEnabled(enabled)
         }
     }
+
+    fun toggleGooglePlaces(enabled: Boolean) {
+        viewModelScope.launch {
+            appPreferencesRepository.setGooglePlacesEnabled(enabled)
+        }
+    }
+
+    fun onGooglePlacesApiKeyChange(key: String) {
+        viewModelScope.launch {
+            appPreferencesRepository.setGooglePlacesApiKey(key)
+        }
+    }
+
+    fun toggleApiKeyVisibility() = formState.update { it.copy(isApiKeyVisible = !it.isApiKeyVisible) }
 
     fun updateThemeMode(mode: ThemeMode) {
         viewModelScope.launch {

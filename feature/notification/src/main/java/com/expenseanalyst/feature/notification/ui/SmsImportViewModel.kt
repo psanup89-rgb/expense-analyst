@@ -15,6 +15,7 @@ import com.expenseanalyst.domain.repository.CategoryRepository
 import com.expenseanalyst.domain.repository.CurrencyRepository
 import com.expenseanalyst.domain.repository.ExpenseRepository
 import com.expenseanalyst.domain.repository.MerchantRuleRepository
+import com.expenseanalyst.domain.repository.MerchantSearchRepository
 import com.expenseanalyst.domain.util.CategoryInference
 import com.expenseanalyst.domain.util.CurrencyConversion
 import com.expenseanalyst.feature.notification.parser.BillStatementParserRegistry
@@ -43,6 +44,7 @@ class SmsImportViewModel @Inject constructor(
     private val currencyRepository: CurrencyRepository,
     private val accountRepository: AccountRepository,
     private val merchantRuleRepository: MerchantRuleRepository,
+    private val merchantSearchRepository: MerchantSearchRepository,
     private val billStatementManager: BillStatementManager
 ) : ViewModel() {
 
@@ -128,6 +130,8 @@ class SmsImportViewModel @Inject constructor(
             var billsFound = 0
             // Cache accountId lookups to avoid redundant DB calls within the same import
             val accountCache = mutableMapOf<Pair<String, String?>, Long>()
+            // Cache web search results — same merchant searched only once per import run
+            val webSearchCache = mutableMapOf<String, com.expenseanalyst.domain.model.Category?>()
 
             smsList.forEachIndexed { index, sms ->
                 val parsed = ParserRegistry.parse(sms.sender, sms.body)
@@ -180,11 +184,14 @@ class SmsImportViewModel @Inject constructor(
                 // Merchant name is the primary identifier; fall back to bank display name
                 val merchantName = parsed.merchant?.takeIf { it.isNotBlank() } ?: bankDisplay
 
-                // Category inference — uses merchantName which is now always populated
+                // Category inference — Tier 1+2 (instant), Tier 3 web search (cached per merchant)
                 val category = CategoryInference.infer(
                     merchantName, parsed.bankName, categories,
                     smsBody = sms.body, merchantRules = merchantRules
-                ) ?: miscCategory
+                ) ?: webSearchCache.getOrPut(merchantName) {
+                    val catName = merchantSearchRepository.searchMerchantCategory(merchantName)
+                    categories.find { it.name.equals(catName, ignoreCase = true) }
+                } ?: miscCategory
                 val inferredAccountType = when {
                     sms.body.contains("credit card", ignoreCase = true) ||
                         sms.body.contains(" CC ", ignoreCase = true) ||
@@ -250,6 +257,17 @@ class SmsImportViewModel @Inject constructor(
             }
 
             withContext(Dispatchers.IO) { expenseRepository.addExpenses(toSave) }
+
+            // Batch-save any new merchant→category discoveries from Tier 3 web search
+            webSearchCache.forEach { (merchant, category) ->
+                if (category != null) {
+                    merchantRuleRepository.saveRule(
+                        merchantPattern = merchant.trim().lowercase(),
+                        categoryId = category.id,
+                        categoryName = category.name
+                    )
+                }
+            }
 
             _uiState.value = SmsImportUiState.BulkImportDone(
                 totalScanned = smsList.size,

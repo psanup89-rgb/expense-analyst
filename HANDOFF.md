@@ -1,113 +1,107 @@
 # Expense Analyst — Handoff Document
 
-**Last updated**: 2026-03-29
-**DB version**: 10 (confirmed in `ExpenseAnalystDatabase.kt`)
-**Build status**: `./gradlew clean assembleDebug` ✅ passing (verified this session)
-**Device**: Samsung Galaxy S26 Ultra (SM-S948B), ADB connected — APK NOT YET INSTALLED (signing key mismatch, see blockers)
-**Branch**: `main` (all work pushed)
+**Last updated**: 2026-03-30
+**DB version**: 10 (no changes this session)
+**Build status**: `./gradlew clean assembleDebug` ✅ passing
+**APK**: Installed on Samsung Galaxy S26 Ultra (SM-S948B) via `adb installDebug`
 
 ---
 
-## What Was Built This Session (2026-03-29)
+## What Was Accomplished This Session
 
-### 1. STATUS.md Corrections
-- DB version corrected from v9 → v10 (STATUS.md was stale)
-- Live notification dedup marked ✅ Done (was already fully implemented — DAO + repository + `PendingNotificationManager.enqueue()`)
-- Recommended next task updated to reflect actual remaining work
+### Merchant Category Intelligence Engine — end-to-end implementation + verification
 
-### 2. Al Rajhi "Credit Transfer Internal" Parser Fix
+**Goal**: When a bank notification arrives and the user taps it, automatically identify the expense category from the merchant name, including unknown local merchants.
 
-**Problem**: SMS like:
+**3-Tier System:**
+1. **Tier 1 — MerchantRules** (instant): user-defined rules saved from previous lookups
+2. **Tier 2 — Keyword matching** (instant): `CategoryInference.infer()` across ~100 keywords
+3. **Tier 3 — Google Places API** (async ~1s): `POST /v1/places:searchText` → `places.types` → category
+
+**New files created:**
+- `domain/.../repository/MerchantSearchRepository.kt` — pure Kotlin interface
+- `domain/.../usecase/InferCategoryUseCase.kt` — orchestrates all 3 tiers, checks enabled flag
+- `data/.../remote/GooglePlacesApiService.kt` — new Places API, `bodyAsText()` + `JsonElement` parsing
+- `data/.../repository/MerchantSearchRepositoryImpl.kt` — maps Google place types to categories
+
+**Files modified:**
+- `AppPreferencesRepository` + `AppPreferencesRepositoryImpl` + `CurrencyPreferencesDataSource` — 4 new prefs (enabled flag + API key)
+- `RepositoryModule` — `@Binds` for `MerchantSearchRepository`
+- `AddExpenseUiState` — `isCategoryInferring`, `categoryInferenceSource`
+- `AddExpenseViewModel` — inference job launched in `init`, cancelled on manual category select
+- `AddExpenseScreen` — 3-state category row: spinner / suggested label / placeholder
+- `SmsImportViewModel` — Tier 3 with `webSearchCache` + batch MerchantRule save after loop
+- `SettingsScreen/ViewModel/UiState` — "Smart Category Detection" card with toggle + API key field
+
+**Settings UX:**
+- Feature defaults to OFF (pro-gating ready)
+- Toggle enables Tier 3 lookups
+- API key field with show/hide eye button, saved to DataStore on each keystroke
+
+**Verified on device:**
 ```
-Credit Transfer Internal
-Amount:SAR 5000
-To:6805
-From:MOHAMATHU PILLAI
-From:5119
-26/3/29 14:05
+Atypical → Google Places → [coffee_shop, cafe, food_store, food, ...] → Food ✅
 ```
-was being misdetected as a **Mubasher payment** instead of an Al Rajhi internal transfer.
 
-**Root cause (two bugs)**:
-1. `AlRajhiParser.parse()` guarded on `isDebit || isCredit` keywords — "Credit Transfer Internal" matched neither → returned null
-2. `MubasherParser.bodyFingerprintPattern` had a second branch `Amount\s*:\s*SAR\s*\d` that matched ANY SAR amount SMS — fired as false fallback
+### Three bugs fixed during debugging:
 
-**Files changed**:
-- `ParsedTransaction.kt` — added `TRANSFER` to `TransactionDirection` enum
-- `AlRajhiParser.kt` — added `transferFingerprintPattern`, updated `canParse()`, added transfer branch in `parse()` that extracts `To:XXXX` → accountLast4, `From:NAME` → merchant, hardcodes `NET_BANKING`
-- `MubasherParser.kt` — narrowed body fingerprint: `Amount:SAR \d` replaced with `(?:Biller|Service)\s*:` (Mubasher-specific fields only)
-- `SmsImportViewModel.kt` — added `TRANSFER → TransactionType.TRANSFER` mapping
-- `TransactionAlertNotification.kt` — added "Transfer" label for TRANSFER direction
-- `NotificationBanner.kt` — added "transferred" label for TRANSFER direction
-- `AlRajhiParserTest.kt` — added transfer parse test + canParse fingerprint test
-- `MubasherParserTest.kt` — added non-match test for transfer body, added Service field test
+1. **`body<T>()` serialization error** — `kotlinx.serialization` compiler plugin is NOT in the project. `@Serializable` data classes generate no code. Fixed by switching to `bodyAsText()` + raw `JsonElement` API — no compiler plugin needed.
 
-**Parsed result for the sample SMS**:
-- Type: TRANSFER ✅
-- Account last4: 6805 ✅
-- Merchant: MOHAMATHU PILLAI ✅
-- Payment Method: NET_BANKING ✅
-- Currency: SAR ✅
+2. **Legacy Places API** — `GET .../findplacefromtext/json` returns `REQUEST_DENIED` for new API keys (deprecated). Fixed by switching to `POST https://places.googleapis.com/v1/places:searchText` with `X-Goog-Api-Key` header and `X-Goog-FieldMask: places.types`.
 
-### 3. In-App Banner Not Dismissing After Tray-Tap → Save Flow
-
-**Problem**: When user taps the system tray notification → goes to `AddExpenseScreen` → saves → returns to Home, the in-app banner still showed.
-
-**Root cause**: The in-app banner's `onSave` calls `PendingNotificationManager.consume()` to clear `_pending`. But the tray notification tap path navigates directly to `AddExpenseScreen` without going through the banner — `consume()` never fires. `_pending` remains set.
-
-**Fix**:
-- `MainViewModel.kt` — added `fun dismissBanner() { pendingManager.dismiss() }`
-- `AppNavGraph.kt` — `ADD_EXPENSE_ROUTE` `onSaved` now calls `mainViewModel?.dismissBanner()` before `popBackStack()`
-
-Correct for all paths: tray tap (dismisses on save), in-app banner tap (consume already cleared it, dismiss is no-op), manual add (no pending, dismiss is no-op), back without saving (onSaved not called, banner stays).
+3. **Response structure changed** — old API: `candidates[].types`; new API: `places[].types`. Updated JSON path accordingly.
 
 ---
 
 ## What Was NOT Finished
 
-| Item | Reason |
-|------|--------|
-| APK installation on device | Signing key mismatch — existing app signed with different key. User must uninstall manually from device settings, then run `adb install`. |
-| Home currency hardcoded in ExpenseDetail | Identified as next task, not in scope this session |
-| ProGuard/R8 rules | Not in scope |
+Nothing incomplete — the feature is fully shipped and verified.
+
+The `DuckDuckGoApiService.kt` remains in the codebase but is unused (the `MerchantSearchRepositoryImpl` no longer references it). It can be deleted in a cleanup pass if desired.
 
 ---
 
 ## First Action for Next Agent
 
-1. Set `JAVA_HOME` for build:
-   ```bash
-   export JAVA_HOME="/Applications/Android Studio.app/Contents/jbr/Contents/Home"
-   ```
-2. Read `STATUS.md` → implement **home currency fix in `ExpenseDetailScreen`** (~line 240)
-   - Replace `!= "SAR"` with `!= uiState.homeCurrency`
-   - Add `homeCurrency: String` to `ExpenseDetailUiState`
-   - Collect from `CurrencyRepository.getHomeCurrency()` in `ExpenseDetailViewModel`
+Fix the hardcoded SAR in `ExpenseDetailScreen` (~line 240):
+
+```kotlin
+// Current (wrong):
+if (expense.currencyCode != "SAR") { ... }
+
+// Fix:
+if (expense.currencyCode != uiState.homeCurrency) { ... }
+```
+
+Steps:
+1. Read `feature/expenses/src/main/java/com/expenseanalyst/feature/expenses/ui/ExpenseDetailViewModel.kt`
+2. Add `CurrencyRepository` injection, collect `getHomeCurrency()` flow
+3. Add `homeCurrency: String = "SAR"` to `ExpenseDetailUiState`
+4. Fix the condition in `ExpenseDetailScreen`
+5. `./gradlew clean assembleDebug` and verify
 
 ---
 
-## Gotchas and Non-Obvious Things
+## Surprises / Gotchas Discovered
 
-1. **MubasherParser false-match pattern**: The second branch of `bodyFingerprintPattern` was `Amount\s*:\s*SAR\s*\d` — matches everything. Always require at least one service-specific field in Mubasher fingerprint. See `skills/parser-mubasher-fingerprint.md`.
+### 1. `kotlinx.serialization` compiler plugin is absent
+The `:data` module `build.gradle.kts` has no `kotlin("plugin.serialization")` and it's not in `libs.versions.toml`. Using `.body<MyClass>()` in Ktor throws `SerializationException: Serializer for class 'X' is not found` at runtime.
 
-2. **Al Rajhi internal transfers have two `From:` lines**: `From:MOHAMATHU PILLAI` (name) and `From:5119` (account). Use `[A-Za-z][A-Za-z ]{2,}` pattern to match names only — digit-form `From:` won't match.
+**Rule**: Always use `bodyAsText()` + `jsonElement.jsonObject[...]` for Ktor responses in `:data`. The existing `CurrencyApiService` works because `ExchangeRateResponse` uses primitive types + Map which have built-in serializers — but this is fragile. Any new response class with nested structures will fail without the plugin.
 
-3. **TRANSFER direction checklist**: Adding a new `TransactionDirection` value requires updates to: `SmsImportViewModel` (when block), `TransactionAlertNotification` (label), `NotificationBanner` (label). `SmsImportScreen` icon tint uses if/else so TRANSFER falls to else (acceptable). See `skills/transaction-direction-enum-extension.md`.
+### 2. Google Places Legacy API deprecated for new projects
+New API keys (created after mid-2024) only work with the **New Places API** (`places.googleapis.com/v1/...`). The legacy `maps.googleapis.com/maps/api/place/...` returns `REQUEST_DENIED`. Always use the new endpoint.
 
-4. **Banner dismiss must be in AppNavGraph `onSaved`**: `AddExpenseViewModel` is in `:feature:expenses` and cannot import `PendingNotificationManager` from `:feature:notification`. The dismiss must go through `MainViewModel` (in `:app`) which can reach the manager. See `skills/banner-dismiss-on-save.md`.
+### 3. New Places API response structure
+- Uses `places[]` not `candidates[]`
+- API key goes in `X-Goog-Api-Key` header, not `?key=` query param
+- Field selection via `X-Goog-FieldMask: places.types` header
+- Request is a POST with JSON body: `{"textQuery": "merchant name"}`
 
-5. **Gradle JAVA_HOME**: Shell profile does not set `JAVA_HOME`. Build fails with "Unable to locate a Java Runtime". Always set `JAVA_HOME="/Applications/Android Studio.app/Contents/jbr/Contents/Home"` before running Gradle commands.
-
-6. **APK signing mismatch**: Installing a debug APK over an existing release/differently-signed APK fails with `INSTALL_FAILED_UPDATE_INCOMPATIBLE`. User must uninstall the old app first (loses local data). Warn the user before doing this.
-
----
-
-## Handoff Checklist for Next Agent
-
-1. Read `CLAUDE.md` (conventions, architecture, build commands)
-2. Read this file and `STATUS.md`
-3. Set `JAVA_HOME` (see above)
-4. Run `./gradlew clean assembleDebug` — confirm it passes
-5. DB is at **v10** — next migration is `MIGRATION_10_11`
-6. Check `skills/` directory for relevant patterns before starting
-7. Update `STATUS.md` and this file at end of session
+### 4. JAVA_HOME path with spaces
+`/Applications/Android Studio.app/...` contains a space, breaking `./gradlew`. Workaround:
+```bash
+ln -sfn "/Applications/Android Studio.app/Contents/jbr/Contents/Home" /tmp/jbr_home
+export JAVA_HOME=/tmp/jbr_home
+bash gradlew clean assembleDebug
+```

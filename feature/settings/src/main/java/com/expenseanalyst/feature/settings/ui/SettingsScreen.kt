@@ -16,6 +16,8 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Visibility
+import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -39,6 +41,8 @@ import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -84,6 +88,9 @@ fun SettingsScreen(
         onCurrencySelected = viewModel::updateHomeCurrency,
         onThemeModeSelected = viewModel::updateThemeMode,
         onNotificationCaptureToggle = viewModel::toggleNotificationCapture,
+        onGooglePlacesToggle = viewModel::toggleGooglePlaces,
+        onGooglePlacesApiKeyChange = viewModel::onGooglePlacesApiKeyChange,
+        onToggleApiKeyVisibility = viewModel::toggleApiKeyVisibility,
         onNavigateToSmsImport = onNavigateToSmsImport,
         onNavigateToCategoryManagement = onNavigateToCategoryManagement,
         onTestNotification = onTestNotification,
@@ -103,6 +110,9 @@ private fun SettingsContent(
     onCurrencySelected: (String) -> Unit,
     onThemeModeSelected: (ThemeMode) -> Unit,
     onNotificationCaptureToggle: (Boolean) -> Unit,
+    onGooglePlacesToggle: (Boolean) -> Unit,
+    onGooglePlacesApiKeyChange: (String) -> Unit,
+    onToggleApiKeyVisibility: () -> Unit,
     onNavigateToSmsImport: () -> Unit,
     onNavigateToCategoryManagement: () -> Unit,
     onTestNotification: () -> Unit,
@@ -433,6 +443,94 @@ private fun SettingsContent(
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             modifier = Modifier.padding(top = 4.dp)
                         )
+                    }
+                }
+            }
+
+            // Intelligence section
+            item {
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer)
+                ) {
+                    Column(modifier = Modifier.padding(20.dp)) {
+                        Text(
+                            text = "Smart Category Detection",
+                            style = MaterialTheme.typography.titleMedium,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                        Spacer(Modifier.height(4.dp))
+                        Text(
+                            text = "Automatically identifies the category of unknown merchants using Google Places.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Spacer(Modifier.height(12.dp))
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    text = "Use Google Places API",
+                                    style = MaterialTheme.typography.labelLarge,
+                                    color = MaterialTheme.colorScheme.onSurface
+                                )
+                                Text(
+                                    text = "Tier 3 lookup for unrecognised merchants",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                            Switch(
+                                checked = uiState.googlePlacesEnabled,
+                                onCheckedChange = onGooglePlacesToggle,
+                                colors = SwitchDefaults.colors(
+                                    checkedThumbColor = MaterialTheme.colorScheme.onPrimary,
+                                    checkedTrackColor = MaterialTheme.colorScheme.primary
+                                )
+                            )
+                        }
+                        if (uiState.googlePlacesEnabled) {
+                            Spacer(Modifier.height(12.dp))
+                            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
+                            Spacer(Modifier.height(12.dp))
+                            OutlinedTextField(
+                                value = uiState.googlePlacesApiKey,
+                                onValueChange = onGooglePlacesApiKeyChange,
+                                modifier = Modifier.fillMaxWidth(),
+                                label = { Text("Google Cloud API Key") },
+                                placeholder = { Text("AIza...") },
+                                singleLine = true,
+                                visualTransformation = if (uiState.isApiKeyVisible)
+                                    VisualTransformation.None
+                                else
+                                    PasswordVisualTransformation(),
+                                trailingIcon = {
+                                    IconButton(onClick = onToggleApiKeyVisibility) {
+                                        Icon(
+                                            imageVector = if (uiState.isApiKeyVisible)
+                                                Icons.Default.VisibilityOff
+                                            else
+                                                Icons.Default.Visibility,
+                                            contentDescription = if (uiState.isApiKeyVisible)
+                                                "Hide API key" else "Show API key"
+                                        )
+                                    }
+                                },
+                                colors = OutlinedTextFieldDefaults.colors(
+                                    focusedBorderColor = MaterialTheme.colorScheme.primary,
+                                    focusedLabelColor = MaterialTheme.colorScheme.primary
+                                )
+                            )
+                            Spacer(Modifier.height(6.dp))
+                            Text(
+                                text = "Google Cloud API key with Places API enabled. ~\$0.017/lookup; \$200 free credit/month.",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
                     }
                 }
             }

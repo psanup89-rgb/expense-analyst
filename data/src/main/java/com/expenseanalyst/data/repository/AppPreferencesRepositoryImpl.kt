@@ -23,4 +23,16 @@ class AppPreferencesRepositoryImpl @Inject constructor(
 
     override suspend fun setThemeMode(mode: ThemeMode) =
         dataSource.setThemeMode(mode.name)
+
+    override fun isGooglePlacesEnabled(): Flow<Boolean> =
+        dataSource.isGooglePlacesEnabled()
+
+    override suspend fun setGooglePlacesEnabled(enabled: Boolean) =
+        dataSource.setGooglePlacesEnabled(enabled)
+
+    override fun getGooglePlacesApiKey(): Flow<String> =
+        dataSource.getGooglePlacesApiKey()
+
+    override suspend fun setGooglePlacesApiKey(key: String) =
+        dataSource.setGooglePlacesApiKey(key)
 }

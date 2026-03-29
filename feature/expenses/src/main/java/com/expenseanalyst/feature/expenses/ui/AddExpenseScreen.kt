@@ -77,6 +77,7 @@ import com.expenseanalyst.domain.model.AccountType
 import com.expenseanalyst.domain.model.Category
 import com.expenseanalyst.domain.model.PaymentMethod
 import com.expenseanalyst.domain.model.TransactionType
+import com.expenseanalyst.domain.usecase.InferenceSource
 
 @Composable
 fun AddExpenseScreen(
@@ -545,15 +546,31 @@ internal fun AddExpenseContent(
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.SpaceBetween
                     ) {
-                        if (uiState.selectedCategory != null) {
+                        val selectedCategory = uiState.selectedCategory
+                        if (selectedCategory != null) {
                             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                                 Icon(
-                                    imageVector = categoryIconVector(uiState.selectedCategory.iconName),
+                                    imageVector = categoryIconVector(selectedCategory.iconName),
                                     contentDescription = null,
                                     modifier = Modifier.size(20.dp),
                                     tint = MaterialTheme.colorScheme.primary
                                 )
-                                Text(uiState.selectedCategory.name, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurface)
+                                Column {
+                                    Text(selectedCategory.name, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurface)
+                                    if (uiState.categoryInferenceSource == InferenceSource.WEB_SEARCH ||
+                                        uiState.categoryInferenceSource == InferenceSource.KEYWORD) {
+                                        Text(
+                                            text = "Suggested · tap to change",
+                                            style = MaterialTheme.typography.labelSmall,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+                                    }
+                                }
+                            }
+                        } else if (uiState.isCategoryInferring) {
+                            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                                CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp, color = MaterialTheme.colorScheme.primary)
+                                Text("Detecting category…", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                             }
                         } else {
                             Text("Select category", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)

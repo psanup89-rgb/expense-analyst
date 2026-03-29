@@ -15,12 +15,16 @@ import com.expenseanalyst.domain.model.TransactionType
 import com.expenseanalyst.domain.repository.AccountRepository
 import com.expenseanalyst.domain.repository.BillRepository
 import com.expenseanalyst.domain.repository.CurrencyRepository
+import com.expenseanalyst.domain.repository.MerchantRuleRepository
 import com.expenseanalyst.domain.repository.PendingNotificationRepository
 import com.expenseanalyst.domain.usecase.AddExpenseUseCase
 import com.expenseanalyst.domain.usecase.GetAccountsUseCase
 import com.expenseanalyst.domain.usecase.GetCategoriesUseCase
+import com.expenseanalyst.domain.usecase.InferCategoryUseCase
+import com.expenseanalyst.domain.usecase.InferenceSource
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -44,8 +48,12 @@ class AddExpenseViewModel @Inject constructor(
     private val accountRepository: AccountRepository,
     private val currencyRepository: CurrencyRepository,
     private val pendingNotificationRepository: PendingNotificationRepository,
-    private val billRepository: BillRepository
+    private val billRepository: BillRepository,
+    private val inferCategoryUseCase: InferCategoryUseCase,
+    private val merchantRuleRepository: MerchantRuleRepository
 ) : ViewModel() {
+
+    private var inferenceJob: Job? = null
 
     private val _form = MutableStateFlow(
         run {
@@ -150,6 +158,40 @@ class AddExpenseViewModel @Inject constructor(
                 }
             }
         }
+
+        // Category inference — runs when merchant is pre-filled from a notification nav arg
+        val merchantArg = savedStateHandle.get<String>("merchant")?.takeIf { it.isNotBlank() }
+        val bankArg = savedStateHandle.get<String>("account")
+            ?.substringBefore("*")?.trim()?.ifEmpty { null }
+        if (merchantArg != null) {
+            _form.update { it.copy(isCategoryInferring = true) }
+            inferenceJob = viewModelScope.launch {
+                val result = inferCategoryUseCase(
+                    merchant = merchantArg,
+                    bankName = bankArg,
+                    smsBody = _form.value.rawSmsBody
+                )
+                if (result != null) {
+                    _form.update {
+                        it.copy(
+                            selectedCategory = result.category,
+                            isCategoryInferring = false,
+                            categoryInferenceSource = result.source
+                        )
+                    }
+                    // Tier 3 web result → persist as MerchantRule for future instant lookups
+                    if (result.source == InferenceSource.WEB_SEARCH) {
+                        merchantRuleRepository.saveRule(
+                            merchantPattern = merchantArg.trim().lowercase(),
+                            categoryId = result.category.id,
+                            categoryName = result.category.name
+                        )
+                    }
+                } else {
+                    _form.update { it.copy(isCategoryInferring = false) }
+                }
+            }
+        }
     }
 
     val uiState = combine(
@@ -186,7 +228,11 @@ class AddExpenseViewModel @Inject constructor(
     }
 
     fun onTransactionTypeChange(type: TransactionType) = _form.update { it.copy(transactionType = type) }
-    fun onCategorySelect(category: Category) = _form.update { it.copy(selectedCategory = category, isCategorySheetVisible = false) }
+    fun onCategorySelect(category: Category) {
+        inferenceJob?.cancel()
+        inferenceJob = null
+        _form.update { it.copy(selectedCategory = category, isCategorySheetVisible = false, isCategoryInferring = false) }
+    }
     fun showCategorySheet() = _form.update { it.copy(isCategorySheetVisible = true) }
     fun dismissCategorySheet() = _form.update { it.copy(isCategorySheetVisible = false) }
     fun onPaymentMethodChange(method: PaymentMethod) = _form.update { it.copy(paymentMethod = method) }

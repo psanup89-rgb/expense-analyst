@@ -5,6 +5,7 @@ import com.expenseanalyst.domain.model.AccountType
 import com.expenseanalyst.domain.model.Category
 import com.expenseanalyst.domain.model.PaymentMethod
 import com.expenseanalyst.domain.model.TransactionType
+import com.expenseanalyst.domain.usecase.InferenceSource
 import kotlinx.datetime.Instant
 
 data class AddExpenseUiState(
@@ -35,7 +36,9 @@ data class AddExpenseUiState(
     val isSaving: Boolean = false,
     val savedExpenseId: Long? = null,
     val error: String? = null,
-    val rawSmsBody: String? = null
+    val rawSmsBody: String? = null,
+    val isCategoryInferring: Boolean = false,
+    val categoryInferenceSource: InferenceSource? = null
 ) {
     val selectedAccount: Account? get() = accounts.find { it.id == selectedAccountId }
 

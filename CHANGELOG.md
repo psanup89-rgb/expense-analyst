@@ -4,6 +4,37 @@ Format: `[Date] — Summary`
 
 ---
 
+## 2026-03-30 — Merchant Category Intelligence Engine (Google Places API)
+
+**Agent role**: FeatureAgent / DataAgent
+
+**Work completed**:
+- Implemented 3-tier merchant category inference system
+- **Tier 1** (instant): `MerchantRule` DB lookup — user-defined rules always win
+- **Tier 2** (instant): `CategoryInference.infer()` keyword matching across ~100 keywords
+- **Tier 3** (async ~1s): Google Places API (New) — `POST /v1/places:searchText` with `places.types` field mask
+- `InferCategoryUseCase` orchestrates all 3 tiers; checks `isGooglePlacesEnabled()` before Tier 3
+- `GooglePlacesApiService` — `bodyAsText()` + `JsonElement` tree parsing (no compiler plugin needed)
+- `MerchantSearchRepositoryImpl` — maps Google place type taxonomy to 7 app categories
+- `AppPreferencesRepository` + `CurrencyPreferencesDataSource` — 4 new DataStore keys (enabled + api key)
+- Settings "Smart Category Detection" card — toggle (default off, pro-gate ready) + API key field with show/hide
+- `AddExpenseScreen` — 3-state category row: spinner / "Suggested · tap to change" / placeholder
+- `SmsImportViewModel` — Tier 3 with `webSearchCache` (deduplicate per import run) + batch rule save
+- Verified on device: "Atypical" → `[coffee_shop, cafe, food]` → **Food** ✅
+
+**Key decisions**:
+- Feature defaults to OFF — designed for pro-tier gating. Toggle + API key stored in DataStore.
+- **`bodyAsText()` over `body<T>()`**: `kotlinx.serialization` compiler plugin absent from project. Using `.body<MyClass>()` throws `SerializationException` at runtime. All new Ktor response parsing uses `bodyAsText()` + `JsonElement` API.
+- **New Places API** (not legacy): new Google Cloud API keys only work with `places.googleapis.com/v1/...`. Legacy `maps.googleapis.com/maps/api/place/findplacefromtext` returns `REQUEST_DENIED`.
+- `DuckDuckGoApiService` retained in codebase but unused — superseded by Google Places.
+
+**Debugging sequence**:
+1. Confirmed `body<T>()` → `SerializationException` via logcat
+2. Switched to `bodyAsText()` — fixed serialization; revealed `REQUEST_DENIED` from legacy API
+3. Switched to new `POST /v1/places:searchText` endpoint — success, `coffee_shop` → `Food`
+
+---
+
 ## 2026-03-29 — Parser fixes + notification banner + STATUS corrections
 
 **Agent role**: FeatureAgent / ParserAgent

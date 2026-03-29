@@ -8,9 +8,9 @@
 
 ## Recently Added
 
-1. **Banner Dismiss on Save** (`banner-dismiss-on-save.md`) — When `AddExpenseScreen` is reached via a tray notification tap (not the in-app banner), `PendingNotificationManager._pending` must be cleared on successful save. Fix lives in `MainViewModel.dismissBanner()` called from `AppNavGraph.onSaved`. Cross-module boundary prevents doing this in `AddExpenseViewModel`.
-2. **Transaction Direction Enum Extension** (`transaction-direction-enum-extension.md`) — Checklist of 4+ files to update when adding a new `TransactionDirection` value. `SmsImportViewModel` is exhaustive (compile error if missed); others use `else` branches and fail silently.
-3. **Mubasher Parser Fingerprint** (`parser-mubasher-fingerprint.md`) — Mubasher `canParse()` body fingerprint must require `Biller:` or `Service:` fields. Never use `Amount:SAR \d` alone — it matches any Saudi bank SMS and causes false positives for Al Rajhi transfers.
+1. **Ktor JSON Without Serialization Plugin** (`ktor-json-parsing-without-serialization-plugin.md`) — `kotlinx.serialization` compiler plugin is absent from `:data` module. Using `body<T>()` crashes at runtime. Always use `bodyAsText()` + `JsonElement` tree API for new Ktor response types.
+2. **Google Places API (New)** (`google-places-api-new.md`) — New API keys require `POST /v1/places:searchText` (not legacy `findplacefromtext`). API key in header, response is `places[].types`, no status field.
+3. **Banner Dismiss on Save** (`banner-dismiss-on-save.md`) — When `AddExpenseScreen` is reached via a tray notification tap (not the in-app banner), `PendingNotificationManager._pending` must be cleared on successful save. Fix lives in `MainViewModel.dismissBanner()` called from `AppNavGraph.onSaved`. Cross-module boundary prevents doing this in `AddExpenseViewModel`.
 
 ---
 
@@ -18,6 +18,8 @@
 
 | Skill | File | Agent | Tags | Last Used |
 |-------|------|-------|------|-----------|
+| Ktor JSON Without Serialization Plugin | `ktor-json-parsing-without-serialization-plugin.md` | DataAgent | ktor, json, serialization, android | 2026-03-30 |
+| Google Places API (New) | `google-places-api-new.md` | DataAgent | google-places, api, merchant, category | 2026-03-30 |
 | Banner Dismiss on Save | `banner-dismiss-on-save.md` | FeatureAgent | notification, banner, navigation, cross-module | 2026-03-29 |
 | Transaction Direction Enum Extension | `transaction-direction-enum-extension.md` | ParserAgent, FeatureAgent | parser, enum, checklist | 2026-03-29 |
 | Mubasher Parser Fingerprint | `parser-mubasher-fingerprint.md` | ParserAgent | parser, mubasher, fingerprint, regex | 2026-03-29 |
@@ -49,6 +51,8 @@
 - **KSP Cross-Module Smart Cast** (`ksp-cross-module-smart-cast.md`) — Fix smart cast compilation errors on domain model properties
 
 ### DataAgent
+- **Ktor JSON Without Serialization Plugin** (`ktor-json-parsing-without-serialization-plugin.md`) — Use `bodyAsText()` + `JsonElement` for all new Ktor response types; `body<T>()` crashes at runtime
+- **Google Places API (New)** (`google-places-api-new.md`) — POST endpoint, header-based auth, `places[].types` response structure
 - **New Domain Entity End-to-End** (`new-domain-entity.md`) — Full checklist: domain model → Room migration → DI wiring
 - **KSP Cross-Module Smart Cast** (`ksp-cross-module-smart-cast.md`) — Fix smart cast compilation errors
 
@@ -60,4 +64,4 @@
 ## Notes
 
 - The `.claude/skills/` directory contains older Claude Code skill files (`bank-parser.md`, `build-verify.md`, `expense-architect.md`, etc.) — these are invocable via `/skill-name` in Claude Code CLI sessions. The files in `skills/` (this directory) are the agent memory system skills index and are not the same thing.
-- Total skills in index: **11**
+- Total skills in index: **13**
