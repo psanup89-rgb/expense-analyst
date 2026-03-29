@@ -123,7 +123,11 @@ private fun BannerContent(
 }
 
 private fun buildLabel(tx: ParsedTransaction): String {
-    val direction = if (tx.type == TransactionDirection.DEBIT) "spent" else "received"
+    val direction = when (tx.type) {
+        TransactionDirection.DEBIT -> "spent"
+        TransactionDirection.TRANSFER -> "transferred"
+        else -> "received"
+    }
     val amount = try {
         val fmt = NumberFormat.getInstance(Locale.US)
         fmt.maximumFractionDigits = 2

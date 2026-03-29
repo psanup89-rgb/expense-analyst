@@ -4,6 +4,26 @@ Format: `[Date] — Summary`
 
 ---
 
+## 2026-03-29 — Parser fixes + notification banner + STATUS corrections
+
+**Agent role**: FeatureAgent / ParserAgent
+
+**Work completed**:
+- Corrected STATUS.md: DB version v9 → v10, live dedup marked done (was already implemented)
+- Added `TRANSFER` to `TransactionDirection` enum
+- `AlRajhiParser`: added "Credit Transfer Internal" transfer format handling — detects `transferFingerprintPattern`, extracts `To:XXXX` → accountLast4, `From:NAME` → merchant, hardcodes `NET_BANKING`; also updates `canParse()` to match transfer body fingerprint
+- `MubasherParser`: narrowed `bodyFingerprintPattern` — removed `Amount:SAR \d` (too broad, matched any SAR SMS); now requires `Biller:` or `Service:` (Mubasher-specific fields)
+- `SmsImportViewModel`, `TransactionAlertNotification`, `NotificationBanner`: handle `TRANSFER` direction (label + mapping)
+- Parser tests: `AlRajhiParserTest` — transfer parse + canParse fingerprint tests; `MubasherParserTest` — non-match test for transfer body + Service field test
+- Fixed in-app banner persisting after tray-tap → AddExpense → save: `MainViewModel.dismissBanner()` + called from `AppNavGraph.onSaved`
+
+**Key decisions**:
+- MubasherParser fingerprint must require Mubasher-specific fields (`Biller:` or `Service:`), not just `Amount:SAR`. Documented in `skills/parser-mubasher-fingerprint.md`.
+- Banner dismiss can't be in `AddExpenseViewModel` (cross-module boundary violation). Goes through `MainViewModel` in `:app` which can reach `PendingNotificationManager`. Documented in `skills/banner-dismiss-on-save.md`.
+- `TRANSFER` direction update requires checklist across 3 files. Documented in `skills/transaction-direction-enum-extension.md`.
+
+---
+
 ## 2026-03-29 — Analytics dashboard + drill-down + custom app icon
 
 **Agent role**: FeatureAgent

@@ -22,8 +22,19 @@ class MubasherParserTest {
     }
 
     @Test
-    fun `canParse true for body fingerprint with Amount SAR`() {
+    fun `canParse true for body fingerprint with Biller field`() {
         assertTrue(parser.canParse("99999", "Amount:SAR 500\nBiller:125"))
+    }
+
+    @Test
+    fun `canParse true for body fingerprint with Service field`() {
+        assertTrue(parser.canParse("99999", "Amount:SAR 240\nService:ENBD PAYMENTS"))
+    }
+
+    @Test
+    fun `canParse false for Al Rajhi internal transfer body`() {
+        val body = "Credit Transfer Internal\nAmount:SAR 5000\nTo:6805\nFrom:MOHAMATHU PILLAI\nFrom:5119"
+        assertEquals(false, parser.canParse("74100", body))
     }
 
     @Test

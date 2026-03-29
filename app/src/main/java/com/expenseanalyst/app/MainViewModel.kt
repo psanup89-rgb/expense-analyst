@@ -53,6 +53,11 @@ class MainViewModel @Inject constructor(
         _pendingRoute.value = null
     }
 
+    /** Clears the in-app notification banner after an expense is successfully saved. */
+    fun dismissBanner() {
+        pendingManager.dismiss()
+    }
+
     /**
      * Fires a fake SAR 150.00 transaction through the full notification pipeline:
      * - System tray notification (to verify POST_NOTIFICATIONS + channel setup)

@@ -22,7 +22,7 @@ class MubasherParser : TransactionParser {
 
     private val senderPattern = Regex("""(?i)mub(?:asher|shr)?""")
     private val bodyFingerprintPattern = Regex(
-        """(?i)(?:Reason\s*:.*(?:Bills?\s*Payment|Bill\s*Transfer|Payment\s*Transfer)|Amount\s*:\s*SAR\s*\d)""",
+        """(?i)(?:Reason\s*:.*(?:Bills?\s*Payment|Bill\s*Transfer|Payment\s*Transfer)|(?:Biller|Service)\s*:)""",
         RegexOption.DOT_MATCHES_ALL
     )
 

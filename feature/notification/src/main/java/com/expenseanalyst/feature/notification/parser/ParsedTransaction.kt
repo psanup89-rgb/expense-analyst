@@ -13,4 +13,4 @@ data class ParsedTransaction(
     val paymentMethodName: String? = null
 )
 
-enum class TransactionDirection { DEBIT, CREDIT, PAYMENT }
+enum class TransactionDirection { DEBIT, CREDIT, PAYMENT, TRANSFER }

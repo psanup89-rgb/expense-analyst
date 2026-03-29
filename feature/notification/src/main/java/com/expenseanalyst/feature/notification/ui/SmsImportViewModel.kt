@@ -170,6 +170,7 @@ class SmsImportViewModel @Inject constructor(
                     TransactionDirection.CREDIT -> TransactionType.INCOME
                     TransactionDirection.DEBIT -> TransactionType.EXPENSE
                     TransactionDirection.PAYMENT -> TransactionType.PAYMENT
+                    TransactionDirection.TRANSFER -> TransactionType.TRANSFER
                 }
 
                 // Resolve account: find or create by bank name + last4

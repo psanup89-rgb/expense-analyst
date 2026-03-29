@@ -115,7 +115,10 @@ fun AppNavGraph(
         ) {
             AddExpenseScreen(
                 onBack = { navController.popBackStack() },
-                onSaved = { navController.popBackStack() }
+                onSaved = {
+                    mainViewModel?.dismissBanner()
+                    navController.popBackStack()
+                }
             )
         }
 

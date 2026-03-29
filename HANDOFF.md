@@ -1,68 +1,65 @@
 # Expense Analyst — Handoff Document
 
 **Last updated**: 2026-03-29
-**DB version**: 9 (no migration this session)
-**Build status**: `./gradlew clean assembleDebug` ✅ passing
-**Device tested**: Samsung Galaxy S26 Ultra (SM-S948B), connected via ADB
+**DB version**: 10 (confirmed in `ExpenseAnalystDatabase.kt`)
+**Build status**: `./gradlew clean assembleDebug` ✅ passing (verified this session)
+**Device**: Samsung Galaxy S26 Ultra (SM-S948B), ADB connected — APK NOT YET INSTALLED (signing key mismatch, see blockers)
 **Branch**: `main` (all work pushed)
 
 ---
 
 ## What Was Built This Session (2026-03-29)
 
-### 1. Analytics Dashboard Module (`feature:analytics`) — Phase 2 F12
+### 1. STATUS.md Corrections
+- DB version corrected from v9 → v10 (STATUS.md was stale)
+- Live notification dedup marked ✅ Done (was already fully implemented — DAO + repository + `PendingNotificationManager.enqueue()`)
+- Recommended next task updated to reflect actual remaining work
 
-New Gradle module with full analytics dashboard UI.
+### 2. Al Rajhi "Credit Transfer Internal" Parser Fix
 
-**New module files:**
-- `feature/analytics/build.gradle.kts` — module config
-- `feature/analytics/src/main/AndroidManifest.xml`
-- `feature/analytics/src/main/java/com/expenseanalyst/feature/analytics/di/AnalyticsModule.kt`
-- `feature/analytics/src/main/java/com/expenseanalyst/feature/analytics/ui/AnalyticsUiState.kt`
-- `feature/analytics/src/main/java/com/expenseanalyst/feature/analytics/ui/AnalyticsViewModel.kt`
-- `feature/analytics/src/main/java/com/expenseanalyst/feature/analytics/ui/AnalyticsScreen.kt`
-
-**Wiring changes:**
-- `settings.gradle.kts` — `include(":feature:analytics")`
-- `app/build.gradle.kts` — `implementation(project(":feature:analytics"))`
-- `core/navigation/NavRoutes.kt` — `const val ANALYTICS = "analytics"`
-- `app/navigation/AppNavGraph.kt` — registered `AnalyticsScreen` composable with `onExpenseClick`
-- `feature/expenses/ui/ExpenseListScreen.kt` — "View Analytics →" `TextButton` in monthly summary card
-
-**Analytics screen features:**
-- Month navigation (← / →, clamped to current month)
-- Summary cards: Spent (NeonYellow), Income (NeonGreen), vs Last Month delta (NeonGreen/NeonRed)
-- Category breakdown with colored `LinearProgressIndicator` bars
-- Daily spending `Canvas` bar chart (NeonGreen bars, day labels)
-- Top 5 merchants ranked list
-
-### 2. Analytics Drill-Down Bottom Sheet
-
-Tapping any summary card, category bar, or merchant row opens a `ModalBottomSheet` showing the underlying expenses.
-
-**`DrillDownFilter` sealed class** (in `AnalyticsUiState.kt`):
+**Problem**: SMS like:
 ```
-Spent | Income | ByCategory(categoryName) | ByMerchant(merchantName)
+Credit Transfer Internal
+Amount:SAR 5000
+To:6805
+From:MOHAMATHU PILLAI
+From:5119
+26/3/29 14:05
 ```
+was being misdetected as a **Mubasher payment** instead of an Al Rajhi internal transfer.
 
-**`AnalyticsViewModel`**: Changed 4-way `combine()` to 5-way adding `_drillDownFilter: MutableStateFlow<DrillDownFilter?>`. Computes `drillDownExpenses` and `drillDownTitle` reactively. Public API: `setDrillDown(filter)` / `dismissDrillDown()`.
+**Root cause (two bugs)**:
+1. `AlRajhiParser.parse()` guarded on `isDebit || isCredit` keywords — "Credit Transfer Internal" matched neither → returned null
+2. `MubasherParser.bodyFingerprintPattern` had a second branch `Amount\s*:\s*SAR\s*\d` that matched ANY SAR amount SMS — fired as false fallback
 
-**`AnalyticsScreen`**: Added `onExpenseClick: (Long) -> Unit` param. Clickable `SummaryCard`, `CategoryBar`, `MerchantRow`. `DrillDownSheet` composable with `DrillDownExpenseRow` items (category color circle, merchant, date·category, amount).
+**Files changed**:
+- `ParsedTransaction.kt` — added `TRANSFER` to `TransactionDirection` enum
+- `AlRajhiParser.kt` — added `transferFingerprintPattern`, updated `canParse()`, added transfer branch in `parse()` that extracts `To:XXXX` → accountLast4, `From:NAME` → merchant, hardcodes `NET_BANKING`
+- `MubasherParser.kt` — narrowed body fingerprint: `Amount:SAR \d` replaced with `(?:Biller|Service)\s*:` (Mubasher-specific fields only)
+- `SmsImportViewModel.kt` — added `TRANSFER → TransactionType.TRANSFER` mapping
+- `TransactionAlertNotification.kt` — added "Transfer" label for TRANSFER direction
+- `NotificationBanner.kt` — added "transferred" label for TRANSFER direction
+- `AlRajhiParserTest.kt` — added transfer parse test + canParse fingerprint test
+- `MubasherParserTest.kt` — added non-match test for transfer body, added Service field test
 
-**Critical Kotlin fix**: `uiState` is obtained via `by viewModel.uiState.collectAsStateWithLifecycle()` (delegated property). Kotlin cannot smart-cast `uiState.drillDownTitle` to non-null inside an `if` block. Solution: capture `val drillDownTitle = uiState.drillDownTitle` before the null check.
+**Parsed result for the sample SMS**:
+- Type: TRANSFER ✅
+- Account last4: 6805 ✅
+- Merchant: MOHAMATHU PILLAI ✅
+- Payment Method: NET_BANKING ✅
+- Currency: SAR ✅
 
-### 3. Custom App Icon
+### 3. In-App Banner Not Dismissing After Tray-Tap → Save Flow
 
-Replaced default `@android:drawable/sym_def_app_icon` with custom neon-cyan analytics icon.
+**Problem**: When user taps the system tray notification → goes to `AddExpenseScreen` → saves → returns to Home, the in-app banner still showed.
 
-**Files created:**
-- `app/src/main/res/drawable/ic_launcher_background.xml` — dark navy `#0A0E1F` + subtle teal/purple diagonal grid lines
-- `app/src/main/res/drawable/ic_launcher_foreground.xml` — 5 increasing-height bar chart bars + magnifying glass (circle stroke + dark fill + diagonal handle) in `#00DFFF`
-- `app/src/main/res/mipmap-anydpi-v26/ic_launcher.xml` — adaptive icon linking background + foreground
-- `app/src/main/res/mipmap-anydpi-v26/ic_launcher_round.xml` — same
+**Root cause**: The in-app banner's `onSave` calls `PendingNotificationManager.consume()` to clear `_pending`. But the tray notification tap path navigates directly to `AddExpenseScreen` without going through the banner — `consume()` never fires. `_pending` remains set.
 
-**File modified:**
-- `app/src/main/AndroidManifest.xml` — `android:icon="@mipmap/ic_launcher"` + `android:roundIcon="@mipmap/ic_launcher_round"`
+**Fix**:
+- `MainViewModel.kt` — added `fun dismissBanner() { pendingManager.dismiss() }`
+- `AppNavGraph.kt` — `ADD_EXPENSE_ROUTE` `onSaved` now calls `mainViewModel?.dismissBanner()` before `popBackStack()`
+
+Correct for all paths: tray tap (dismisses on save), in-app banner tap (consume already cleared it, dismiss is no-op), manual add (no pending, dismiss is no-op), back without saving (onSaved not called, banner stays).
 
 ---
 
@@ -70,42 +67,38 @@ Replaced default `@android:drawable/sym_def_app_icon` with custom neon-cyan anal
 
 | Item | Reason |
 |------|--------|
-| Live notification dedup | Identified as recommended next task; not in scope this session |
-| Home currency hardcoded in ExpenseDetail | Existing bug, not addressed this session |
+| APK installation on device | Signing key mismatch — existing app signed with different key. User must uninstall manually from device settings, then run `adb install`. |
+| Home currency hardcoded in ExpenseDetail | Identified as next task, not in scope this session |
 | ProGuard/R8 rules | Not in scope |
-| Bill detail drill-down screen | Not requested |
-| Parser tests for new parsers (Mubasher, EmiratesNBD etc.) | Not in scope |
 
 ---
 
 ## First Action for Next Agent
 
-Read `STATUS.md` → implement **live notification dedup** in `PendingNotificationManager.enqueue()`.
-
-Exact scope (self-contained, no DB migration):
-1. Add `findByBodyHash(hash: Int): PendingNotification?` to `PendingNotificationRepository` interface and `PendingNotificationDao`
-2. In `PendingNotificationManager.enqueue(parsed)`: compute `parsed.rawBody?.trim()?.hashCode()`, query for recent match (last 60s), skip if found
-3. Also check saved expenses for same hash in `SMS_AUTO` source — skip if already added
+1. Set `JAVA_HOME` for build:
+   ```bash
+   export JAVA_HOME="/Applications/Android Studio.app/Contents/jbr/Contents/Home"
+   ```
+2. Read `STATUS.md` → implement **home currency fix in `ExpenseDetailScreen`** (~line 240)
+   - Replace `!= "SAR"` with `!= uiState.homeCurrency`
+   - Add `homeCurrency: String` to `ExpenseDetailUiState`
+   - Collect from `CurrencyRepository.getHomeCurrency()` in `ExpenseDetailViewModel`
 
 ---
 
 ## Gotchas and Non-Obvious Things
 
-1. **Delegated property smart cast**: `val uiState by vm.uiState.collectAsStateWithLifecycle()` — Kotlin cannot smart-cast nullable properties on delegated vars inside `if` checks. Always do `val localTitle = uiState.drillDownTitle; if (localTitle != null) { … localTitle … }`. See `skills/delegated-property-smart-cast.md`.
+1. **MubasherParser false-match pattern**: The second branch of `bodyFingerprintPattern` was `Amount\s*:\s*SAR\s*\d` — matches everything. Always require at least one service-specific field in Mubasher fingerprint. See `skills/parser-mubasher-fingerprint.md`.
 
-2. **`combine()` with 5 flows**: `kotlinx.coroutines.combine` has typed overloads up to 5 parameters. AnalyticsViewModel uses all 5. Beyond 5, nest `combine()` calls.
+2. **Al Rajhi internal transfers have two `From:` lines**: `From:MOHAMATHU PILLAI` (name) and `From:5119` (account). Use `[A-Za-z][A-Za-z ]{2,}` pattern to match names only — digit-form `From:` won't match.
 
-3. **KSP smart cast bug**: Cross-module nullable property checks fail to compile. Extract to local `val` first. See `skills/ksp-cross-module-smart-cast.md`.
+3. **TRANSFER direction checklist**: Adding a new `TransactionDirection` value requires updates to: `SmsImportViewModel` (when block), `TransactionAlertNotification` (label), `NotificationBanner` (label). `SmsImportScreen` icon tint uses if/else so TRANSFER falls to else (acceptable). See `skills/transaction-direction-enum-extension.md`.
 
-4. **KSP stale state**: Always `./gradlew clean assembleDebug`. Never just `assembleDebug` after adding/changing files.
+4. **Banner dismiss must be in AppNavGraph `onSaved`**: `AddExpenseViewModel` is in `:feature:expenses` and cannot import `PendingNotificationManager` from `:feature:notification`. The dismiss must go through `MainViewModel` (in `:app`) which can reach the manager. See `skills/banner-dismiss-on-save.md`.
 
-5. **Bottom nav at Material 3 maximum**: Home · Inbox · Bills · EMI · Settings = 5 tabs. Any new top-level destination must replace an existing tab or live as a nested route.
+5. **Gradle JAVA_HOME**: Shell profile does not set `JAVA_HOME`. Build fails with "Unable to locate a Java Runtime". Always set `JAVA_HOME="/Applications/Android Studio.app/Contents/jbr/Contents/Home"` before running Gradle commands.
 
-6. **`windowInsets = WindowInsets(0,0,0,0)` on TopAppBars**: All screens with a TopAppBar must set this to avoid double status-bar padding. `ExpenseListScreen` has no TopAppBar — its title is the first `LazyColumn` item.
-
-7. **New feature module checklist**: `build.gradle.kts`, `AndroidManifest.xml`, `include()` in `settings.gradle.kts`, `implementation(project())` in `app/build.gradle.kts`, route constant in `NavRoutes.kt`, composable in `AppNavGraph.kt`. See `skills/new-feature-module.md`.
-
-8. **`ExpenseListContent` intermediate composable**: `ExpenseListScreen` delegates to `ExpenseListContent` which calls `MonthlySummaryCard`. All three layers must carry any new lambda param — easy to miss the middle layer.
+6. **APK signing mismatch**: Installing a debug APK over an existing release/differently-signed APK fails with `INSTALL_FAILED_UPDATE_INCOMPATIBLE`. User must uninstall the old app first (loses local data). Warn the user before doing this.
 
 ---
 
@@ -113,7 +106,8 @@ Exact scope (self-contained, no DB migration):
 
 1. Read `CLAUDE.md` (conventions, architecture, build commands)
 2. Read this file and `STATUS.md`
-3. Run `./gradlew clean assembleDebug` — confirm it passes
-4. DB is at **v9** — next migration is `MIGRATION_9_10` (note: a previous session used v10, then was rolled back/branched — verify the actual DB version in `ExpenseAnalystDatabase.kt` before assuming)
-5. Check `skills/` directory for relevant patterns before starting
-6. Update `STATUS.md` and this file at end of session
+3. Set `JAVA_HOME` (see above)
+4. Run `./gradlew clean assembleDebug` — confirm it passes
+5. DB is at **v10** — next migration is `MIGRATION_10_11`
+6. Check `skills/` directory for relevant patterns before starting
+7. Update `STATUS.md` and this file at end of session

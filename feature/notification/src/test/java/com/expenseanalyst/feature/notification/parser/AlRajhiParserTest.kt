@@ -71,4 +71,31 @@ class AlRajhiParserTest {
     fun `parse returns null for non-transaction messages`(sender: String, body: String) {
         assertNull(parser.parse(sender, body))
     }
+
+    @org.junit.jupiter.api.Test
+    fun `parse extracts internal transfer correctly`() {
+        val body = """
+            Credit Transfer Internal
+            Amount:SAR 5000
+            To:6805
+            From:MOHAMATHU PILLAI
+            From:5119
+            26/3/29 14:05
+        """.trimIndent()
+        val result = parser.parse("AlRajhi", body)
+        assertNotNull(result)
+        assertEquals(5000.0, result!!.amount, 0.01)
+        assertEquals(TransactionDirection.TRANSFER, result.type)
+        assertEquals("SAR", result.currencyCode)
+        assertEquals("6805", result.accountLast4)
+        assertEquals("MOHAMATHU PILLAI", result.merchant)
+        assertEquals("NET_BANKING", result.paymentMethodName)
+        assertEquals("Al Rajhi Bank", result.bankName)
+    }
+
+    @org.junit.jupiter.api.Test
+    fun `canParse returns true for transfer body fingerprint without sender match`() {
+        val body = "Credit Transfer Internal\nAmount:SAR 5000\nTo:6805\nFrom:SOMEONE\nFrom:5119"
+        assertEquals(true, parser.canParse("74100", body))
+    }
 }

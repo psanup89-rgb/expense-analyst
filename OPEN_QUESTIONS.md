@@ -94,6 +94,26 @@ This is not reading from `CurrencyRepository.getHomeCurrency()`.
 
 ---
 
+## 11. JAVA_HOME not set in shell profile
+
+**Issue**: The shell profile (`~/.zshrc`) does not set `JAVA_HOME`. Every Gradle build attempt fails with "Unable to locate a Java Runtime" unless the agent manually sets `JAVA_HOME="/Applications/Android Studio.app/Contents/jbr/Contents/Home"` in the shell before running Gradle.
+
+**Question**: Should `JAVA_HOME` be permanently added to `~/.zshrc`? Running `echo 'export JAVA_HOME="/Applications/Android Studio.app/Contents/jbr/Contents/Home"' >> ~/.zshrc` would fix it for all future sessions.
+
+**Impact**: Every agent session that needs to build must manually discover and set `JAVA_HOME` or the build will fail.
+
+---
+
+## 12. APK signing key mismatch
+
+**Issue**: The app currently installed on the Samsung Galaxy S26 Ultra (SM-S948B) was signed with a different key than the debug build key. Running `adb install` fails with `INSTALL_FAILED_UPDATE_INCOMPATIBLE`. The user must manually uninstall the existing app from device settings before a debug APK can be installed.
+
+**Question**: Should the project maintain a consistent signing key for debug builds? Or is this expected (e.g. the installed version was a release build)?
+
+**Impact**: Agent cannot deploy APK changes to the device without user intervention (uninstall first, which loses local data).
+
+---
+
 ## 10. Test device — Samsung S26 Ultra
 
 **Issue**: The project uses a real device (Samsung Galaxy S26 Ultra, SM-S948B) for testing via ADB. The Android emulator is not mentioned anywhere.

@@ -71,7 +71,11 @@ object TransactionAlertNotification {
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
 
-        val direction = if (parsed.type == TransactionDirection.DEBIT) "Spent" else "Received"
+        val direction = when (parsed.type) {
+            TransactionDirection.DEBIT -> "Spent"
+            TransactionDirection.TRANSFER -> "Transfer"
+            else -> "Received"
+        }
         val amountStr = "%.2f %s".format(parsed.amount, parsed.currencyCode)
         val title = "$direction $amountStr"
         val bodyText = parsed.merchant?.takeIf { it.isNotBlank() }
