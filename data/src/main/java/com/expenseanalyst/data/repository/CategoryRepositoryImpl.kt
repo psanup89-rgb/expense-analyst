@@ -27,4 +27,7 @@ class CategoryRepositoryImpl @Inject constructor(
 
     override suspend fun updateSortOrder(categories: List<Category>) =
         categoryDao.updateAll(categories.map { it.toEntity() })
+
+    override suspend fun deleteCategory(category: Category) =
+        categoryDao.deleteCategory(category.toEntity())
 }

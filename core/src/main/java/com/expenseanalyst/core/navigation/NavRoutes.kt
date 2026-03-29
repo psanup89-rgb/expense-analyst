@@ -14,13 +14,17 @@ object NavRoutes {
     const val SETTINGS = "settings"
     const val PENDING_INBOX = "pending_inbox"
     const val BILLS = "bills"
+    const val BILL_DETAIL = "bill_detail/{billId}"
     const val CURRENCY_PICKER = "currency_picker"
+    const val CATEGORY_MANAGEMENT = "category_management"
+    const val ANALYTICS = "analytics"
     const val SMS_IMPORT = "sms_import"
     const val SMS_IMPORT_ROUTE = "sms_import?autoStart={autoStart}"
 
     fun smsImport(autoStart: String? = null) =
         if (autoStart != null) "sms_import?autoStart=$autoStart" else "sms_import"
 
+    fun billDetail(billId: Long) = "bill_detail/$billId"
     fun editExpense(expenseId: Long) = "edit_expense/$expenseId"
     fun expenseDetail(expenseId: Long) = "expense_detail/$expenseId"
     fun emiDetail(emiGroupId: Long) = "emi_detail/$emiGroupId"

@@ -53,6 +53,7 @@ dependencies {
     implementation(project(":feature:notification"))
     implementation(project(":feature:settings"))
     implementation(project(":feature:onboarding"))
+    implementation(project(":feature:analytics"))
 
     // Compose
     implementation(platform(libs.compose.bom))

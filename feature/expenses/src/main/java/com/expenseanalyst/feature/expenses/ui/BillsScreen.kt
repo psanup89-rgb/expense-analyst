@@ -57,6 +57,7 @@ import java.util.Locale
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun BillsScreen(
+    onBillClick: (Long) -> Unit = {},
     viewModel: BillsViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
@@ -130,6 +131,7 @@ fun BillsScreen(
                     BillCard(
                         bwp = bwp,
                         now = now,
+                        onClick = { onBillClick(bwp.bill.id) },
                         onDelete = { viewModel.deleteBill(bwp.bill.id) }
                     )
                 }
@@ -143,6 +145,7 @@ fun BillsScreen(
                     BillCard(
                         bwp = bwp,
                         now = now,
+                        onClick = { onBillClick(bwp.bill.id) },
                         onDelete = { viewModel.deleteBill(bwp.bill.id) }
                     )
                 }
@@ -181,6 +184,7 @@ private fun SectionHeader(title: String) {
 private fun BillCard(
     bwp: BillWithPayments,
     now: Long,
+    onClick: () -> Unit,
     onDelete: () -> Unit
 ) {
     val bill = bwp.bill
@@ -193,6 +197,7 @@ private fun BillCard(
     }
 
     Card(
+        onClick = onClick,
         modifier = Modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer)
     ) {

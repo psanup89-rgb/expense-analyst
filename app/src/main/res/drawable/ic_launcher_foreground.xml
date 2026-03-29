@@ -1,0 +1,60 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+
+    <!--
+        Adaptive icon foreground — safe zone is center 72×72 (x:18–90, y:18–90).
+        Design: 5 bar chart bars (increasing height) + magnifying glass overlay.
+        Color: neon cyan #00DFFF matching the reference image.
+    -->
+
+    <!-- ── Bar chart (5 bars, rounded tops, neon cyan) ─────────────── -->
+
+    <!-- Bar 1 — 30% height (shortest) -->
+    <path
+        android:fillColor="#00DFFF"
+        android:pathData="M26,88 L33,88 L33,74 Q33,72 29.5,72 Q26,72 26,74 Z" />
+
+    <!-- Bar 2 — 50% height -->
+    <path
+        android:fillColor="#00DFFF"
+        android:pathData="M37,88 L44,88 L44,63 Q44,61 40.5,61 Q37,61 37,63 Z" />
+
+    <!-- Bar 3 — 68% height -->
+    <path
+        android:fillColor="#00DFFF"
+        android:pathData="M48,88 L55,88 L55,55 Q55,53 51.5,53 Q48,53 48,55 Z" />
+
+    <!-- Bar 4 — 84% height -->
+    <path
+        android:fillColor="#00DFFF"
+        android:pathData="M59,88 L66,88 L66,48 Q66,46 62.5,46 Q59,46 59,48 Z" />
+
+    <!-- Bar 5 — 100% height (tallest) -->
+    <path
+        android:fillColor="#00DFFF"
+        android:pathData="M70,88 L77,88 L77,43 Q77,41 73.5,41 Q70,41 70,43 Z" />
+
+    <!-- ── Magnifying glass ──────────────────────────────────────────── -->
+
+    <!-- Lens dark fill — glassmorphism effect -->
+    <path
+        android:fillColor="#50000C1A"
+        android:pathData="M45,40 m-16,0 a16,16 0 1,0 32,0 a16,16 0 1,0 -32,0" />
+
+    <!-- Lens circle stroke — neon cyan -->
+    <path
+        android:fillColor="#00000000"
+        android:strokeColor="#00DFFF"
+        android:strokeWidth="3.0"
+        android:pathData="M45,40 m-16,0 a16,16 0 1,0 32,0 a16,16 0 1,0 -32,0" />
+
+    <!-- Handle — diagonal bar from lens rim toward bottom-right -->
+    <path
+        android:fillColor="#00DFFF"
+        android:pathData="M57,51 L66,60 L63,63 L54,54 Z" />
+
+</vector>

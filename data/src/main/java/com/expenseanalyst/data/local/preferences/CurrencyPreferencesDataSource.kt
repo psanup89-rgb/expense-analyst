@@ -54,10 +54,19 @@ class CurrencyPreferencesDataSource @Inject constructor(
         dataStore.edit { it[NOTIFICATION_CAPTURE_KEY] = enabled }
     }
 
+    fun getThemeMode(): Flow<String> =
+        dataStore.data.map { it[THEME_MODE_KEY] ?: DEFAULT_THEME_MODE }
+
+    suspend fun setThemeMode(mode: String) {
+        dataStore.edit { it[THEME_MODE_KEY] = mode }
+    }
+
     private companion object {
         const val PREFERENCES_FILE_NAME = "expense_analyst_preferences.preferences_pb"
+        const val DEFAULT_THEME_MODE = "SYSTEM"
         val HOME_CURRENCY_KEY = stringPreferencesKey("home_currency_code")
         val ONBOARDING_KEY = booleanPreferencesKey("onboarding_completed")
         val NOTIFICATION_CAPTURE_KEY = booleanPreferencesKey("notification_capture_enabled")
+        val THEME_MODE_KEY = stringPreferencesKey("theme_mode")
     }
 }

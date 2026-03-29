@@ -4,6 +4,25 @@ Format: `[Date] — Summary`
 
 ---
 
+## 2026-03-29 — Analytics dashboard + drill-down + custom app icon
+
+**Agent role**: FeatureAgent
+
+**Work completed**:
+- Created `feature:analytics` module (new Gradle module, wired into app via `settings.gradle.kts` + `app/build.gradle.kts`)
+- `AnalyticsScreen`: month navigation, Spent/Income summary cards, category `LinearProgressIndicator` bars, daily spend `Canvas` bar chart, top 5 merchants list
+- Drill-down bottom sheet: tapping Spent card, Income card, any category bar, or any merchant row opens `ModalBottomSheet` showing underlying expense rows with category icon, merchant, date, amount
+- `DrillDownFilter` sealed class + 5-way `combine()` in `AnalyticsViewModel` drives reactive filtering
+- "View Analytics →" `TextButton` added to monthly summary card on Home/Expense List screen
+- `AnalyticsScreen` wired in `AppNavGraph` with `onExpenseClick` → `ExpenseDetailScreen` navigation from drill-down rows
+- Custom neon-cyan app icon: dark navy background + bar chart + magnifying glass foreground, adaptive icon XMLs, `AndroidManifest.xml` updated
+
+**Key fix discovered**: Kotlin cannot smart-cast delegated property (`by collectAsStateWithLifecycle()`) nullable fields. Capture to local `val` before null-check. Documented in `skills/delegated-property-smart-cast.md`.
+
+**Key fix discovered**: `ExpenseListScreen` has an intermediate `ExpenseListContent` composable between the screen and `MonthlySummaryCard`. Any new lambda param must be threaded through all three layers.
+
+---
+
 ## 2026-03-29 — Session wrap-up: memory system + skills extracted
 
 **Agent role**: FeatureAgent

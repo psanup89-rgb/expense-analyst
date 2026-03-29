@@ -21,6 +21,8 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledTonalButton
+import androidx.compose.material3.FilterChip
+import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -50,11 +52,13 @@ import androidx.core.app.NotificationManagerCompat
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.expenseanalyst.core.util.CurrencyCatalog
+import com.expenseanalyst.domain.model.ThemeMode
 
 @Composable
 fun SettingsScreen(
     onBack: (() -> Unit)? = null,
     onNavigateToSmsImport: () -> Unit = {},
+    onNavigateToCategoryManagement: () -> Unit = {},
     onTestNotification: () -> Unit = {},
     onGrantNotificationAccess: () -> Unit = {},
     viewModel: SettingsViewModel = hiltViewModel()
@@ -78,8 +82,10 @@ fun SettingsScreen(
         onDismissCurrencyPicker = viewModel::dismissCurrencyPicker,
         onCurrencySearchQueryChange = viewModel::onCurrencySearchQueryChange,
         onCurrencySelected = viewModel::updateHomeCurrency,
+        onThemeModeSelected = viewModel::updateThemeMode,
         onNotificationCaptureToggle = viewModel::toggleNotificationCapture,
         onNavigateToSmsImport = onNavigateToSmsImport,
+        onNavigateToCategoryManagement = onNavigateToCategoryManagement,
         onTestNotification = onTestNotification,
         onGrantNotificationAccess = onGrantNotificationAccess
     )
@@ -95,8 +101,10 @@ private fun SettingsContent(
     onDismissCurrencyPicker: () -> Unit,
     onCurrencySearchQueryChange: (String) -> Unit,
     onCurrencySelected: (String) -> Unit,
+    onThemeModeSelected: (ThemeMode) -> Unit,
     onNotificationCaptureToggle: (Boolean) -> Unit,
     onNavigateToSmsImport: () -> Unit,
+    onNavigateToCategoryManagement: () -> Unit,
     onTestNotification: () -> Unit,
     onGrantNotificationAccess: () -> Unit
 ) {
@@ -276,6 +284,65 @@ private fun SettingsContent(
                 }
             }
 
+            // Theme section
+            item {
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer)
+                ) {
+                    Column(modifier = Modifier.padding(20.dp)) {
+                        Text(
+                            text = "Theme",
+                            style = MaterialTheme.typography.titleMedium,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                        Spacer(Modifier.height(8.dp))
+                        Text(
+                            text = "Appearance",
+                            style = MaterialTheme.typography.labelLarge,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Spacer(Modifier.height(12.dp))
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            ThemeMode.entries.forEach { mode ->
+                                val selected = uiState.themeMode == mode
+                                val label = when (mode) {
+                                    ThemeMode.SYSTEM -> "System"
+                                    ThemeMode.DARK -> "Dark"
+                                    ThemeMode.LIGHT -> "Light"
+                                }
+                                FilterChip(
+                                    selected = selected,
+                                    onClick = { onThemeModeSelected(mode) },
+                                    label = {
+                                        Text(
+                                            text = label,
+                                            style = MaterialTheme.typography.labelLarge
+                                        )
+                                    },
+                                    leadingIcon = if (selected) {
+                                        {
+                                            Icon(
+                                                imageVector = Icons.Default.Check,
+                                                contentDescription = null,
+                                                tint = MaterialTheme.colorScheme.onPrimary
+                                            )
+                                        }
+                                    } else null,
+                                    colors = FilterChipDefaults.filterChipColors(
+                                        selectedContainerColor = MaterialTheme.colorScheme.primary,
+                                        selectedLabelColor = MaterialTheme.colorScheme.onPrimary
+                                    )
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+
             // Notifications section
             item {
                 val ctx = LocalContext.current
@@ -366,6 +433,36 @@ private fun SettingsContent(
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             modifier = Modifier.padding(top = 4.dp)
                         )
+                    }
+                }
+            }
+
+            // Categories section
+            item {
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer)
+                ) {
+                    Column(modifier = Modifier.padding(20.dp)) {
+                        Text(
+                            text = "Categories",
+                            style = MaterialTheme.typography.titleMedium,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                        Spacer(Modifier.height(12.dp))
+                        Text(
+                            text = "Add, edit, or remove expense categories.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Spacer(Modifier.height(12.dp))
+                        FilledTonalButton(
+                            onClick = onNavigateToCategoryManagement,
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = androidx.compose.foundation.shape.RoundedCornerShape(10.dp)
+                        ) {
+                            Text("Manage Categories")
+                        }
                     }
                 }
             }

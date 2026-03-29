@@ -24,3 +24,7 @@ enum class SourceType {
 enum class BillStatus {
     PENDING, PARTIAL, SETTLED
 }
+
+enum class ThemeMode {
+    SYSTEM, DARK, LIGHT
+}

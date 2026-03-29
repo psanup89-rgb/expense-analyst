@@ -22,6 +22,9 @@ class PendingNotificationRepositoryImpl @Inject constructor(
     override suspend fun save(notification: PendingNotification): Long =
         dao.insert(notification.toEntity())
 
+    override suspend fun findRecentByRawBody(rawBody: String, sinceMillis: Long): PendingNotification? =
+        dao.findRecentByRawBody(rawBody, sinceMillis)?.toDomain()
+
     override suspend fun delete(id: Long) = dao.deleteById(id)
 
     override suspend fun deleteAll() = dao.deleteAll()

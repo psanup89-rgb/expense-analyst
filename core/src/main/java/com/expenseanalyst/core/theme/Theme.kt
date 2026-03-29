@@ -1,7 +1,9 @@
 package com.expenseanalyst.core.theme
 
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.darkColorScheme
+import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 
 private val DarkNeonColorScheme = darkColorScheme(
@@ -41,12 +43,52 @@ private val DarkNeonColorScheme = darkColorScheme(
     surfaceContainerHighest = SurfaceContainerHighest
 )
 
+private val LightNeonColorScheme = lightColorScheme(
+    primary = NeonGreenDim,
+    onPrimary = LightOnNeonGreen,
+    primaryContainer = LightNeonGreenContainer,
+    onPrimaryContainer = OnNeonGreen,
+    secondary = NeonYellowDim,
+    onSecondary = OnNeonYellow,
+    secondaryContainer = NeonYellowContainer,
+    onSecondaryContainer = OnNeonYellow,
+    tertiary = LightNeonRed,
+    onTertiary = LightOnNeonGreen,
+    tertiaryContainer = LightNeonRedContainer,
+    onTertiaryContainer = LightNeonRed,
+    error = LightNeonRed,
+    onError = LightOnNeonGreen,
+    errorContainer = LightNeonRedContainer,
+    onErrorContainer = LightNeonRed,
+    background = LightBackground,
+    onBackground = LightOnBackground,
+    surface = LightSurface,
+    onSurface = LightOnSurface,
+    surfaceVariant = LightSurfaceContainerHigh,
+    onSurfaceVariant = LightOnSurfaceVariant,
+    outline = LightOutline,
+    outlineVariant = LightOutlineVariant,
+    inverseSurface = LightOnSurface,
+    inverseOnSurface = LightSurface,
+    inversePrimary = NeonGreen,
+    surfaceDim = LightSurfaceDim,
+    surfaceBright = LightSurfaceBright,
+    surfaceContainerLowest = LightSurfaceLowest,
+    surfaceContainerLow = LightSurfaceContainerLow,
+    surfaceContainer = LightSurfaceContainer,
+    surfaceContainerHigh = LightSurfaceContainerHigh,
+    surfaceContainerHighest = LightSurfaceContainerHighest
+)
+
 @Composable
 fun ExpenseAnalystTheme(
+    darkTheme: Boolean = isSystemInDarkTheme(),
     content: @Composable () -> Unit
 ) {
+    val colorScheme = if (darkTheme) DarkNeonColorScheme else LightNeonColorScheme
+
     MaterialTheme(
-        colorScheme = DarkNeonColorScheme,
+        colorScheme = colorScheme,
         typography = ExpenseAnalystTypography,
         shapes = ExpenseAnalystShapes,
         content = content

@@ -2,6 +2,7 @@ package com.expenseanalyst.feature.settings.ui
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.expenseanalyst.domain.model.ThemeMode
 import com.expenseanalyst.domain.repository.AppPreferencesRepository
 import com.expenseanalyst.domain.repository.CurrencyRepository
 import com.expenseanalyst.domain.repository.ExpenseRepository
@@ -29,11 +30,13 @@ class SettingsViewModel @Inject constructor(
     val uiState = combine(
         currencyRepository.getHomeCurrency(),
         appPreferencesRepository.isNotificationCaptureEnabled(),
+        appPreferencesRepository.getThemeMode(),
         formState
-    ) { homeCurrency, notificationEnabled, state ->
+    ) { homeCurrency, notificationEnabled, themeMode, state ->
         state.copy(
             homeCurrencyCode = homeCurrency,
-            notificationCaptureEnabled = notificationEnabled
+            notificationCaptureEnabled = notificationEnabled,
+            themeMode = themeMode
         )
     }.stateIn(
         scope = viewModelScope,
@@ -58,6 +61,12 @@ class SettingsViewModel @Inject constructor(
     fun toggleNotificationCapture(enabled: Boolean) {
         viewModelScope.launch {
             appPreferencesRepository.setNotificationCaptureEnabled(enabled)
+        }
+    }
+
+    fun updateThemeMode(mode: ThemeMode) {
+        viewModelScope.launch {
+            appPreferencesRepository.setThemeMode(mode)
         }
     }
 

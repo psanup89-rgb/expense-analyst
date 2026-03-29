@@ -2,6 +2,8 @@ package com.expenseanalyst.feature.notification.service
 
 import android.content.Context
 import com.expenseanalyst.domain.model.PendingNotification
+import com.expenseanalyst.domain.model.SourceType
+import com.expenseanalyst.domain.repository.ExpenseRepository
 import com.expenseanalyst.domain.repository.PendingNotificationRepository
 import com.expenseanalyst.feature.notification.parser.ParsedTransaction
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -28,7 +30,8 @@ import javax.inject.Singleton
 @Singleton
 class PendingNotificationManager @Inject constructor(
     @ApplicationContext private val context: Context,
-    private val repository: PendingNotificationRepository
+    private val repository: PendingNotificationRepository,
+    private val expenseRepository: ExpenseRepository
 ) {
     private val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
 
@@ -42,6 +45,22 @@ class PendingNotificationManager @Inject constructor(
     fun enqueue(transaction: ParsedTransaction) {
         _pending.value = transaction
         scope.launch {
+            // ── Dedup: skip if same SMS already in pending inbox or saved expenses ──
+            val rawBody = transaction.rawBody?.trim()
+            if (!rawBody.isNullOrBlank()) {
+                val sixtySecondsAgo = System.currentTimeMillis() - 60_000L
+                // Check 1: same raw body already in pending_notifications (recent)
+                val recentDup = repository.findRecentByRawBody(rawBody, sixtySecondsAgo)
+                if (recentDup != null) return@launch
+
+                // Check 2: same raw body already saved as an expense (user already confirmed it)
+                val bodyHash = rawBody.hashCode()
+                val alreadySaved = expenseRepository.getExpensesSnapshot()
+                    .any { it.sourceType == SourceType.SMS_AUTO &&
+                        it.rawSmsBody?.trim()?.hashCode() == bodyHash }
+                if (alreadySaved) return@launch
+            }
+
             val savedId = repository.save(
                 PendingNotification(
                     amount = transaction.amount,

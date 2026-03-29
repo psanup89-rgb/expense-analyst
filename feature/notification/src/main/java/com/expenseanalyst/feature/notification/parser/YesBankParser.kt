@@ -17,7 +17,7 @@ class YesBankParser : TransactionParser {
 
     override val bankName = "Yes Bank"
 
-    private val senderPattern = Regex("""(?i)\byes\b""")
+    private val senderPattern = Regex("""(?i)\byes""")
     private val amountPattern = Regex("""(?i)(?:rs\.?|inr)\s*([\d,]+\.?\d*)""")
     // Matches: "A/c ending XX3456", "Ac X2919", "a/c XX1234"
     private val accountPattern = Regex("""(?i)(?:ending|a/c(?:\s*ending)?|Ac)\s*[xX*]+(\d{3,4})""")

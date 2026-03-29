@@ -8,9 +8,9 @@
 
 ## Recently Added
 
-1. **KSP Cross-Module Smart Cast** (`ksp-cross-module-smart-cast.md`) — Fixes "smart cast impossible" Kotlin compilation errors when accessing nullable properties from domain models in feature modules. Non-obvious root cause of cascading KSP/Hilt failures.
-2. **New Domain Entity End-to-End** (`new-domain-entity.md`) — Full 8-step checklist for adding a new persisted concept: domain model → Room entity → DAO → migration → repository → DI. Missing any step causes build failures.
-3. **Parser Body Fingerprint Detection** (`parser-body-fingerprint.md`) — How to write a parser that detects bank SMS by body content when the sender is a numeric shortcode or unpredictable. Used by MubasherParser, AlRajhiParser, EmiratesNbdParser.
+1. **Delegated Property Smart Cast** (`delegated-property-smart-cast.md`) — Kotlin cannot smart-cast nullable fields on `by collectAsStateWithLifecycle()` delegated properties. Capture to local `val` first. Affects all Compose screens with conditional UI.
+2. **New Feature Module** (`new-feature-module.md`) — 6-step checklist for creating a new Android Gradle module: `build.gradle.kts`, `AndroidManifest.xml`, `settings.gradle.kts`, `app/build.gradle.kts`, `NavRoutes.kt`, `AppNavGraph.kt`.
+3. **Analytics Drill-Down Pattern** (`analytics-drilldown-pattern.md`) — Full pattern for tap-to-drill-down on dashboard cards/bars/rows using a `DrillDownFilter` sealed class, 5-way `combine()` in ViewModel, and `ModalBottomSheet` in Compose.
 
 ---
 
@@ -18,6 +18,9 @@
 
 | Skill | File | Agent | Tags | Last Used |
 |-------|------|-------|------|-----------|
+| Delegated Property Smart Cast | `delegated-property-smart-cast.md` | FeatureAgent | kotlin, compose, smart-cast, state | 2026-03-29 |
+| New Feature Module | `new-feature-module.md` | FeatureAgent | gradle, modules, architecture, hilt | 2026-03-29 |
+| Analytics Drill-Down Pattern | `analytics-drilldown-pattern.md` | FeatureAgent | analytics, compose, bottomsheet, combine | 2026-03-29 |
 | KSP Cross-Module Smart Cast | `ksp-cross-module-smart-cast.md` | DataAgent, FeatureAgent | kotlin, ksp, hilt, compilation | 2026-03-29 |
 | New Domain Entity End-to-End | `new-domain-entity.md` | DataAgent | room, hilt, domain, migration, architecture | 2026-03-29 |
 | Parser Body Fingerprint Detection | `parser-body-fingerprint.md` | ParserAgent | parser, sms, regex, detection | 2026-03-29 |
@@ -32,6 +35,9 @@
 - **Parser Body Fingerprint Detection** (`parser-body-fingerprint.md`) — Write `canParse()` based on body content when sender is unknown/numeric
 
 ### FeatureAgent
+- **Delegated Property Smart Cast** (`delegated-property-smart-cast.md`) — Capture nullable delegated state to local `val` before null-checking in Compose
+- **New Feature Module** (`new-feature-module.md`) — 6-step checklist when creating a new Gradle module
+- **Analytics Drill-Down Pattern** (`analytics-drilldown-pattern.md`) — Sealed filter + 5-way combine + ModalBottomSheet drill-down
 - **Confirmation Dialog Pattern** (`viewmodel-confirm-dialog.md`) — Request/Confirm/Cancel state pattern for destructive action dialogs
 - **KSP Cross-Module Smart Cast** (`ksp-cross-module-smart-cast.md`) — Fix smart cast compilation errors on domain model properties
 

@@ -52,6 +52,7 @@ import androidx.compose.material3.SnackbarResult
 import androidx.compose.material3.SwipeToDismissBox
 import androidx.compose.material3.SwipeToDismissBoxValue
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberSwipeToDismissBoxState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -80,6 +81,7 @@ fun ExpenseListScreen(
     onAddExpense: () -> Unit,
     onImportFromSms: () -> Unit,
     onExpenseClick: (Long) -> Unit,
+    onViewAnalytics: () -> Unit = {},
     viewModel: ExpenseListViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
@@ -103,6 +105,7 @@ fun ExpenseListScreen(
         onAddExpense = onAddExpense,
         onImportFromSms = onImportFromSms,
         onExpenseClick = onExpenseClick,
+        onViewAnalytics = onViewAnalytics,
         onCategoryFilter = viewModel::selectCategory,
         onPaymentMethodFilter = viewModel::selectPaymentMethod,
         onSearchQueryChange = viewModel::onSearchQueryChange,
@@ -121,6 +124,7 @@ private fun ExpenseListContent(
     onAddExpense: () -> Unit,
     onImportFromSms: () -> Unit,
     onExpenseClick: (Long) -> Unit,
+    onViewAnalytics: () -> Unit = {},
     onCategoryFilter: (Long?) -> Unit,
     onPaymentMethodFilter: (PaymentMethod?) -> Unit,
     onSearchQueryChange: (String) -> Unit,
@@ -188,6 +192,7 @@ private fun ExpenseListContent(
                         onPrev = onPrevMonth,
                         onNext = onNextMonth,
                         onAllMonths = onAllMonths,
+                        onViewAnalytics = onViewAnalytics,
                         modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp)
                     )
                 }
@@ -348,6 +353,7 @@ private fun MonthlySummaryCard(
     onPrev: () -> Unit,
     onNext: () -> Unit,
     onAllMonths: () -> Unit,
+    onViewAnalytics: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     Card(
@@ -442,6 +448,17 @@ private fun MonthlySummaryCard(
                         fontWeight = FontWeight.Bold,
                         color = if (totalCredit > 0) MaterialTheme.colorScheme.primary
                         else MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+
+            Spacer(Modifier.height(4.dp))
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+                TextButton(onClick = onViewAnalytics) {
+                    Text(
+                        "View Analytics →",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.primary
                     )
                 }
             }

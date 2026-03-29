@@ -19,6 +19,7 @@ import com.expenseanalyst.feature.emi.ui.EmiCreateScreen
 import com.expenseanalyst.feature.emi.ui.EmiDetailScreen
 import com.expenseanalyst.feature.emi.ui.EmiListScreen
 import com.expenseanalyst.feature.expenses.ui.AddExpenseScreen
+import com.expenseanalyst.feature.expenses.ui.BillDetailScreen
 import com.expenseanalyst.feature.expenses.ui.BillsScreen
 import com.expenseanalyst.feature.expenses.ui.EditExpenseScreen
 import com.expenseanalyst.feature.expenses.ui.ExpenseDetailScreen
@@ -27,6 +28,8 @@ import com.expenseanalyst.feature.notification.ui.NotificationBanner
 import com.expenseanalyst.feature.notification.ui.PendingInboxScreen
 import com.expenseanalyst.feature.notification.ui.SmsImportScreen
 import com.expenseanalyst.feature.onboarding.ui.OnboardingScreen
+import com.expenseanalyst.feature.analytics.ui.AnalyticsScreen
+import com.expenseanalyst.feature.settings.ui.CategoryManagementScreen
 import com.expenseanalyst.feature.settings.ui.SettingsScreen
 
 @Composable
@@ -72,7 +75,8 @@ fun AppNavGraph(
                 ExpenseListScreen(
                     onAddExpense = { navController.navigate(NavRoutes.ADD_EXPENSE) },
                     onImportFromSms = { navController.navigate(NavRoutes.SMS_IMPORT) },
-                    onExpenseClick = { id -> navController.navigate(NavRoutes.expenseDetail(id)) }
+                    onExpenseClick = { id -> navController.navigate(NavRoutes.expenseDetail(id)) },
+                    onViewAnalytics = { navController.navigate(NavRoutes.ANALYTICS) }
                 )
                 NotificationBanner(
                     onSave = { parsed, pendingId ->
@@ -170,7 +174,18 @@ fun AppNavGraph(
         }
 
         composable(NavRoutes.BILLS) {
-            BillsScreen()
+            BillsScreen(
+                onBillClick = { billId -> navController.navigate(NavRoutes.billDetail(billId)) }
+            )
+        }
+
+        composable(
+            route = NavRoutes.BILL_DETAIL,
+            arguments = listOf(navArgument("billId") { type = NavType.LongType })
+        ) {
+            BillDetailScreen(
+                onBack = { navController.popBackStack() }
+            )
         }
 
         composable(NavRoutes.EMI_LIST) {
@@ -198,7 +213,21 @@ fun AppNavGraph(
                         android.content.Intent(android.provider.Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS)
                             .addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
                     )
-                }
+                },
+                onNavigateToCategoryManagement = { navController.navigate(NavRoutes.CATEGORY_MANAGEMENT) }
+            )
+        }
+
+        composable(NavRoutes.CATEGORY_MANAGEMENT) {
+            CategoryManagementScreen(
+                onBack = { navController.popBackStack() }
+            )
+        }
+
+        composable(NavRoutes.ANALYTICS) {
+            AnalyticsScreen(
+                onBack = { navController.popBackStack() },
+                onExpenseClick = { id -> navController.navigate(NavRoutes.expenseDetail(id)) }
             )
         }
 

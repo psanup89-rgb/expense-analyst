@@ -17,7 +17,7 @@ class SbiParser : TransactionParser {
 
     override val bankName = "SBI"
 
-    private val senderPattern = Regex("""(?i)\bsbi\b""")
+    private val senderPattern = Regex("""(?i)\bsbi""")
     private val amountPattern = Regex("""(?i)(?:rs\.?|inr)\s*([\d,]+\.?\d*)""")
     // Matches: "A/c No. XXXXXXXX1234", "A/c XXXXXXXX5678", "Card ending XX83", "Credit Card"
     private val accountPattern = Regex("""(?i)(?:a/c|card|acct)\s*(?:no\.?|ending)?\s*[xX*]+(\d{2,4})""")

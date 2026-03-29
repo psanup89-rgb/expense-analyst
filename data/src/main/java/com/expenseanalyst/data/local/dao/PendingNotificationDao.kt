@@ -25,6 +25,19 @@ interface PendingNotificationDao {
     @Query("DELETE FROM pending_notifications WHERE id = :id")
     suspend fun deleteById(id: Long)
 
+    /**
+     * Find a recent pending notification whose raw_body matches the given text.
+     * Used for live notification dedup — prevents the same SMS from being enqueued twice
+     * (e.g. dual-SIM retry, notification replay).
+     */
+    @Query(
+        """SELECT * FROM pending_notifications
+           WHERE raw_body = :rawBody
+             AND detected_at_millis >= :sinceMillis
+           LIMIT 1"""
+    )
+    suspend fun findRecentByRawBody(rawBody: String, sinceMillis: Long): PendingNotificationEntity?
+
     @Query("DELETE FROM pending_notifications")
     suspend fun deleteAll()
 }

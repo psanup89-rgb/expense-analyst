@@ -24,4 +24,7 @@ interface CategoryDao {
 
     @Update
     suspend fun updateAll(categories: List<CategoryEntity>)
+
+    @Delete
+    suspend fun deleteCategory(category: CategoryEntity)
 }
