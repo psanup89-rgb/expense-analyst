@@ -2,6 +2,7 @@ package com.expenseanalyst.data.repository
 
 import com.expenseanalyst.core.util.DateTimeUtil
 import com.expenseanalyst.data.local.dao.ExpenseDao
+import com.expenseanalyst.data.local.dao.TagDao
 import com.expenseanalyst.data.mapper.toDomain
 import com.expenseanalyst.data.mapper.toEntity
 import com.expenseanalyst.domain.model.Expense
@@ -12,7 +13,8 @@ import kotlinx.datetime.Instant
 import javax.inject.Inject
 
 class ExpenseRepositoryImpl @Inject constructor(
-    private val expenseDao: ExpenseDao
+    private val expenseDao: ExpenseDao,
+    private val tagDao: TagDao
 ) : ExpenseRepository {
 
     override fun getExpenses(): Flow<List<Expense>> =
@@ -46,7 +48,11 @@ class ExpenseRepositoryImpl @Inject constructor(
 
     override suspend fun addExpense(expense: Expense): Long {
         val now = DateTimeUtil.nowMillis()
-        return expenseDao.insertExpense(expense.toEntity(createdAt = now, updatedAt = now))
+        val id = expenseDao.insertExpense(expense.toEntity(createdAt = now, updatedAt = now))
+        if (expense.tags.isNotEmpty()) {
+            tagDao.setTagsForExpense(id, expense.tags.map { it.id })
+        }
+        return id
     }
 
     override suspend fun addExpenses(expenses: List<Expense>) {
@@ -59,6 +65,7 @@ class ExpenseRepositoryImpl @Inject constructor(
         val existing = expenseDao.getExpenseEntityById(expense.id)
         val createdAt = existing?.createdAtUtcMillis ?: now
         expenseDao.updateExpense(expense.toEntity(createdAt = createdAt, updatedAt = now))
+        tagDao.setTagsForExpense(expense.id, expense.tags.map { it.id })
     }
 
     override suspend fun softDeleteExpense(id: Long) {

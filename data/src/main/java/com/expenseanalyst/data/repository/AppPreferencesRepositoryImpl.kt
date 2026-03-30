@@ -29,10 +29,4 @@ class AppPreferencesRepositoryImpl @Inject constructor(
 
     override suspend fun setGooglePlacesEnabled(enabled: Boolean) =
         dataSource.setGooglePlacesEnabled(enabled)
-
-    override fun getGooglePlacesApiKey(): Flow<String> =
-        dataSource.getGooglePlacesApiKey()
-
-    override suspend fun setGooglePlacesApiKey(key: String) =
-        dataSource.setGooglePlacesApiKey(key)
 }

@@ -6,6 +6,14 @@ plugins {
     alias(libs.plugins.room)
 }
 
+val googlePlacesApiKey: String = rootProject.file("local.properties")
+    .takeIf { it.exists() }
+    ?.readLines()
+    ?.find { it.startsWith("GOOGLE_PLACES_API_KEY=") }
+    ?.substringAfter("=")
+    ?.trim()
+    ?: ""
+
 android {
     namespace = "com.expenseanalyst.data"
     compileSdk = 35
@@ -14,6 +22,12 @@ android {
         minSdk = 26
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+
+        buildConfigField("String", "GOOGLE_PLACES_API_KEY", "\"$googlePlacesApiKey\"")
+    }
+
+    buildFeatures {
+        buildConfig = true
     }
 
     compileOptions {

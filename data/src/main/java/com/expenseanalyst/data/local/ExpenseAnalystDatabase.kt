@@ -14,14 +14,17 @@ import com.expenseanalyst.data.local.dao.ExpenseDao
 import com.expenseanalyst.data.local.dao.BillDao
 import com.expenseanalyst.data.local.dao.MerchantRuleDao
 import com.expenseanalyst.data.local.dao.PendingNotificationDao
+import com.expenseanalyst.data.local.dao.TagDao
 import com.expenseanalyst.data.local.entity.AccountEntity
 import com.expenseanalyst.data.local.entity.BillEntity
 import com.expenseanalyst.data.local.entity.CategoryEntity
 import com.expenseanalyst.data.local.entity.CurrencyRateEntity
 import com.expenseanalyst.data.local.entity.EmiGroupEntity
 import com.expenseanalyst.data.local.entity.ExpenseEntity
+import com.expenseanalyst.data.local.entity.ExpenseTagCrossRef
 import com.expenseanalyst.data.local.entity.MerchantRuleEntity
 import com.expenseanalyst.data.local.entity.PendingNotificationEntity
+import com.expenseanalyst.data.local.entity.TagEntity
 
 
 @Database(
@@ -33,9 +36,11 @@ import com.expenseanalyst.data.local.entity.PendingNotificationEntity
         AccountEntity::class,
         MerchantRuleEntity::class,
         PendingNotificationEntity::class,
-        BillEntity::class
+        BillEntity::class,
+        TagEntity::class,
+        ExpenseTagCrossRef::class
     ],
-    version = 10,
+    version = 11,
     exportSchema = true
 )
 abstract class ExpenseAnalystDatabase : RoomDatabase() {
@@ -47,6 +52,7 @@ abstract class ExpenseAnalystDatabase : RoomDatabase() {
     abstract fun merchantRuleDao(): MerchantRuleDao
     abstract fun pendingNotificationDao(): PendingNotificationDao
     abstract fun billDao(): BillDao
+    abstract fun tagDao(): TagDao
 
     companion object {
         const val DATABASE_NAME = "expense_analyst.db"
@@ -102,6 +108,62 @@ abstract class ExpenseAnalystDatabase : RoomDatabase() {
                     """.trimIndent()
                 )
                 db.execSQL("ALTER TABLE expenses ADD COLUMN bill_id INTEGER")
+            }
+        }
+
+        private val MIGRATION_10_11 = object : Migration(10, 11) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                // Create tags table
+                db.execSQL(
+                    """
+                    CREATE TABLE IF NOT EXISTS tags (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                        name TEXT NOT NULL
+                    )
+                    """.trimIndent()
+                )
+                db.execSQL("CREATE UNIQUE INDEX IF NOT EXISTS idx_tags_name ON tags (name)")
+
+                // Create junction table
+                db.execSQL(
+                    """
+                    CREATE TABLE IF NOT EXISTS expense_tags (
+                        expense_id INTEGER NOT NULL,
+                        tag_id INTEGER NOT NULL,
+                        PRIMARY KEY (expense_id, tag_id),
+                        FOREIGN KEY (expense_id) REFERENCES expenses(id) ON DELETE CASCADE,
+                        FOREIGN KEY (tag_id) REFERENCES tags(id) ON DELETE CASCADE
+                    )
+                    """.trimIndent()
+                )
+                db.execSQL("CREATE INDEX IF NOT EXISTS idx_expense_tags_tag ON expense_tags (tag_id)")
+
+                // Pre-seed default tags
+                val defaultTags = listOf(
+                    "Recurring", "One-time", "Reimbursable", "Tax Deductible",
+                    "Personal", "Business", "Shared", "Subscription", "Essential"
+                )
+                defaultTags.forEach { tag ->
+                    db.execSQL("INSERT OR IGNORE INTO tags (name) VALUES ('$tag')")
+                }
+
+                // Migrate existing note data to tags
+                db.execSQL(
+                    """
+                    INSERT OR IGNORE INTO tags (name)
+                    SELECT DISTINCT TRIM(note) FROM expenses
+                    WHERE note IS NOT NULL AND TRIM(note) != ''
+                    """.trimIndent()
+                )
+                db.execSQL(
+                    """
+                    INSERT INTO expense_tags (expense_id, tag_id)
+                    SELECT e.id, t.id FROM expenses e
+                    INNER JOIN tags t ON TRIM(e.note) = t.name
+                    WHERE e.note IS NOT NULL AND TRIM(e.note) != ''
+                    """.trimIndent()
+                )
+                // note column is left orphaned in SQLite — Room ignores it
             }
         }
 
@@ -176,7 +238,7 @@ abstract class ExpenseAnalystDatabase : RoomDatabase() {
                 ExpenseAnalystDatabase::class.java,
                 DATABASE_NAME
             )
-                .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10)
+                .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11)
                 .addCallback(SeedDatabaseCallback())
                 .build()
         }
@@ -202,6 +264,14 @@ abstract class ExpenseAnalystDatabase : RoomDatabase() {
             )
             defaultCategories.forEach { values ->
                 db.execSQL("INSERT INTO categories (name, icon_name, color_hex, is_default, sort_order) VALUES $values")
+            }
+            // Seed default tags for fresh installs
+            val defaultTags = listOf(
+                "Recurring", "One-time", "Reimbursable", "Tax Deductible",
+                "Personal", "Business", "Shared", "Subscription", "Essential"
+            )
+            defaultTags.forEach { tag ->
+                db.execSQL("INSERT OR IGNORE INTO tags (name) VALUES ('$tag')")
             }
         }
     }

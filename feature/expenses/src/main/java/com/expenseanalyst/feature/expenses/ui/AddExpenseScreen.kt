@@ -6,6 +6,8 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -26,6 +28,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material3.Button
@@ -36,6 +39,8 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
+import androidx.compose.material3.InputChip
+import androidx.compose.material3.InputChipDefaults
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -76,6 +81,7 @@ import com.expenseanalyst.core.util.categoryIconVector
 import com.expenseanalyst.domain.model.AccountType
 import com.expenseanalyst.domain.model.Category
 import com.expenseanalyst.domain.model.PaymentMethod
+import com.expenseanalyst.domain.model.Tag
 import com.expenseanalyst.domain.model.TransactionType
 import com.expenseanalyst.domain.usecase.InferenceSource
 
@@ -103,7 +109,10 @@ fun AddExpenseScreen(
         onPaymentMethodChange = viewModel::onPaymentMethodChange,
         onDescriptionChange = viewModel::onDescriptionChange,
         onMerchantChange = viewModel::onMerchantChange,
-        onNoteChange = viewModel::onNoteChange,
+        onTagSearchQueryChange = viewModel::onTagSearchQueryChange,
+        onTagSelect = viewModel::onTagSelect,
+        onTagRemove = viewModel::onTagRemove,
+        onCreateTag = viewModel::onCreateTag,
         onCurrencyChange = viewModel::onCurrencyChange,
         onExchangeRateChange = viewModel::onExchangeRateChange,
         onShowCurrencyPicker = viewModel::showCurrencyPicker,
@@ -136,7 +145,10 @@ internal fun AddExpenseContent(
     onPaymentMethodChange: (PaymentMethod) -> Unit,
     onDescriptionChange: (String) -> Unit,
     onMerchantChange: (String) -> Unit,
-    onNoteChange: (String) -> Unit,
+    onTagSearchQueryChange: (String) -> Unit,
+    onTagSelect: (Tag) -> Unit,
+    onTagRemove: (Tag) -> Unit,
+    onCreateTag: (String) -> Unit,
     onCurrencyChange: (String) -> Unit,
     onExchangeRateChange: (String) -> Unit,
     onShowCurrencyPicker: () -> Unit,
@@ -620,7 +632,16 @@ internal fun AddExpenseContent(
                     Column(modifier = Modifier.padding(horizontal = 16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                         NeonTextField(value = uiState.merchantName, onValueChange = onMerchantChange, label = "Merchant *", accentColor = accentColor)
                         NeonTextField(value = uiState.description, onValueChange = onDescriptionChange, label = "Description (optional)", accentColor = accentColor)
-                        NeonTextField(value = uiState.note, onValueChange = onNoteChange, label = "Note (optional)", accentColor = accentColor)
+                        TagSelector(
+                            selectedTags = uiState.selectedTags,
+                            availableTags = uiState.availableTags,
+                            searchQuery = uiState.tagSearchQuery,
+                            onSearchQueryChange = onTagSearchQueryChange,
+                            onTagSelect = onTagSelect,
+                            onTagRemove = onTagRemove,
+                            onCreateTag = onCreateTag,
+                            accentColor = accentColor
+                        )
                     }
                 }
             }
@@ -749,4 +770,115 @@ private fun NeonTextField(value: String, onValueChange: (String) -> Unit, label:
             focusedTextColor = MaterialTheme.colorScheme.onSurface
         )
     )
+}
+
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
+@Composable
+private fun TagSelector(
+    selectedTags: List<Tag>,
+    availableTags: List<Tag>,
+    searchQuery: String,
+    onSearchQueryChange: (String) -> Unit,
+    onTagSelect: (Tag) -> Unit,
+    onTagRemove: (Tag) -> Unit,
+    onCreateTag: (String) -> Unit,
+    accentColor: Color
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        // Selected tags as removable chips
+        if (selectedTags.isNotEmpty()) {
+            FlowRow(
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalArrangement = Arrangement.spacedBy(4.dp)
+            ) {
+                selectedTags.forEach { tag ->
+                    InputChip(
+                        selected = true,
+                        onClick = { onTagRemove(tag) },
+                        label = { Text(tag.name, style = MaterialTheme.typography.labelMedium) },
+                        trailingIcon = {
+                            Icon(
+                                Icons.Default.Close,
+                                contentDescription = "Remove ${tag.name}",
+                                modifier = Modifier.size(16.dp)
+                            )
+                        },
+                        colors = InputChipDefaults.inputChipColors(
+                            selectedContainerColor = accentColor.copy(alpha = 0.15f),
+                            selectedLabelColor = accentColor,
+                            selectedTrailingIconColor = accentColor
+                        )
+                    )
+                }
+            }
+        }
+
+        // Search field
+        OutlinedTextField(
+            value = searchQuery,
+            onValueChange = onSearchQueryChange,
+            label = { Text("Tags") },
+            placeholder = { Text("Search or create tags...") },
+            singleLine = true,
+            modifier = Modifier.fillMaxWidth(),
+            colors = OutlinedTextFieldDefaults.colors(
+                focusedBorderColor = accentColor,
+                focusedLabelColor = accentColor,
+                cursorColor = accentColor,
+                unfocusedBorderColor = MaterialTheme.colorScheme.outline,
+                unfocusedContainerColor = Color.Transparent,
+                focusedContainerColor = Color.Transparent,
+                unfocusedTextColor = MaterialTheme.colorScheme.onSurface,
+                focusedTextColor = MaterialTheme.colorScheme.onSurface
+            )
+        )
+
+        // Suggestions: filtered available tags (excluding already selected)
+        val selectedIds = selectedTags.map { it.id }.toSet()
+        val query = searchQuery.trim()
+        val suggestions = if (query.isBlank()) {
+            availableTags.filter { it.id !in selectedIds }.take(6)
+        } else {
+            availableTags.filter {
+                it.id !in selectedIds && it.name.contains(query, ignoreCase = true)
+            }
+        }
+        val exactMatch = availableTags.any { it.name.equals(query, ignoreCase = true) }
+
+        if (suggestions.isNotEmpty() || (query.isNotBlank() && !exactMatch)) {
+            FlowRow(
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalArrangement = Arrangement.spacedBy(4.dp)
+            ) {
+                suggestions.forEach { tag ->
+                    FilterChip(
+                        selected = false,
+                        onClick = { onTagSelect(tag) },
+                        label = { Text(tag.name, style = MaterialTheme.typography.labelSmall) },
+                        colors = FilterChipDefaults.filterChipColors(
+                            containerColor = MaterialTheme.colorScheme.surfaceContainerHigh
+                        )
+                    )
+                }
+                // "Create" chip when no exact match
+                if (query.isNotBlank() && !exactMatch) {
+                    FilterChip(
+                        selected = false,
+                        onClick = { onCreateTag(query) },
+                        label = {
+                            Text(
+                                "+ Create \"$query\"",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = accentColor
+                            )
+                        },
+                        leadingIcon = null,
+                        colors = FilterChipDefaults.filterChipColors(
+                            containerColor = accentColor.copy(alpha = 0.1f)
+                        )
+                    )
+                }
+            }
+        }
+    }
 }

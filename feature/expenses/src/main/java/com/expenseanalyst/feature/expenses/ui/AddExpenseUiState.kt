@@ -4,6 +4,7 @@ import com.expenseanalyst.domain.model.Account
 import com.expenseanalyst.domain.model.AccountType
 import com.expenseanalyst.domain.model.Category
 import com.expenseanalyst.domain.model.PaymentMethod
+import com.expenseanalyst.domain.model.Tag
 import com.expenseanalyst.domain.model.TransactionType
 import com.expenseanalyst.domain.usecase.InferenceSource
 import kotlinx.datetime.Instant
@@ -23,7 +24,9 @@ data class AddExpenseUiState(
     val date: Instant = Instant.DISTANT_PAST,
     val description: String = "",
     val merchantName: String = "",
-    val note: String = "",
+    val selectedTags: List<Tag> = emptyList(),
+    val availableTags: List<Tag> = emptyList(),
+    val tagSearchQuery: String = "",
     val accounts: List<Account> = emptyList(),
     val selectedAccountId: Long? = null,
     val isAccountSheetVisible: Boolean = false,

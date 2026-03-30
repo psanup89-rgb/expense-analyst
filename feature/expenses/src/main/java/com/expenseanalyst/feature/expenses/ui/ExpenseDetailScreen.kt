@@ -307,9 +307,9 @@ private fun ExpenseDetailContent(
                     DetailDivider()
                     DetailRow("Merchant", merchant)
                 }
-                expense.note?.takeIf { it.isNotBlank() }?.let { note ->
+                if (expense.tags.isNotEmpty()) {
                     DetailDivider()
-                    DetailRow("Note", note)
+                    TagsDetailRow(expense.tags)
                 }
                 expense.exchangeRate?.let { rate ->
                     DetailDivider()
@@ -601,4 +601,18 @@ private fun RuleDialog(
             TextButton(onClick = onDismiss) { Text("Cancel") }
         }
     )
+}
+
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun TagsDetailRow(tags: List<com.expenseanalyst.domain.model.Tag>) {
+    Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp)) {
+        Text("Tags", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Spacer(modifier = Modifier.height(4.dp))
+        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            tags.forEach { tag ->
+                FilterChip(selected = false, onClick = {}, label = { Text(tag.name) })
+            }
+        }
+    }
 }

@@ -1,6 +1,7 @@
 package com.expenseanalyst.data.remote
 
 import android.util.Log
+import com.expenseanalyst.data.BuildConfig
 import io.ktor.client.HttpClient
 import io.ktor.client.request.header
 import io.ktor.client.request.post
@@ -29,10 +30,8 @@ class GooglePlacesApiService @Inject constructor(
     /**
      * Returns the list of Google place types for [merchantName], or null if the
      * request fails or no results are found.
-     *
-     * @param apiKey  Google Cloud API key with Places API (New) enabled.
      */
-    suspend fun findPlaceTypes(merchantName: String, apiKey: String): List<String>? = runCatching {
+    suspend fun findPlaceTypes(merchantName: String): List<String>? = runCatching {
         Log.d(TAG, "Searching Places for: $merchantName")
 
         // Escape any quotes in the merchant name for the JSON body
@@ -41,7 +40,7 @@ class GooglePlacesApiService @Inject constructor(
         val responseText: String = httpClient.post(
             "https://places.googleapis.com/v1/places:searchText"
         ) {
-            header("X-Goog-Api-Key", apiKey)
+            header("X-Goog-Api-Key", BuildConfig.GOOGLE_PLACES_API_KEY)
             header("X-Goog-FieldMask", "places.types")
             contentType(ContentType.Application.Json)
             setBody("""{"textQuery":"$safeName"}""")

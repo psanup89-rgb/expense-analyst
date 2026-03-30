@@ -40,13 +40,9 @@ class SettingsViewModel @Inject constructor(
                 themeMode = themeMode
             )
         },
-        appPreferencesRepository.isGooglePlacesEnabled(),
-        appPreferencesRepository.getGooglePlacesApiKey()
-    ) { state, googleEnabled, googleKey ->
-        state.copy(
-            googlePlacesEnabled = googleEnabled,
-            googlePlacesApiKey = googleKey
-        )
+        appPreferencesRepository.isGooglePlacesEnabled()
+    ) { state, googleEnabled ->
+        state.copy(googlePlacesEnabled = googleEnabled)
     }.stateIn(
         scope = viewModelScope,
         started = SharingStarted.WhileSubscribed(5_000),
@@ -78,14 +74,6 @@ class SettingsViewModel @Inject constructor(
             appPreferencesRepository.setGooglePlacesEnabled(enabled)
         }
     }
-
-    fun onGooglePlacesApiKeyChange(key: String) {
-        viewModelScope.launch {
-            appPreferencesRepository.setGooglePlacesApiKey(key)
-        }
-    }
-
-    fun toggleApiKeyVisibility() = formState.update { it.copy(isApiKeyVisible = !it.isApiKeyVisible) }
 
     fun updateThemeMode(mode: ThemeMode) {
         viewModelScope.launch {

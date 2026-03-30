@@ -18,7 +18,7 @@ data class Expense(
     val sourceSender: String? = null,
     val emiGroupId: Long? = null,
     val emiInstallmentNumber: Int? = null,
-    val note: String? = null,
+    val tags: List<Tag> = emptyList(),
     val accountId: Long? = null,
     val accountDisplayName: String? = null,
     val rawSmsBody: String? = null,

@@ -8,9 +8,9 @@
 
 ## Recently Added
 
-1. **Ktor JSON Without Serialization Plugin** (`ktor-json-parsing-without-serialization-plugin.md`) — `kotlinx.serialization` compiler plugin is absent from `:data` module. Using `body<T>()` crashes at runtime. Always use `bodyAsText()` + `JsonElement` tree API for new Ktor response types.
-2. **Google Places API (New)** (`google-places-api-new.md`) — New API keys require `POST /v1/places:searchText` (not legacy `findplacefromtext`). API key in header, response is `places[].types`, no status field.
-3. **Banner Dismiss on Save** (`banner-dismiss-on-save.md`) — When `AddExpenseScreen` is reached via a tray notification tap (not the in-app banner), `PendingNotificationManager._pending` must be cleared on successful save. Fix lives in `MainViewModel.dismissBanner()` called from `AppNavGraph.onSaved`. Cross-module boundary prevents doing this in `AddExpenseViewModel`.
+1. **BuildConfig Secret from local.properties** (`buildconfig-secret-from-local-properties.md`) — Embed API keys at build time via `BuildConfig`. Critical gotcha: `java.util.Properties` fails in Gradle Kotlin DSL — use line-based file reading instead.
+2. **Room Many-to-Many Tags** (`room-many-to-many-tags.md`) — Full checklist for a reusable tag/label system on a Room entity: junction table, `@Relation(associateBy = Junction(...))`, migration SQL, insert-or-get pattern.
+3. **Compose Experimental API in Nested Lambda** (`compose-experimental-in-nested-lambda.md`) — `@OptIn` on outer composable doesn't always cover experimental API inside deeply nested content lambdas. Extract into a dedicated private composable with its own `@OptIn`.
 
 ---
 
@@ -18,6 +18,9 @@
 
 | Skill | File | Agent | Tags | Last Used |
 |-------|------|-------|------|-----------|
+| BuildConfig Secret from local.properties | `buildconfig-secret-from-local-properties.md` | DataAgent | buildconfig, gradle, secrets, local-properties | 2026-03-30 |
+| Room Many-to-Many Tags | `room-many-to-many-tags.md` | DataAgent | room, many-to-many, junction, migration, tags | 2026-03-30 |
+| Compose Experimental in Nested Lambda | `compose-experimental-in-nested-lambda.md` | FeatureAgent | compose, experimental, opt-in, flowrow | 2026-03-30 |
 | Ktor JSON Without Serialization Plugin | `ktor-json-parsing-without-serialization-plugin.md` | DataAgent | ktor, json, serialization, android | 2026-03-30 |
 | Google Places API (New) | `google-places-api-new.md` | DataAgent | google-places, api, merchant, category | 2026-03-30 |
 | Banner Dismiss on Save | `banner-dismiss-on-save.md` | FeatureAgent | notification, banner, navigation, cross-module | 2026-03-29 |
@@ -42,6 +45,7 @@
 - **Parser Body Fingerprint Detection** (`parser-body-fingerprint.md`) — Write `canParse()` based on body content when sender is unknown/numeric
 
 ### FeatureAgent
+- **Compose Experimental in Nested Lambda** (`compose-experimental-in-nested-lambda.md`) — Extract `FlowRow` / other experimental calls into private composables when deeply nested
 - **Banner Dismiss on Save** (`banner-dismiss-on-save.md`) — Dismiss in-app banner via `MainViewModel.dismissBanner()` in `AppNavGraph.onSaved`
 - **Transaction Direction Enum Extension** (`transaction-direction-enum-extension.md`) — Downstream file checklist for new direction values
 - **Delegated Property Smart Cast** (`delegated-property-smart-cast.md`) — Capture nullable delegated state to local `val` before null-checking in Compose
@@ -51,6 +55,8 @@
 - **KSP Cross-Module Smart Cast** (`ksp-cross-module-smart-cast.md`) — Fix smart cast compilation errors on domain model properties
 
 ### DataAgent
+- **BuildConfig Secret from local.properties** (`buildconfig-secret-from-local-properties.md`) — Embed API keys securely at build time; avoid `java.util.Properties` in Kotlin DSL
+- **Room Many-to-Many Tags** (`room-many-to-many-tags.md`) — Full junction table + `@Relation` + migration pattern for tag systems
 - **Ktor JSON Without Serialization Plugin** (`ktor-json-parsing-without-serialization-plugin.md`) — Use `bodyAsText()` + `JsonElement` for all new Ktor response types; `body<T>()` crashes at runtime
 - **Google Places API (New)** (`google-places-api-new.md`) — POST endpoint, header-based auth, `places[].types` response structure
 - **New Domain Entity End-to-End** (`new-domain-entity.md`) — Full checklist: domain model → Room migration → DI wiring
@@ -64,4 +70,4 @@
 ## Notes
 
 - The `.claude/skills/` directory contains older Claude Code skill files (`bank-parser.md`, `build-verify.md`, `expense-architect.md`, etc.) — these are invocable via `/skill-name` in Claude Code CLI sessions. The files in `skills/` (this directory) are the agent memory system skills index and are not the same thing.
-- Total skills in index: **13**
+- Total skills in index: **16**

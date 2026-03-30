@@ -1,27 +1,24 @@
 package com.expenseanalyst.data.repository
 
 import android.util.Log
+import com.expenseanalyst.data.BuildConfig
 import com.expenseanalyst.data.remote.GooglePlacesApiService
-import com.expenseanalyst.domain.repository.AppPreferencesRepository
 import com.expenseanalyst.domain.repository.MerchantSearchRepository
-import kotlinx.coroutines.flow.first
 import javax.inject.Inject
 import javax.inject.Singleton
 
 @Singleton
 class MerchantSearchRepositoryImpl @Inject constructor(
-    private val googlePlacesApiService: GooglePlacesApiService,
-    private val appPreferencesRepository: AppPreferencesRepository
+    private val googlePlacesApiService: GooglePlacesApiService
 ) : MerchantSearchRepository {
 
     override suspend fun searchMerchantCategory(merchantName: String): String? {
-        val apiKey = appPreferencesRepository.getGooglePlacesApiKey().first()
-        if (apiKey.isBlank()) {
+        if (BuildConfig.GOOGLE_PLACES_API_KEY.isBlank()) {
             Log.w(TAG, "Google Places API key is blank — skipping Tier 3")
             return null
         }
 
-        val types = googlePlacesApiService.findPlaceTypes(merchantName, apiKey) ?: return null
+        val types = googlePlacesApiService.findPlaceTypes(merchantName) ?: return null
         val category = mapPlaceTypesToCategory(types)
         Log.d(TAG, "Mapped types $types → category=$category")
         return category

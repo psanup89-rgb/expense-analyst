@@ -68,13 +68,6 @@ class CurrencyPreferencesDataSource @Inject constructor(
         dataStore.edit { it[GOOGLE_PLACES_ENABLED_KEY] = enabled }
     }
 
-    fun getGooglePlacesApiKey(): Flow<String> =
-        dataStore.data.map { it[GOOGLE_PLACES_API_KEY] ?: "" }
-
-    suspend fun setGooglePlacesApiKey(key: String) {
-        dataStore.edit { it[GOOGLE_PLACES_API_KEY] = key.trim() }
-    }
-
     private companion object {
         const val PREFERENCES_FILE_NAME = "expense_analyst_preferences.preferences_pb"
         const val DEFAULT_THEME_MODE = "SYSTEM"
@@ -83,6 +76,5 @@ class CurrencyPreferencesDataSource @Inject constructor(
         val NOTIFICATION_CAPTURE_KEY = booleanPreferencesKey("notification_capture_enabled")
         val THEME_MODE_KEY = stringPreferencesKey("theme_mode")
         val GOOGLE_PLACES_ENABLED_KEY = booleanPreferencesKey("google_places_enabled")
-        val GOOGLE_PLACES_API_KEY = stringPreferencesKey("google_places_api_key")
     }
 }

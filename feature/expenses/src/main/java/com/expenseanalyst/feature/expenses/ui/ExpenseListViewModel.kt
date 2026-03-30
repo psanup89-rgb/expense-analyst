@@ -101,7 +101,7 @@ class ExpenseListViewModel @Inject constructor(
                     list.filter {
                         it.description.lowercase().contains(q) ||
                             it.merchantName?.lowercase()?.contains(q) == true ||
-                            it.note?.lowercase()?.contains(q) == true
+                            it.tags.any { tag -> tag.name.lowercase().contains(q) }
                     }
                 }
             }

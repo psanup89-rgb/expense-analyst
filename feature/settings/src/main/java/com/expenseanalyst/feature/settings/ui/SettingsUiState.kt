@@ -11,7 +11,5 @@ data class SettingsUiState(
     val isSaving: Boolean = false,
     val statusMessage: String? = null,
     val errorMessage: String? = null,
-    val googlePlacesEnabled: Boolean = false,
-    val googlePlacesApiKey: String = "",
-    val isApiKeyVisible: Boolean = false
+    val googlePlacesEnabled: Boolean = false
 )

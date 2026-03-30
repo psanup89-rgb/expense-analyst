@@ -45,7 +45,6 @@ data class ExpenseEntity(
     @ColumnInfo(name = "source_sender") val sourceSender: String?,
     @ColumnInfo(name = "emi_group_id") val emiGroupId: Long?,
     @ColumnInfo(name = "emi_installment_number") val emiInstallmentNumber: Int?,
-    val note: String?,
     @ColumnInfo(name = "account_number") val accountNumber: String? = null,
     @ColumnInfo(name = "account_id") val accountId: Long? = null,
     @ColumnInfo(name = "raw_sms_body") val rawSmsBody: String? = null,

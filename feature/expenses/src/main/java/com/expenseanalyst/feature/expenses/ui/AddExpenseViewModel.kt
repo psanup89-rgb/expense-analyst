@@ -11,12 +11,14 @@ import com.expenseanalyst.domain.model.Category
 import com.expenseanalyst.domain.model.Expense
 import com.expenseanalyst.domain.model.PaymentMethod
 import com.expenseanalyst.domain.model.SourceType
+import com.expenseanalyst.domain.model.Tag
 import com.expenseanalyst.domain.model.TransactionType
 import com.expenseanalyst.domain.repository.AccountRepository
 import com.expenseanalyst.domain.repository.BillRepository
 import com.expenseanalyst.domain.repository.CurrencyRepository
 import com.expenseanalyst.domain.repository.MerchantRuleRepository
 import com.expenseanalyst.domain.repository.PendingNotificationRepository
+import com.expenseanalyst.domain.repository.TagRepository
 import com.expenseanalyst.domain.usecase.AddExpenseUseCase
 import com.expenseanalyst.domain.usecase.GetAccountsUseCase
 import com.expenseanalyst.domain.usecase.GetCategoriesUseCase
@@ -50,7 +52,8 @@ class AddExpenseViewModel @Inject constructor(
     private val pendingNotificationRepository: PendingNotificationRepository,
     private val billRepository: BillRepository,
     private val inferCategoryUseCase: InferCategoryUseCase,
-    private val merchantRuleRepository: MerchantRuleRepository
+    private val merchantRuleRepository: MerchantRuleRepository,
+    private val tagRepository: TagRepository
 ) : ViewModel() {
 
     private var inferenceJob: Job? = null
@@ -198,9 +201,9 @@ class AddExpenseViewModel @Inject constructor(
         combine(_form, getAccountsUseCase()) { form, accounts -> form.copy(accounts = accounts) },
         getCategoriesUseCase(),
         homeCurrencyFlow,
-        selectedCurrencyRateFlow,
-        homeCurrencyRateFlow
-    ) { form, categories, homeCurrency, selectedRate, homeRate ->
+        combine(selectedCurrencyRateFlow, homeCurrencyRateFlow) { sel, home -> sel to home },
+        tagRepository.getAllTags()
+    ) { form, categories, homeCurrency, (selectedRate, homeRate), allTags ->
         val suggestedExchangeRate = when {
             form.currencyCode == homeCurrency -> 1.0
             selectedRate != null && homeRate != null && selectedRate.rateToBase > 0.0 ->
@@ -210,7 +213,8 @@ class AddExpenseViewModel @Inject constructor(
         form.copy(
             categories = categories,
             homeCurrencyCode = homeCurrency,
-            suggestedExchangeRate = suggestedExchangeRate
+            suggestedExchangeRate = suggestedExchangeRate,
+            availableTags = allTags
         )
     }.stateIn(
         scope = viewModelScope,
@@ -238,7 +242,22 @@ class AddExpenseViewModel @Inject constructor(
     fun onPaymentMethodChange(method: PaymentMethod) = _form.update { it.copy(paymentMethod = method) }
     fun onDescriptionChange(value: String) = _form.update { it.copy(description = value) }
     fun onMerchantChange(value: String) = _form.update { it.copy(merchantName = value) }
-    fun onNoteChange(value: String) = _form.update { it.copy(note = value) }
+    fun onTagSearchQueryChange(value: String) = _form.update { it.copy(tagSearchQuery = value) }
+    fun onTagSelect(tag: Tag) = _form.update {
+        if (it.selectedTags.any { t -> t.id == tag.id }) it
+        else it.copy(selectedTags = it.selectedTags + tag, tagSearchQuery = "")
+    }
+    fun onTagRemove(tag: Tag) = _form.update {
+        it.copy(selectedTags = it.selectedTags.filter { t -> t.id != tag.id })
+    }
+    fun onCreateTag(name: String) {
+        viewModelScope.launch {
+            val tag = tagRepository.createTag(name.trim())
+            _form.update {
+                it.copy(selectedTags = it.selectedTags + tag, tagSearchQuery = "")
+            }
+        }
+    }
     fun onCurrencyChange(code: String) = _form.update {
         it.copy(currencyCode = code, exchangeRateInput = "", isCurrencyPickerVisible = false, currencySearchQuery = "")
     }
@@ -344,7 +363,7 @@ class AddExpenseViewModel @Inject constructor(
                     date = state.date,
                     merchantName = merchantName,
                     sourceType = sourceType,
-                    note = state.note.trim().ifEmpty { null },
+                    tags = state.selectedTags,
                     accountId = state.selectedAccountId,
                     billId = billId
                 )

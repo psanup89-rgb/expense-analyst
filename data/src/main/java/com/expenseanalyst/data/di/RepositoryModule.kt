@@ -11,6 +11,7 @@ import com.expenseanalyst.data.repository.CurrencyRepositoryImpl
 import com.expenseanalyst.data.repository.EmiRepositoryImpl
 import com.expenseanalyst.data.repository.ExpenseRepositoryImpl
 import com.expenseanalyst.data.repository.OnboardingRepositoryImpl
+import com.expenseanalyst.data.repository.TagRepositoryImpl
 import com.expenseanalyst.domain.repository.AccountRepository
 import com.expenseanalyst.domain.repository.BillRepository
 import com.expenseanalyst.domain.repository.MerchantRuleRepository
@@ -22,6 +23,7 @@ import com.expenseanalyst.domain.repository.CurrencyRepository
 import com.expenseanalyst.domain.repository.EmiRepository
 import com.expenseanalyst.domain.repository.ExpenseRepository
 import com.expenseanalyst.domain.repository.OnboardingRepository
+import com.expenseanalyst.domain.repository.TagRepository
 import dagger.Binds
 import dagger.Module
 import dagger.hilt.InstallIn
@@ -75,4 +77,8 @@ abstract class RepositoryModule {
     @Binds
     @Singleton
     abstract fun bindMerchantSearchRepository(impl: MerchantSearchRepositoryImpl): MerchantSearchRepository
+
+    @Binds
+    @Singleton
+    abstract fun bindTagRepository(impl: TagRepositoryImpl): TagRepository
 }

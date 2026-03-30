@@ -4,6 +4,44 @@ Format: `[Date] — Summary`
 
 ---
 
+## 2026-03-30 — Tags system + API key security + Tier 3 flag gate (DB v11)
+
+**Agent role**: FeatureAgent / DataAgent
+
+**Work completed**:
+
+### Tags system (replaces `note` field)
+- Removed `note: String?` from `Expense` domain model and `ExpenseEntity`
+- New `Tag` domain model + `TagRepository` interface + `TagRepositoryImpl`
+- New Room entities: `TagEntity` (tags table, unique index on name) + `ExpenseTagCrossRef` (junction, composite PK, CASCADE FKs)
+- `TagDao` with insert-or-ignore + junction management + `@Transaction setTagsForExpense()`
+- DB migration v10→v11: creates `tags` + `expense_tags` tables; pre-seeds 9 default tags (Recurring, One-time, Reimbursable, Tax Deductible, Personal, Business, Shared, Subscription, Essential); migrates existing `note` text to tag if non-blank
+- `ExpenseWithCategory` — added `@Relation(associateBy = Junction(ExpenseTagCrossRef))` for eager tag loading
+- `AddExpense` / `EditExpense` ViewModels + UiState — `selectedTags`, `availableTags`, `tagSearchQuery` replacing `note`
+- `AddExpenseScreen` — new `TagSelector` composable: selected tags as `InputChip` with remove, search `OutlinedTextField`, `FilterChip` suggestions, "Create" chip for new tags
+- `ExpenseDetailScreen` — `TagsDetailRow` private composable with `FlowRow` of `FilterChip`
+- `ExpenseListViewModel` — search now matches `it.tags.any { tag -> tag.name.lowercase().contains(q) }`
+
+### API key security
+- Deleted API key UI from Settings (text field, show/hide, DataStore storage)
+- Key now embedded at build time: `data/build.gradle.kts` reads `local.properties` → `BuildConfig.GOOGLE_PLACES_API_KEY`
+- `MerchantSearchRepositoryImpl` checks `BuildConfig.GOOGLE_PLACES_API_KEY.isBlank()` as guard
+- Deleted `getGooglePlacesApiKey()` / `setGooglePlacesApiKey()` from `AppPreferencesRepository`, impl, and DataSource
+
+### Tier 3 gated in SMS import
+- `SmsImportViewModel` now reads `isGooglePlacesEnabled().first()` at start of `startBulkImport()`
+- Tier 3 web search wrapped in `if (isPlacesEnabled)` — onboarding import (toggle default OFF) skips Places calls entirely
+
+### Version
+- `versionName` changed from `"1.0.0"` to `"0.1.0"` (alpha)
+
+**Key decisions**:
+- `java.util.Properties` cannot be used in Gradle Kotlin DSL (the `java` identifier resolves to the plugin extension). Line-based file reading used instead.
+- `@OptIn` on an outer composable does not reliably suppress experimental API errors in nested content lambdas. Extracted `TagsDetailRow` as a standalone private composable with its own `@OptIn(ExperimentalLayoutApi::class)`.
+- Tags pre-seeded in both `MIGRATION_10_11` (for existing users) and `SeedDatabaseCallback.onCreate` (for fresh installs).
+
+---
+
 ## 2026-03-30 — Merchant Category Intelligence Engine (Google Places API)
 
 **Agent role**: FeatureAgent / DataAgent

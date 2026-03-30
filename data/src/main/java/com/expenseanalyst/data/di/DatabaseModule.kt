@@ -10,6 +10,7 @@ import com.expenseanalyst.data.local.dao.ExpenseDao
 import com.expenseanalyst.data.local.dao.BillDao
 import com.expenseanalyst.data.local.dao.MerchantRuleDao
 import com.expenseanalyst.data.local.dao.PendingNotificationDao
+import com.expenseanalyst.data.local.dao.TagDao
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -70,6 +71,11 @@ object DatabaseModule {
     @Provides
     fun provideBillDao(database: ExpenseAnalystDatabase): BillDao {
         return database.billDao()
+    }
+
+    @Provides
+    fun provideTagDao(database: ExpenseAnalystDatabase): TagDao {
+        return database.tagDao()
     }
 
     @Provides

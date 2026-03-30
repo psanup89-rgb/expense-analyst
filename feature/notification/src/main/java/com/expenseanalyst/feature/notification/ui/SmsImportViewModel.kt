@@ -11,6 +11,7 @@ import com.expenseanalyst.domain.model.PaymentMethod
 import com.expenseanalyst.domain.model.SourceType
 import com.expenseanalyst.domain.model.TransactionType
 import com.expenseanalyst.domain.repository.AccountRepository
+import com.expenseanalyst.domain.repository.AppPreferencesRepository
 import com.expenseanalyst.domain.repository.CategoryRepository
 import com.expenseanalyst.domain.repository.CurrencyRepository
 import com.expenseanalyst.domain.repository.ExpenseRepository
@@ -45,6 +46,7 @@ class SmsImportViewModel @Inject constructor(
     private val accountRepository: AccountRepository,
     private val merchantRuleRepository: MerchantRuleRepository,
     private val merchantSearchRepository: MerchantSearchRepository,
+    private val appPreferencesRepository: AppPreferencesRepository,
     private val billStatementManager: BillStatementManager
 ) : ViewModel() {
 
@@ -103,6 +105,8 @@ class SmsImportViewModel @Inject constructor(
                 if (currencyRepository.isStale()) currencyRepository.refreshRates()
                 currencyRepository.getRates().first().associateBy { it.currencyCode }
             }.getOrElse { emptyMap() }
+
+            val isPlacesEnabled = appPreferencesRepository.isGooglePlacesEnabled().first()
 
             // Existing expenses used for in-memory duplicate check.
             // Primary key: rawSmsBody hash (exact SMS match).
@@ -188,10 +192,12 @@ class SmsImportViewModel @Inject constructor(
                 val category = CategoryInference.infer(
                     merchantName, parsed.bankName, categories,
                     smsBody = sms.body, merchantRules = merchantRules
-                ) ?: webSearchCache.getOrPut(merchantName) {
-                    val catName = merchantSearchRepository.searchMerchantCategory(merchantName)
-                    categories.find { it.name.equals(catName, ignoreCase = true) }
-                } ?: miscCategory
+                ) ?: (if (isPlacesEnabled) {
+                    webSearchCache.getOrPut(merchantName) {
+                        val catName = merchantSearchRepository.searchMerchantCategory(merchantName)
+                        categories.find { it.name.equals(catName, ignoreCase = true) }
+                    }
+                } else null) ?: miscCategory
                 val inferredAccountType = when {
                     sms.body.contains("credit card", ignoreCase = true) ||
                         sms.body.contains(" CC ", ignoreCase = true) ||

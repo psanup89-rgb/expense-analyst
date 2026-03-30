@@ -1,107 +1,131 @@
 # Expense Analyst — Handoff Document
 
 **Last updated**: 2026-03-30
-**DB version**: 10 (no changes this session)
+**DB version**: 11 (bumped from 10 this session)
 **Build status**: `./gradlew clean assembleDebug` ✅ passing
 **APK**: Installed on Samsung Galaxy S26 Ultra (SM-S948B) via `adb installDebug`
+**App version**: 0.1.0 (alpha)
 
 ---
 
 ## What Was Accomplished This Session
 
-### Merchant Category Intelligence Engine — end-to-end implementation + verification
+### 1. API Key Security — Embed at Build Time
 
-**Goal**: When a bank notification arrives and the user taps it, automatically identify the expense category from the merchant name, including unknown local merchants.
+**Problem**: Google Places API key was stored in plain-text DataStore and visible in Settings UI. Any reverse-engineered APK could extract it.
 
-**3-Tier System:**
-1. **Tier 1 — MerchantRules** (instant): user-defined rules saved from previous lookups
-2. **Tier 2 — Keyword matching** (instant): `CategoryInference.infer()` across ~100 keywords
-3. **Tier 3 — Google Places API** (async ~1s): `POST /v1/places:searchText` → `places.types` → category
+**Solution**: Key moved to `local.properties` (gitignored). `data/build.gradle.kts` reads it using line-based parsing (not `java.util.Properties` — see Gotchas) and injects it as `BuildConfig.GOOGLE_PLACES_API_KEY`. The Settings API key input field and DataStore keys were deleted entirely.
 
-**New files created:**
-- `domain/.../repository/MerchantSearchRepository.kt` — pure Kotlin interface
-- `domain/.../usecase/InferCategoryUseCase.kt` — orchestrates all 3 tiers, checks enabled flag
-- `data/.../remote/GooglePlacesApiService.kt` — new Places API, `bodyAsText()` + `JsonElement` parsing
-- `data/.../repository/MerchantSearchRepositoryImpl.kt` — maps Google place types to categories
+**Files changed**:
+- `data/build.gradle.kts` — added `buildFeatures { buildConfig = true }` + `buildConfigField`
+- `data/.../remote/GooglePlacesApiService.kt` — removed `apiKey` param, reads `BuildConfig` directly
+- `data/.../repository/MerchantSearchRepositoryImpl.kt` — removed `AppPreferencesRepository` dep, uses `BuildConfig`
+- `domain/.../repository/AppPreferencesRepository.kt` — deleted `getGooglePlacesApiKey()`, `setGooglePlacesApiKey()`
+- `data/.../repository/AppPreferencesRepositoryImpl.kt` — deleted both overrides
+- `data/.../local/preferences/CurrencyPreferencesDataSource.kt` — deleted 2 functions + 1 pref key
+- `feature/settings/.../ui/SettingsUiState.kt` — deleted `googlePlacesApiKey`, `isApiKeyVisible`
+- `feature/settings/.../ui/SettingsViewModel.kt` — simplified combine, deleted 2 functions
+- `feature/settings/.../ui/SettingsScreen.kt` — deleted entire API key UI block + params
 
-**Files modified:**
-- `AppPreferencesRepository` + `AppPreferencesRepositoryImpl` + `CurrencyPreferencesDataSource` — 4 new prefs (enabled flag + API key)
-- `RepositoryModule` — `@Binds` for `MerchantSearchRepository`
-- `AddExpenseUiState` — `isCategoryInferring`, `categoryInferenceSource`
-- `AddExpenseViewModel` — inference job launched in `init`, cancelled on manual category select
-- `AddExpenseScreen` — 3-state category row: spinner / suggested label / placeholder
-- `SmsImportViewModel` — Tier 3 with `webSearchCache` + batch MerchantRule save after loop
-- `SettingsScreen/ViewModel/UiState` — "Smart Category Detection" card with toggle + API key field
+### 2. Tier 3 Gated in SMS Import
 
-**Settings UX:**
-- Feature defaults to OFF (pro-gating ready)
-- Toggle enables Tier 3 lookups
-- API key field with show/hide eye button, saved to DataStore on each keystroke
+**Problem**: `SmsImportViewModel.startBulkImport()` called `merchantSearchRepository.searchMerchantCategory()` without checking the `isGooglePlacesEnabled` flag. The onboarding import ran Tier 3 unconditionally even when the toggle was OFF.
 
-**Verified on device:**
-```
-Atypical → Google Places → [coffee_shop, cafe, food_store, food, ...] → Food ✅
-```
+**Solution**: Injected `AppPreferencesRepository`, read `isGooglePlacesEnabled().first()` once at start of `startBulkImport()`, wrapped the Tier 3 call in `if (isPlacesEnabled)`.
 
-### Three bugs fixed during debugging:
+**File**: `feature/notification/.../ui/SmsImportViewModel.kt`
 
-1. **`body<T>()` serialization error** — `kotlinx.serialization` compiler plugin is NOT in the project. `@Serializable` data classes generate no code. Fixed by switching to `bodyAsText()` + raw `JsonElement` API — no compiler plugin needed.
+### 3. Tags System (DB v10 → v11)
 
-2. **Legacy Places API** — `GET .../findplacefromtext/json` returns `REQUEST_DENIED` for new API keys (deprecated). Fixed by switching to `POST https://places.googleapis.com/v1/places:searchText` with `X-Goog-Api-Key` header and `X-Goog-FieldMask: places.types`.
+**Problem**: The `note: String?` field on `Expense` duplicated the `description` field and had no reuse value across expenses.
 
-3. **Response structure changed** — old API: `candidates[].types`; new API: `places[].types`. Updated JSON path accordingly.
+**Solution**: Replaced with a many-to-many Tags system: reusable, searchable, creatable from the expense form.
+
+**New entities/files**:
+- `domain/.../model/Tag.kt` — `data class Tag(id: Long, name: String)`
+- `domain/.../repository/TagRepository.kt` — interface with `getAllTags()`, `createTag()`, `setTagsForExpense()`, etc.
+- `data/.../local/entity/TagEntity.kt` — Room entity with unique index on `name`
+- `data/.../local/entity/ExpenseTagCrossRef.kt` — junction table with composite PK + FKs with CASCADE
+- `data/.../local/dao/TagDao.kt` — queries, insert-or-ignore, junction table management
+- `data/.../mapper/TagMapper.kt` — `toDomain()` / `toEntity()` extensions
+- `data/.../repository/TagRepositoryImpl.kt` — insert-or-get pattern for `createTag()`
+
+**Modified**:
+- `ExpenseAnalystDatabase` — bumped to v11, added 2 new entities, `abstract tagDao()`, `MIGRATION_10_11` (creates tables, pre-seeds 9 default tags, migrates existing `note` → `tags`)
+- `data/di/DatabaseModule` + `RepositoryModule` — new dao provider + binding
+- `domain/.../model/Expense.kt` — removed `note`, added `tags: List<Tag>`
+- `data/.../local/entity/ExpenseEntity.kt` — removed `note` field (column stays in SQLite, Room ignores)
+- `data/.../local/relation/ExpenseWithCategory.kt` — added `@Relation(associateBy = Junction(...))`
+- `data/.../mapper/ExpenseMapper.kt` — tags in/out
+- `data/.../repository/ExpenseRepositoryImpl.kt` — calls `tagDao.setTagsForExpense()` on add/update
+- `AddExpenseUiState` — removed `note`, added `selectedTags`, `availableTags`, `tagSearchQuery`
+- `AddExpenseViewModel` + `EditExpenseViewModel` — injected `TagRepository`, added tag CRUD functions
+- `AddExpenseScreen` — replaced note `NeonTextField` with `TagSelector` composable (InputChip + search + FilterChip suggestions + Create chip)
+- `EditExpenseScreen` — wired 4 tag callbacks
+- `ExpenseDetailScreen` — replaced `expense.note` block with `TagsDetailRow` private composable (FlowRow of FilterChips)
+- `ExpenseListViewModel` — search now filters by `it.tags.any { tag -> tag.name.lowercase().contains(q) }`
+
+### 4. Version 0.1.0
+
+`app/build.gradle.kts` `versionName` changed from `"1.0.0"` to `"0.1.0"`.
 
 ---
 
 ## What Was NOT Finished
 
-Nothing incomplete — the feature is fully shipped and verified.
+Nothing incomplete. All planned work shipped and build verified.
 
-The `DuckDuckGoApiService.kt` remains in the codebase but is unused (the `MerchantSearchRepositoryImpl` no longer references it). It can be deleted in a cleanup pass if desired.
+**Known dead code**: `DuckDuckGoApiService.kt` in `:data` — unused, can be deleted in a cleanup pass.
 
 ---
 
 ## First Action for Next Agent
 
-Fix the hardcoded SAR in `ExpenseDetailScreen` (~line 240):
+Fix the hardcoded `"SAR"` in `ExpenseDetailScreen.kt` (~line 240):
 
 ```kotlin
 // Current (wrong):
 if (expense.currencyCode != "SAR") { ... }
 
-// Fix:
+// Fix needed:
 if (expense.currencyCode != uiState.homeCurrency) { ... }
 ```
 
 Steps:
-1. Read `feature/expenses/src/main/java/com/expenseanalyst/feature/expenses/ui/ExpenseDetailViewModel.kt`
-2. Add `CurrencyRepository` injection, collect `getHomeCurrency()` flow
+1. Read `feature/expenses/.../ui/ExpenseDetailViewModel.kt` and `ExpenseDetailUiState.kt`
+2. Inject `CurrencyRepository`, collect `getHomeCurrency()` into the uiState combine
 3. Add `homeCurrency: String = "SAR"` to `ExpenseDetailUiState`
 4. Fix the condition in `ExpenseDetailScreen`
-5. `./gradlew clean assembleDebug` and verify
+5. `./gradlew clean assembleDebug` + install + verify by setting home currency to INR in Settings
 
 ---
 
 ## Surprises / Gotchas Discovered
 
-### 1. `kotlinx.serialization` compiler plugin is absent
-The `:data` module `build.gradle.kts` has no `kotlin("plugin.serialization")` and it's not in `libs.versions.toml`. Using `.body<MyClass>()` in Ktor throws `SerializationException: Serializer for class 'X' is not found` at runtime.
+### 1. `java.util.Properties` doesn't work in Gradle Kotlin DSL
 
-**Rule**: Always use `bodyAsText()` + `jsonElement.jsonObject[...]` for Ktor responses in `:data`. The existing `CurrencyApiService` works because `ExchangeRateResponse` uses primitive types + Map which have built-in serializers — but this is fragile. Any new response class with nested structures will fail without the plugin.
+In `build.gradle.kts`, the identifier `java` resolves to the `java {}` project extension (Java plugin config), NOT the `java.util` package. Using `java.util.Properties()` throws `Unresolved reference 'util'`.
 
-### 2. Google Places Legacy API deprecated for new projects
-New API keys (created after mid-2024) only work with the **New Places API** (`places.googleapis.com/v1/...`). The legacy `maps.googleapis.com/maps/api/place/...` returns `REQUEST_DENIED`. Always use the new endpoint.
-
-### 3. New Places API response structure
-- Uses `places[]` not `candidates[]`
-- API key goes in `X-Goog-Api-Key` header, not `?key=` query param
-- Field selection via `X-Goog-FieldMask: places.types` header
-- Request is a POST with JSON body: `{"textQuery": "merchant name"}`
-
-### 4. JAVA_HOME path with spaces
-`/Applications/Android Studio.app/...` contains a space, breaking `./gradlew`. Workaround:
-```bash
-ln -sfn "/Applications/Android Studio.app/Contents/jbr/Contents/Home" /tmp/jbr_home
-export JAVA_HOME=/tmp/jbr_home
-bash gradlew clean assembleDebug
+**Fix**: Use line-based file reading:
+```kotlin
+val googlePlacesApiKey: String = rootProject.file("local.properties")
+    .takeIf { it.exists() }
+    ?.readLines()
+    ?.find { it.startsWith("GOOGLE_PLACES_API_KEY=") }
+    ?.substringAfter("=")
+    ?.trim()
+    ?: ""
 ```
+See skill: `buildconfig-secret-from-local-properties.md`
+
+### 2. `@OptIn` on outer composable doesn't cover experimental API in nested content lambdas
+
+When `FlowRow` (an `@ExperimentalLayoutApi` API) is called inside a `Column { ... }` or `Card { ... }` content lambda within a composable function annotated with `@OptIn(ExperimentalLayoutApi::class)`, the Compose compiler still raises an error for the lambda site.
+
+**Fix**: Extract the experimental call into a small private composable function with its own `@OptIn` annotation.
+See skill: `compose-experimental-in-nested-lambda.md`
+
+### 3. Room Junction @Relation for many-to-many
+
+`@Relation(associateBy = Junction(...))` must be on the property in the embedding class (`ExpenseWithCategory`), not in the entity itself. The junction entity needs both FKs as `@ColumnInfo`-annotated fields matching the column names in `associateBy`. If column names mismatch, Room generates incorrect SQL silently.
+See skill: `room-many-to-many-tags.md`
