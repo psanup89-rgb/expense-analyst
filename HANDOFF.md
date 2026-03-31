@@ -1,16 +1,66 @@
 # Expense Analyst — Handoff Document
 
-**Last updated**: 2026-03-31
-**DB version**: 11 (no change this session)
+**Last updated**: 2026-03-31 (session 2)
+**DB version**: 12 (bumped from 11 — `is_possible_duplicate` column on `pending_notifications`)
 **Build status**: `./gradlew clean assembleDebug` ✅ passing
-**Device**: Samsung Galaxy S26 Ultra (SM-S948B) — installed via ADB
+**Device**: Samsung Galaxy S26 Ultra (SM-S948B) — install pending (device disconnected at session end)
 **App version**: 0.1.0 (alpha)
 
 ---
 
-## What Was Accomplished This Session
+## What Was Accomplished This Session (session 2 — 2026-03-31)
 
-### 1. Crash Fix — Room Migration `MIGRATION_10_11` (DB v11)
+### 1. New `AxisBankStatementParser` — Axis CC bill detection
+
+**Message**:
+```
+Payment of INR 8523.16 for Axis Bank Credit Card no. XX3745 is due on 04-04-26
+with minimum amount due of INR 8523.16. Ignore if paid.
+```
+Parser matches sender `AXISBK`/`axis` + body fingerprint `credit card.*due on`. Extracts total due, min due, due date (`dd-MM-yy` → epoch), card XX last-4. Registered in `BillStatementParserRegistry` before EmiratesNBD.
+
+---
+
+### 2. `AxisParser` — 3 new detection patterns
+
+- **"Debit INR X" + "NACH debit"**: Changed `\bdebited\b` → `\bdebit(?:ed)?\b` so non-past-tense forms are caught
+- **ACH merchant**: `ACH-DR-MONTHLYSMALLCAS-000` → added `achMerchantPattern` (`ACH-(?:DR|CR)-([A-Z0-9]+)-\d`)
+- **NACH merchant**: `NACH debit towards MERCHANTNAME for INR` → added `nachMerchantPattern`
+
+---
+
+### 3. Soft Duplicate Detection (DB v11 → v12)
+
+**Problem**: Same NACH debit SMS arrives twice (bank sends two different wordings for the same transaction). Currently both are saved to the pending inbox with no warning.
+
+**Solution**: After the existing raw-body dedup check in `PendingNotificationManager.enqueue()`, a soft check runs:
+- Queries `getExpensesSnapshot()` for any expense matching **same amount + same merchant (case-insensitive) + same calendar day**
+- If match found: sets `isPossibleDuplicate = true` on both the `ParsedTransaction` (for the live banner) and the saved `PendingNotification` (for the inbox)
+
+**DB change** (`MIGRATION_11_12`):
+```sql
+ALTER TABLE pending_notifications ADD COLUMN is_possible_duplicate INTEGER NOT NULL DEFAULT 0
+```
+
+**UI changes**:
+- `NotificationBanner`: amber subtitle "⚠ Possible duplicate — already logged today"; "Save" → "Add Anyway"
+- `PendingInboxScreen`: orange "⚠ Possible duplicate" badge chip on the card; "Add Expense" → "Add Anyway"
+
+**Files changed**:
+- `domain/.../model/PendingNotification.kt` — added `isPossibleDuplicate: Boolean = false`
+- `feature/notification/.../parser/ParsedTransaction.kt` — added `isPossibleDuplicate: Boolean = false`
+- `data/.../entity/PendingNotificationEntity.kt` — added column with `defaultValue = "0"`
+- `data/.../repository/PendingNotificationRepositoryImpl.kt` — mapper updated
+- `data/.../local/ExpenseAnalystDatabase.kt` — bumped to v12, added `MIGRATION_11_12`
+- `feature/notification/.../service/PendingNotificationManager.kt` — soft-dupe logic
+- `feature/notification/.../ui/NotificationBanner.kt` — amber warning + button text
+- `feature/notification/.../ui/PendingInboxScreen.kt` — badge chip + button text
+
+---
+
+## Previous Session (session 1 — 2026-03-31)
+
+### Crash Fix — Room Migration `MIGRATION_10_11` (DB v11)
 
 **Problem**: App crashed on open with:
 ```
@@ -103,7 +153,7 @@ Spent Rs.2 On HDFC Bank Card 1041 At GOOGLE CLOUD On 2026-03-30:02:14:36
 
 ## What Was NOT Finished
 
-Nothing incomplete this session.
+Nothing incomplete. APK built successfully but not installed — device was disconnected. Run `./gradlew installDebug` when device is reconnected.
 
 **Carried-over known issues**:
 - Hardcoded `"SAR"` in `ExpenseDetailScreen.kt` (~line 240) — checks `expense.currencyCode != "SAR"` instead of actual home currency

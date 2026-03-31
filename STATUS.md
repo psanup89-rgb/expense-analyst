@@ -1,9 +1,9 @@
 # Expense Analyst — Current Status
 
 **Date**: 2026-03-31
-**DB version**: 11 (stable — no change this session)
+**DB version**: 12 (MIGRATION_11_12 — `is_possible_duplicate` on pending_notifications)
 **Build**: `./gradlew clean assembleDebug` ✅ passing
-**Device**: Samsung Galaxy S26 Ultra (SM-S948B), installed via ADB
+**Device**: Samsung Galaxy S26 Ultra (SM-S948B) — install pending (reconnect + `./gradlew installDebug`)
 **Version**: 0.1.0 (alpha)
 
 ---
@@ -45,14 +45,20 @@ Tags system shipped. Google Places API key secured at build time. Tier 3 inferen
 - [x] Live notification dedup (60s window + expense body hash check)
 - [x] Banner dismissed correctly after tray-tap → AddExpense → save flow
 
-### SMS Parsers (transaction parsers: 17; bill statement parsers: 6)
+### SMS Parsers (transaction parsers: 17; bill statement parsers: 7)
 - [x] HDFC, SBI, ICICI, Axis, Kotak, Yes Bank, IDFC First Bank, OneCard (Indian banks)
 - [x] Al Rajhi, STC Bank, Alinma, D360, Emirates NBD, Mubasher (Saudi/UAE banks)
 - [x] FASTag, Wallet, UPI (payment channel parsers)
 - [x] GenericParser (always-on fallback)
-- [x] **HDFC "Spent Rs.X" format** — added `spent` keyword to debit detection
-- [x] **EmiratesNBD "Credit Card: Credited"** — card payment detection (TransactionDirection.PAYMENT)
-- [x] Bill parsers: HDFC, EmiratesNBD, AlRajhi, IDFC FIRST Bank (new), Tamara (new), Generic
+- [x] Axis: "Debit INR X" / "NACH debit" formats; ACH-DR-MERCHANT extraction
+- [x] HDFC: "Spent Rs.X" format
+- [x] EmiratesNBD: "Credit Card: Credited" payment detection
+- [x] Bill parsers: HDFC, EmiratesNBD, AlRajhi, IDFC FIRST Bank, Axis Bank, Tamara, Generic
+
+### Duplicate Detection
+- [x] Soft-duplicate flag: same amount + merchant + calendar day → `isPossibleDuplicate` in pending inbox
+- [x] Banner shows amber warning + "Add Anyway" for duplicates
+- [x] Inbox shows orange badge chip + "Add Anyway" for duplicates
 
 ### Merchant Category Intelligence Engine ✅ complete
 - [x] 3-tier inference: MerchantRules (instant) → Keyword matching → Google Places API

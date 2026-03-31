@@ -4,6 +4,30 @@ Format: `[Date] — Summary`
 
 ---
 
+## 2026-03-31 — Axis parsers + soft-duplicate detection (DB v12)
+
+**Agent role**: ParserAgent / DataAgent / FeatureAgent
+
+**Work completed**:
+
+### New: `AxisBankStatementParser`
+- Detects "Payment of INR X for Axis Bank Credit Card no. XXYYYY is due on DD-MM-YY" → Bill
+- Extracts totalDue, minimumDue, due date (dd-MM-yy format), card last-4
+
+### `AxisParser` — 3 fixes
+- Debit keyword: `\bdebited\b` → `\bdebit(?:ed)?\b` (catches "Debit INR X", "NACH debit")
+- ACH merchant: `ACH-DR-MONTHLYSMALLCAS-000` → extracts "MONTHLYSMALLCAS"
+- NACH merchant: `NACH debit towards MERCHANTNAME for INR` pattern
+
+### Soft-duplicate detection (DB v11→v12)
+- `MIGRATION_11_12`: `ALTER TABLE pending_notifications ADD COLUMN is_possible_duplicate INTEGER NOT NULL DEFAULT 0`
+- `PendingNotificationManager`: checks saved expenses for same amount + merchant + calendar day
+- `ParsedTransaction` + `PendingNotification` domain model: `isPossibleDuplicate` flag added
+- `NotificationBanner`: amber warning + "Add Anyway" button label
+- `PendingInboxScreen`: orange "⚠ Possible duplicate" badge + "Add Anyway" button
+
+---
+
 ## 2026-03-31 — Crash fix + 4 parser improvements
 
 **Agent role**: ParserAgent / DataAgent

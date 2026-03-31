@@ -10,7 +10,7 @@ Extracted from the codebase. These are deliberate patterns agents must follow.
 |--------|---------------|
 | Kotlin only — no Java | Established from day 1, all 163 source files are Kotlin |
 | Jetpack Compose + Material 3 | All UI is declarative Compose; no XML layouts exist |
-| Room (SQLite) | 11 migration versions already committed; switching ORMs is a full rewrite |
+| Room (SQLite) | 12 migration versions already committed; switching ORMs is a full rewrite |
 | Hilt for DI | `@HiltViewModel` on all ViewModels; `@AndroidEntryPoint` on services |
 | KSP (not KAPT) | Already migrated; never add `kapt` dependencies |
 | Kotlin Coroutines + Flow | All async uses `StateFlow`, `Flow`, `viewModelScope`; no RxJava |
@@ -24,7 +24,7 @@ Extracted from the codebase. These are deliberate patterns agents must follow.
 ## Build Constraints
 
 - **Always run `./gradlew clean assembleDebug`** — never just `assembleDebug`. KSP incremental processing is disabled (`ksp.incremental=false` in `gradle.properties`). Using incremental builds after adding new files causes stale symbol errors.
-- **DB version is currently 11.** Any schema change must bump to 12 and add `MIGRATION_11_12` inline in `ExpenseAnalystDatabase.kt`. Never use `fallbackToDestructiveMigration()`.
+- **DB version is currently 12.** Any schema change must bump to 13 and add `MIGRATION_12_13` inline in `ExpenseAnalystDatabase.kt`. Never use `fallbackToDestructiveMigration()`.
 - **After any migration**, run `./gradlew :data:kspDebugKotlin` to regenerate schema JSON in `data/schemas/`. Commit the new schema file.
 - **Min SDK 26** — do not use APIs below API 26 without a version check.
 
