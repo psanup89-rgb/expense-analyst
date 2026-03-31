@@ -10,7 +10,9 @@ data class ParsedTransaction(
     val bankName: String,
     val rawBody: String? = null,
     /** PaymentMethod enum name (e.g. "APPLE_PAY") when a specific payment method is detected. */
-    val paymentMethodName: String? = null
+    val paymentMethodName: String? = null,
+    /** True when the same amount + merchant was already saved as an expense today. */
+    val isPossibleDuplicate: Boolean = false
 )
 
 enum class TransactionDirection { DEBIT, CREDIT, PAYMENT, TRANSFER }

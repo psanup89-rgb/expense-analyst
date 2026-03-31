@@ -22,6 +22,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.ui.graphics.Color
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
@@ -101,15 +102,27 @@ private fun BannerContent(
                     fontWeight = FontWeight.SemiBold,
                     color = MaterialTheme.colorScheme.onSecondaryContainer
                 )
-                Text(
-                    text = "Tap to save • ${transaction.bankName}",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.7f)
-                )
+                if (transaction.isPossibleDuplicate) {
+                    Text(
+                        text = "⚠ Possible duplicate — already logged today",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = Color(0xFFF57C00)
+                    )
+                } else {
+                    Text(
+                        text = "Tap to save • ${transaction.bankName}",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.7f)
+                    )
+                }
             }
         }
         TextButton(onClick = onSave) {
-            Text("Save", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.secondary)
+            Text(
+                if (transaction.isPossibleDuplicate) "Add Anyway" else "Save",
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.secondary
+            )
         }
         IconButton(onClick = onDismiss, modifier = Modifier.size(36.dp)) {
             Icon(

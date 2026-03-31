@@ -15,5 +15,6 @@ data class PendingNotificationEntity(
     @ColumnInfo(name = "transaction_type") val transactionType: String,
     @ColumnInfo(name = "detected_at_millis") val detectedAtMillis: Long,
     @ColumnInfo(name = "raw_body") val rawBody: String? = null,
-    @ColumnInfo(name = "payment_method") val paymentMethod: String? = null
+    @ColumnInfo(name = "payment_method") val paymentMethod: String? = null,
+    @ColumnInfo(name = "is_possible_duplicate", defaultValue = "0") val isPossibleDuplicate: Boolean = false
 )

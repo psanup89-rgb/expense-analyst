@@ -32,6 +32,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
@@ -41,9 +42,11 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.expenseanalyst.domain.model.PendingNotification
@@ -256,6 +259,21 @@ private fun PendingInboxItem(
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                         }
+                        if (item.isPossibleDuplicate) {
+                            Spacer(Modifier.height(4.dp))
+                            Surface(
+                                color = Color(0xFFFFF3E0),
+                                shape = RoundedCornerShape(4.dp)
+                            ) {
+                                Text(
+                                    text = "⚠ Possible duplicate",
+                                    fontSize = 11.sp,
+                                    color = Color(0xFFF57C00),
+                                    fontWeight = FontWeight.Medium,
+                                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                                )
+                            }
+                        }
                     }
                 }
                 Text(
@@ -279,7 +297,7 @@ private fun PendingInboxItem(
                     onClick = onAdd,
                     modifier = Modifier.weight(1f)
                 ) {
-                    Text("Add Expense")
+                    Text(if (item.isPossibleDuplicate) "Add Anyway" else "Add Expense")
                 }
             }
         }

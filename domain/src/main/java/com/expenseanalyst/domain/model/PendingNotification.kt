@@ -10,5 +10,6 @@ data class PendingNotification(
     val transactionType: String, // mirrors TransactionDirection.name: DEBIT | CREDIT | PAYMENT
     val detectedAtMillis: Long,
     val rawBody: String? = null,
-    val paymentMethod: String? = null  // PaymentMethod enum name, e.g. "APPLE_PAY"
+    val paymentMethod: String? = null,  // PaymentMethod enum name, e.g. "APPLE_PAY"
+    val isPossibleDuplicate: Boolean = false
 )

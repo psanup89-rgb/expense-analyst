@@ -12,6 +12,10 @@ package com.expenseanalyst.feature.notification.parser
  *   "Debited SAR 43.05 from Axis Bank Fx Card XX9665 on 26-03-2026 02:18:34 IST at Keemart. Bal: SAR 5318.50."
  * Sample (UPI debit, compact):
  *   "INR 4386.00 debited A/c no. XX0426 10-03-26, 02:47:02 UPI/P2M/600656614974/3FIVE8 TECHNOLOGIES Not you?"
+ * Sample (ACH debit, multiline):
+ *   "Debit INR 2200.00\nAxis Bank A/c XX0426\n31-03-26 08:54:04\nACH-DR-MONTHLYSMALLCAS-000\n..."
+ * Sample (NACH debit):
+ *   "NACH debit towards MONTHLYSMALLCAS for INR 2,200.00 with UMRN ... in A/c no. XX0426 today - Axis Bank"
  */
 class AxisParser : TransactionParser {
 
@@ -29,12 +33,16 @@ class AxisParser : TransactionParser {
     private val atPattern = Regex("""(?i)\bat\s+([A-Za-z0-9][A-Za-z0-9 _\-&./]*?)(?=\s+(?:Bal|Ref|on\s+\d|via)|\.\s*(?:Bal|${'$'})|\s*${'$'})""")
     // Merchant from UPI compact format: "UPI/P2M/txnid/MERCHANT NAME Not you?"
     private val upiMerchantPattern = Regex("""UPI/P2[MA]/\d+/([A-Za-z0-9][A-Za-z0-9 _\-&.]*?)(?=\s+Not\s|\s*$)""")
+    // Merchant from ACH: "ACH-DR-MONTHLYSMALLCAS-000" or "ACH-CR-MERCHANTNAME-NNN"
+    private val achMerchantPattern = Regex("""(?i)ACH-(?:DR|CR)-([A-Z0-9]+)-\d""")
+    // Merchant from NACH: "NACH debit towards MERCHANTNAME for INR"
+    private val nachMerchantPattern = Regex("""(?i)NACH\s+debit\s+towards\s+(\S+)\s+for""")
 
     override fun canParse(sender: String, body: String): Boolean =
         senderPattern.containsMatchIn(sender)
 
     override fun parse(sender: String, body: String): ParsedTransaction? {
-        val isDebit = Regex("""(?i)\bdebited\b""").containsMatchIn(body)
+        val isDebit = Regex("""(?i)\bdebit(?:ed)?\b""").containsMatchIn(body)
         val isCredit = Regex("""(?i)\bcredited\b""").containsMatchIn(body)
         if (!isDebit && !isCredit) return null
 
@@ -56,10 +64,12 @@ class AxisParser : TransactionParser {
 
         val accountLast4 = accountPattern.find(body)?.groupValues?.get(1)
         val ref = refPattern.find(body)?.groupValues?.get(1)
-        // Prefer UPI transfer target, then POS "at Merchant", then UPI compact format
+        // Prefer: UPI transfer target → POS "at Merchant" → UPI compact → NACH towards → ACH-DR
         val merchant = (transferToPattern.find(body)?.groupValues?.get(1)
             ?: atPattern.find(body)?.groupValues?.get(1)
-            ?: upiMerchantPattern.find(body)?.groupValues?.get(1))
+            ?: upiMerchantPattern.find(body)?.groupValues?.get(1)
+            ?: nachMerchantPattern.find(body)?.groupValues?.get(1)
+            ?: achMerchantPattern.find(body)?.groupValues?.get(1))
             ?.trim()?.takeIf { it.isNotBlank() && it.length < 60 }
 
         return ParsedTransaction(

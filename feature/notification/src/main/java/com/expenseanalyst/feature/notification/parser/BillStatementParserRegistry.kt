@@ -9,6 +9,7 @@ object BillStatementParserRegistry {
 
     private val parsers: List<BillStatementParser> = listOf(
         IdfcFirstBankStatementParser(),
+        AxisBankStatementParser(),
         EmiratesNbdStatementParser(),
         AlRajhiStatementParser(),
         HdfcStatementParser(),

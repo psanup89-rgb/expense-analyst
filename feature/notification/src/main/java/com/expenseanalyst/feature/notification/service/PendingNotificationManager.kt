@@ -14,6 +14,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import java.util.Calendar
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -43,7 +44,7 @@ class PendingNotificationManager @Inject constructor(
     val lastPendingId: StateFlow<Long?> = _lastPendingId.asStateFlow()
 
     fun enqueue(transaction: ParsedTransaction) {
-        _pending.value = transaction
+        _pending.value = transaction  // emit immediately; flag updated below after DB check
         scope.launch {
             // ── Dedup: skip if same SMS already in pending inbox or saved expenses ──
             val rawBody = transaction.rawBody?.trim()
@@ -61,6 +62,20 @@ class PendingNotificationManager @Inject constructor(
                 if (alreadySaved) return@launch
             }
 
+            // ── Soft-dupe check: same amount + same merchant + same calendar day ──
+            val now = System.currentTimeMillis()
+            val isPossibleDuplicate = transaction.merchant != null &&
+                expenseRepository.getExpensesSnapshot().any { expense ->
+                    !expense.isDeleted &&
+                    expense.amount == transaction.amount &&
+                    expense.merchantName?.trim()?.lowercase() == transaction.merchant.trim().lowercase() &&
+                    isSameCalendarDay(expense.date.toEpochMilliseconds(), now)
+                }
+            // Update the banner with the duplicate flag (banner may still be showing)
+            if (isPossibleDuplicate && _pending.value == transaction) {
+                _pending.value = transaction.copy(isPossibleDuplicate = true)
+            }
+
             val savedId = repository.save(
                 PendingNotification(
                     amount = transaction.amount,
@@ -69,9 +84,10 @@ class PendingNotificationManager @Inject constructor(
                     bankName = transaction.bankName,
                     accountLast4 = transaction.accountLast4,
                     transactionType = transaction.type.name,
-                    detectedAtMillis = System.currentTimeMillis(),
+                    detectedAtMillis = now,
                     rawBody = transaction.rawBody,
-                    paymentMethod = transaction.paymentMethodName
+                    paymentMethod = transaction.paymentMethodName,
+                    isPossibleDuplicate = isPossibleDuplicate
                 )
             )
             _lastPendingId.value = savedId
@@ -88,5 +104,12 @@ class PendingNotificationManager @Inject constructor(
 
     fun dismiss() {
         _pending.value = null
+    }
+
+    private fun isSameCalendarDay(millis1: Long, millis2: Long): Boolean {
+        val c1 = Calendar.getInstance(); c1.timeInMillis = millis1
+        val c2 = Calendar.getInstance(); c2.timeInMillis = millis2
+        return c1.get(Calendar.YEAR) == c2.get(Calendar.YEAR) &&
+            c1.get(Calendar.DAY_OF_YEAR) == c2.get(Calendar.DAY_OF_YEAR)
     }
 }

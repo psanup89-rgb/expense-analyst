@@ -39,7 +39,8 @@ class PendingNotificationRepositoryImpl @Inject constructor(
         transactionType = transactionType,
         detectedAtMillis = detectedAtMillis,
         rawBody = rawBody,
-        paymentMethod = paymentMethod
+        paymentMethod = paymentMethod,
+        isPossibleDuplicate = isPossibleDuplicate
     )
 
     private fun PendingNotification.toEntity() = PendingNotificationEntity(
@@ -52,6 +53,7 @@ class PendingNotificationRepositoryImpl @Inject constructor(
         transactionType = transactionType,
         detectedAtMillis = detectedAtMillis,
         rawBody = rawBody,
-        paymentMethod = paymentMethod
+        paymentMethod = paymentMethod,
+        isPossibleDuplicate = isPossibleDuplicate
     )
 }
