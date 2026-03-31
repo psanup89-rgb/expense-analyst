@@ -8,6 +8,8 @@ package com.expenseanalyst.feature.notification.parser
  *   "POS Purchase (Apple Pay)\nCard: Visa card XX4388\nAmount: SAR 36.00\nMerchant: STARBUCKS-S876\nIn: SAUDI ARABIA\nRemaining limit SAR 18,117.95\nOn: 2026-03-28 15:54:43"
  * Sample (Online):
  *   "Online Purchase (Apple Pay)\nCard: Credit card XX4388\nMerchant: Temu.com\nAmount: SAR 14.36\nOn: 2026-03-24 02:14:13\nRemaining limit SAR 18,172.95"
+ * Sample (Credit card payment credited):
+ *   "Credit Card: Credited\nCard : XX4388;Credit Card Visa\nAmount: SAR 39.00\nBalance: SAR 18,156.95\nDate: 29-03-2026"
  */
 class EmiratesNbdParser : TransactionParser {
 
@@ -20,6 +22,11 @@ class EmiratesNbdParser : TransactionParser {
     )
 
     private val purchasePattern = Regex("""(?i)(POS|Online)\s+Purchase""")
+
+    // "Credit Card: Credited" — payment received to credit card
+    private val creditedPattern = Regex("""(?i)Credit\s+Card:\s*Credited""")
+    // "Card : XX4388;Credit Card Visa" — different format from purchase messages
+    private val creditedCardPattern = Regex("""(?i)Card\s*:\s*XX(\d{4})""")
     private val paymentMethodParenPattern = Regex("""\(([^)]+)\)""")
     private val cardPattern = Regex("""(?i)Card:\s*(?:Visa|Credit|Debit|Mastercard|Mada|Amex)?\s*card\s*XX(\d{4})""")
     private val amountPattern = Regex("""(?i)Amount:\s*([A-Z]{3})\s*([\d,]+\.?\d*)""")
@@ -41,6 +48,24 @@ class EmiratesNbdParser : TransactionParser {
     }
 
     override fun parse(sender: String, body: String): ParsedTransaction? {
+        // Handle "Credit Card: Credited" — payment applied to credit card
+        if (creditedPattern.containsMatchIn(body)) {
+            val amountMatch = amountPattern.find(body) ?: return null
+            val currencyCode = amountMatch.groupValues[1]
+            val amount = amountMatch.groupValues[2].replace(",", "").toDoubleOrNull() ?: return null
+            val accountLast4 = creditedCardPattern.find(body)?.groupValues?.get(1)
+            return ParsedTransaction(
+                amount = amount,
+                currencyCode = currencyCode,
+                type = TransactionDirection.PAYMENT,
+                merchant = null,
+                accountLast4 = accountLast4,
+                referenceNumber = null,
+                bankName = bankName,
+                paymentMethodName = "CREDIT_CARD"
+            )
+        }
+
         if (!purchasePattern.containsMatchIn(body)) return null
 
         val amountMatch = amountPattern.find(body) ?: return null

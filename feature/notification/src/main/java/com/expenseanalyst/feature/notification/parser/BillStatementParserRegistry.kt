@@ -8,9 +8,11 @@ package com.expenseanalyst.feature.notification.parser
 object BillStatementParserRegistry {
 
     private val parsers: List<BillStatementParser> = listOf(
+        IdfcFirstBankStatementParser(),
         EmiratesNbdStatementParser(),
         AlRajhiStatementParser(),
         HdfcStatementParser(),
+        TamaraStatementParser(),
         GenericStatementParser()
     )
 

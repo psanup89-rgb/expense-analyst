@@ -1,7 +1,7 @@
 # Expense Analyst — Current Status
 
-**Date**: 2026-03-30
-**DB version**: 11 (migrated from v10 this session — tags system)
+**Date**: 2026-03-31
+**DB version**: 11 (stable — no change this session)
 **Build**: `./gradlew clean assembleDebug` ✅ passing
 **Device**: Samsung Galaxy S26 Ultra (SM-S948B), installed via ADB
 **Version**: 0.1.0 (alpha)
@@ -45,11 +45,14 @@ Tags system shipped. Google Places API key secured at build time. Tier 3 inferen
 - [x] Live notification dedup (60s window + expense body hash check)
 - [x] Banner dismissed correctly after tray-tap → AddExpense → save flow
 
-### SMS Parsers (17 parsers with full test coverage)
+### SMS Parsers (transaction parsers: 17; bill statement parsers: 6)
 - [x] HDFC, SBI, ICICI, Axis, Kotak, Yes Bank, IDFC First Bank, OneCard (Indian banks)
 - [x] Al Rajhi, STC Bank, Alinma, D360, Emirates NBD, Mubasher (Saudi/UAE banks)
 - [x] FASTag, Wallet, UPI (payment channel parsers)
 - [x] GenericParser (always-on fallback)
+- [x] **HDFC "Spent Rs.X" format** — added `spent` keyword to debit detection
+- [x] **EmiratesNBD "Credit Card: Credited"** — card payment detection (TransactionDirection.PAYMENT)
+- [x] Bill parsers: HDFC, EmiratesNBD, AlRajhi, IDFC FIRST Bank (new), Tamara (new), Generic
 
 ### Merchant Category Intelligence Engine ✅ complete
 - [x] 3-tier inference: MerchantRules (instant) → Keyword matching → Google Places API
@@ -85,9 +88,9 @@ Tags system shipped. Google Places API key secured at build time. Tier 3 inferen
 
 | Item | State | Notes |
 |------|-------|-------|
-| Home currency hardcoded in ExpenseDetail | ⚠️ Bug | Line ~240 checks `!= "SAR"` instead of actual home currency |
+| Home currency hardcoded in ExpenseDetail | ⚠️ Bug | Line ~240 checks `!= "SAR"` instead of actual home currency — **next priority** |
 | ProGuard/R8 rules | ⚠️ Missing | Release build unverified |
-| `DuckDuckGoApiService.kt` | ⚠️ Dead code | Unused since Google Places replaced it; can be deleted |
+| `DuckDuckGoApiService.kt` | ⚠️ Dead code | Unused since Google Places replaced it; safe to delete |
 
 ---
 

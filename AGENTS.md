@@ -83,7 +83,7 @@ This document defines the agent breakdown for this codebase. Each agent owns a s
 - A migration and new repository method are complete and ready for UI wiring
 
 **Critical rules**
-- DB is currently at **version 10**. Next migration must be `MIGRATION_10_11`
+- DB is currently at **version 11**. Next migration must be `MIGRATION_11_12`
 - Always add the new migration to the `addMigrations(...)` call in `ExpenseAnalystDatabase`
 - Never hard-delete — always use soft delete (`isDeleted = true`)
 - All timestamps are UTC epoch milliseconds (`Long`) — never `LocalDate` or `Date` in entities

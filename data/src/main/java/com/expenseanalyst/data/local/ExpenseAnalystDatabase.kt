@@ -147,23 +147,6 @@ abstract class ExpenseAnalystDatabase : RoomDatabase() {
                     db.execSQL("INSERT OR IGNORE INTO tags (name) VALUES ('$tag')")
                 }
 
-                // Migrate existing note data to tags
-                db.execSQL(
-                    """
-                    INSERT OR IGNORE INTO tags (name)
-                    SELECT DISTINCT TRIM(note) FROM expenses
-                    WHERE note IS NOT NULL AND TRIM(note) != ''
-                    """.trimIndent()
-                )
-                db.execSQL(
-                    """
-                    INSERT INTO expense_tags (expense_id, tag_id)
-                    SELECT e.id, t.id FROM expenses e
-                    INNER JOIN tags t ON TRIM(e.note) = t.name
-                    WHERE e.note IS NOT NULL AND TRIM(e.note) != ''
-                    """.trimIndent()
-                )
-                // note column is left orphaned in SQLite — Room ignores it
             }
         }
 

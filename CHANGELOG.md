@@ -4,6 +4,39 @@ Format: `[Date] — Summary`
 
 ---
 
+## 2026-03-31 — Crash fix + 4 parser improvements
+
+**Agent role**: ParserAgent / DataAgent
+
+**Work completed**:
+
+### Crash fix — MIGRATION_10_11 broken SQL
+- Removed two SQL statements in `MIGRATION_10_11` that referenced `expenses.note` (column that never existed; entity uses `description`)
+- Error was: `IllegalStateException: Migration didn't properly handle: expenses`
+- Migration table creation and default tag seeding are unaffected
+
+### New: `IdfcFirstBankStatementParser`
+- Detects IDFC "bill due by DD Month, YYYY" format → creates Bill with due date, Total Due, Min Due
+- Handles full month name date format (`dd MMMM, yyyy`, `d MMMM yyyy`, etc.)
+- Registered first in `BillStatementParserRegistry`
+
+### Fix: EmiratesNBD "Credit Card: Credited"
+- Added `creditedPattern` to detect credit card payment messages
+- Added `creditedCardPattern` for `Card : XX4388;Credit Card Visa` format
+- Returns `TransactionDirection.PAYMENT`
+
+### New: `TamaraStatementParser`
+- Detects Tamara (BNPL) payment reminders ("payment of X SAR for your ORDER due in N days")
+- Computes due date from "due in N days" relative to `System.currentTimeMillis()`
+- Extracts merchant from order description (e.g. "Samsung order" → biller "Tamara – Samsung")
+- Registered in `BillStatementParserRegistry` before `GenericStatementParser`
+
+### Fix: HdfcParser — "Spent" keyword
+- Added `spent` to HDFC debit keyword regex
+- Handles: `Spent Rs.2 On HDFC Bank Card 1041 At GOOGLE CLOUD On 2026-03-30`
+
+---
+
 ## 2026-03-30 — Tags system + API key security + Tier 3 flag gate (DB v11)
 
 **Agent role**: FeatureAgent / DataAgent

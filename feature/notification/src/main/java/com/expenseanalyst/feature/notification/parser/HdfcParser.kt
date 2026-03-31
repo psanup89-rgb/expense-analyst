@@ -16,6 +16,8 @@ package com.expenseanalyst.feature.notification.parser
  *   "DEAR HDFCBANK CARDMEMBER, PAYMENT OF Rs. 21623.00 RECEIVED TOWARDS YOUR CREDIT CARD ENDING WITH 1041"
  * Sample (payment alert):
  *   "PAYMENT ALERT! INR 15000.00 deducted from HDFC Bank A/C No 7823 towards INDIAN CLEARING CORP"
+ * Sample (spent, credit card):
+ *   "Spent Rs.2 On HDFC Bank Card 1041 At GOOGLE CLOUD On 2026-03-30:02:14:36.Not You? ..."
  */
 class HdfcParser : TransactionParser {
 
@@ -41,7 +43,7 @@ class HdfcParser : TransactionParser {
     override fun parse(sender: String, body: String): ParsedTransaction? {
         // Detect payment confirmations: "PAYMENT OF Rs. X RECEIVED TOWARDS YOUR CREDIT CARD"
         val isPayment = Regex("""(?i)\bpayment\b.*\breceived\b.*\b(?:card|credit)\b""").containsMatchIn(body)
-        val isDebit = !isPayment && Regex("""(?i)\b(?:debited|deducted|sent)\b""").containsMatchIn(body)
+        val isDebit = !isPayment && Regex("""(?i)\b(?:debited|deducted|sent|spent)\b""").containsMatchIn(body)
         val isCredit = !isPayment && Regex("""(?i)\b(?:credited|received)\b""").containsMatchIn(body)
 
         if (!isDebit && !isCredit && !isPayment) return null
