@@ -118,6 +118,14 @@ object CategoryInference {
     )
 
     /**
+     * Finds a category by name, using exact match first, then startsWith fallback.
+     * Handles user renames like "Food" → "Food & Drinks".
+     */
+    private fun findCategory(categories: List<Category>, name: String): Category? =
+        categories.find { it.name.equals(name, ignoreCase = true) }
+            ?: categories.find { it.name.startsWith(name, ignoreCase = true) }
+
+    /**
      * Returns the matching Category from [categories] list, or null if no keyword matches.
      * Checks user-defined [merchantRules] first, then [merchant]+[bankName] keywords, then [smsBody].
      */
@@ -141,10 +149,12 @@ object CategoryInference {
             .lowercase()
 
         // Step 2: keyword matching on merchant + bank name
+        // Category name lookup uses exact match first, then startsWith to handle user renames
+        // e.g. "Food" rule matches "Food & Drinks" if user appended to the default name
         if (searchText.isNotBlank()) {
             for ((categoryName, keywords) in rules) {
                 if (keywords.any { searchText.contains(it) }) {
-                    return categories.find { it.name.equals(categoryName, ignoreCase = true) }
+                    return findCategory(categories, categoryName)
                 }
             }
         }
@@ -154,15 +164,15 @@ object CategoryInference {
         return when {
             bodyLower.contains("salary") || bodyLower.contains("payroll") ||
                 bodyLower.contains("stipend") ->
-                categories.find { it.name.equals("Salary", ignoreCase = true) }
+                findCategory(categories, "Salary")
             bodyLower.contains("neft") || bodyLower.contains("rtgs") ||
                 bodyLower.contains("imps") || bodyLower.contains("sarie") ||
                 bodyLower.contains("fund transfer") || bodyLower.contains("wire transfer") ->
-                categories.find { it.name.equals("Transfer", ignoreCase = true) }
+                findCategory(categories, "Transfer")
             bodyLower.contains("atm") || bodyLower.contains("cash withdrawal") ->
-                categories.find { it.name.equals("Transfer", ignoreCase = true) }
+                findCategory(categories, "Transfer")
             bodyLower.contains("pos purchase") || bodyLower.contains("point of sale") ->
-                categories.find { it.name.equals("Shopping", ignoreCase = true) }
+                findCategory(categories, "Shopping")
             else -> null
         }
     }

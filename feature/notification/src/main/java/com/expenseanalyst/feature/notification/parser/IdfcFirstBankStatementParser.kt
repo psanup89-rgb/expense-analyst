@@ -29,7 +29,7 @@ class IdfcFirstBankStatementParser : BillStatementParser {
     private val minDuePattern = Regex("""(?i)min(?:imum)?\s+due\s*[:\-]?\s*(?:INR|Rs\.?)?\s*([\d,]+\.?\d*)""")
 
     // "bill due by 06 April, 2026"
-    private val dueDatePattern = Regex("""(?i)bill\s+due\s+by\s+(.{5,25?})(?:\n|$)""")
+    private val dueDatePattern = Regex("""(?i)bill\s+due\s+by\s+(.{5,25}?)(?:\n|$)""")
 
     // "XX6887" or "XX 6887"
     private val accountPattern = Regex("""(?i)XX\s*(\d{4})""")

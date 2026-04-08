@@ -187,6 +187,7 @@ fun ExpenseDetailScreen(
                 existingRule = uiState.existingRule,
                 linkedBillName = uiState.linkedBillName,
                 hasOpenBills = uiState.openBills.isNotEmpty(),
+                homeCurrency = uiState.homeCurrency,
                 onConvertToEmi = { onConvertToEmi(uiState.expense!!.id) },
                 onSetRule = viewModel::showRuleDialog,
                 onDeleteRule = viewModel::deleteRule,
@@ -203,6 +204,7 @@ private fun ExpenseDetailContent(
     existingRule: MerchantRule?,
     linkedBillName: String?,
     hasOpenBills: Boolean,
+    homeCurrency: String,
     onConvertToEmi: () -> Unit,
     onSetRule: () -> Unit,
     onDeleteRule: () -> Unit,
@@ -259,9 +261,9 @@ private fun ExpenseDetailContent(
                     color = amountColor
                 )
                 expense.homeAmount?.let { home ->
-                    if (expense.currencyCode != "SAR") { // show if not same as home
+                    if (expense.currencyCode != homeCurrency) {
                         Text(
-                            text = CurrencyFormatter.format(home, "SAR"),
+                            text = CurrencyFormatter.format(home, homeCurrency),
                             style = MaterialTheme.typography.titleSmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )

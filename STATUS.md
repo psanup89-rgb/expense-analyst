@@ -1,6 +1,6 @@
 # Expense Analyst — Current Status
 
-**Date**: 2026-03-31
+**Date**: 2026-04-03
 **DB version**: 12 (MIGRATION_11_12 — `is_possible_duplicate` on pending_notifications)
 **Build**: `./gradlew clean assembleDebug` ✅ passing
 **Device**: Samsung Galaxy S26 Ultra (SM-S948B) — install pending (reconnect + `./gradlew installDebug`)
@@ -94,9 +94,7 @@ Tags system shipped. Google Places API key secured at build time. Tier 3 inferen
 
 | Item | State | Notes |
 |------|-------|-------|
-| Home currency hardcoded in ExpenseDetail | ⚠️ Bug | Line ~240 checks `!= "SAR"` instead of actual home currency — **next priority** |
 | ProGuard/R8 rules | ⚠️ Missing | Release build unverified |
-| `DuckDuckGoApiService.kt` | ⚠️ Dead code | Unused since Google Places replaced it; safe to delete |
 
 ---
 
@@ -114,17 +112,7 @@ Tags system shipped. Google Places API key secured at build time. Tier 3 inferen
 
 ## Recommended Next Task
 
-**Fix hardcoded home currency in `ExpenseDetailScreen`** (~line 240).
-
-The screen checks `expense.currencyCode != "SAR"` to decide whether to show a second currency row. This should use the actual home currency from `CurrencyRepository.getHomeCurrency()`.
-
-**Scope** (self-contained, no migration):
-1. In `ExpenseDetailViewModel`, inject `CurrencyRepository` and collect `getHomeCurrency()` flow
-2. Expose `homeCurrency: String = "SAR"` in `ExpenseDetailUiState`
-3. In `ExpenseDetailScreen`, replace `!= "SAR"` with `!= uiState.homeCurrency`
-
-**Agent**: FeatureAgent
-**Estimated scope**: 3 files, no migration
+**Phase 2 remaining features** or **ProGuard/R8 rules for release build**.
 
 ---
 

@@ -67,6 +67,7 @@ class InferCategoryUseCase @Inject constructor(
         val categoryName = merchantSearchRepository.searchMerchantCategory(merchant)
             ?: return null
         val matched = categories.find { it.name.equals(categoryName, ignoreCase = true) }
+            ?: categories.find { it.name.startsWith(categoryName, ignoreCase = true) }
             ?: return null
         return InferenceResult(matched, InferenceSource.WEB_SEARCH)
     }

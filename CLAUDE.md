@@ -172,3 +172,8 @@ See `.claude/skills/build-verify.md` for the full diagnosis SOP and Android Stud
 - `docs/FEATURES.md` — Feature specs with acceptance criteria
 - `docs/TESTING.md` — Testing strategy
 - `docs/SETUP.md` — Dev environment setup
+
+## Plan Mode
+
+- Do not make any changes until you have 95% confidence. 
+- Ask me follow-up questions until you reach that level

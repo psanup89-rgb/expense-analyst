@@ -10,6 +10,7 @@ import com.expenseanalyst.domain.model.Expense
 import com.expenseanalyst.domain.model.MerchantRule
 import com.expenseanalyst.domain.repository.BillRepository
 import com.expenseanalyst.domain.repository.CategoryRepository
+import com.expenseanalyst.domain.repository.CurrencyRepository
 import com.expenseanalyst.domain.repository.ExpenseRepository
 import com.expenseanalyst.domain.repository.MerchantRuleRepository
 import com.expenseanalyst.domain.usecase.GetExpenseByIdUseCase
@@ -37,7 +38,8 @@ data class ExpenseDetailUiState(
     val ruleSaved: Boolean = false,
     val showLinkBillSheet: Boolean = false,
     val openBills: List<Bill> = emptyList(),
-    val linkedBillName: String? = null
+    val linkedBillName: String? = null,
+    val homeCurrency: String = "SAR"
 )
 
 @HiltViewModel
@@ -48,19 +50,25 @@ class ExpenseDetailViewModel @Inject constructor(
     private val merchantRuleRepository: MerchantRuleRepository,
     private val categoryRepository: CategoryRepository,
     private val billRepository: BillRepository,
-    private val expenseRepository: ExpenseRepository
+    private val expenseRepository: ExpenseRepository,
+    private val currencyRepository: CurrencyRepository
 ) : ViewModel() {
 
     private val expenseId: Long = checkNotNull(savedStateHandle["expenseId"])
     private val _ui = MutableStateFlow(ExpenseDetailUiState())
 
     val uiState: StateFlow<ExpenseDetailUiState> = combine(
-        getExpenseByIdUseCase(expenseId),
-        merchantRuleRepository.getRules(),
-        categoryRepository.getCategories(),
-        billRepository.getBills(),
-        _ui
-    ) { expense, rules, categories, bills, ui ->
+        combine(
+            getExpenseByIdUseCase(expenseId),
+            merchantRuleRepository.getRules(),
+            categoryRepository.getCategories()
+        ) { expense, rules, categories -> Triple(expense, rules, categories) },
+        combine(
+            billRepository.getBills(),
+            currencyRepository.getHomeCurrency(),
+            _ui
+        ) { bills, homeCurrency, ui -> Triple(bills, homeCurrency, ui) }
+    ) { (expense, rules, categories), (bills, homeCurrency, ui) ->
         val ruleSearchText = expense?.let {
             it.merchantName?.takeIf { m -> m.isNotBlank() } ?: it.description.takeIf { d -> d.isNotBlank() }
         }
@@ -75,7 +83,8 @@ class ExpenseDetailViewModel @Inject constructor(
             categories = categories,
             existingRule = existingRule,
             openBills = openBills,
-            linkedBillName = linkedBillName
+            linkedBillName = linkedBillName,
+            homeCurrency = homeCurrency
         )
     }.stateIn(
         scope = viewModelScope,

@@ -196,6 +196,7 @@ class SmsImportViewModel @Inject constructor(
                     webSearchCache.getOrPut(merchantName) {
                         val catName = merchantSearchRepository.searchMerchantCategory(merchantName)
                         categories.find { it.name.equals(catName, ignoreCase = true) }
+                            ?: categories.find { catName != null && it.name.startsWith(catName, ignoreCase = true) }
                     }
                 } else null) ?: miscCategory
                 val inferredAccountType = when {
