@@ -18,15 +18,15 @@ Expense Analyst is an Android application that automatically detects and categor
 - Pending inbox (detected transactions awaiting user confirmation)
 - Multi-currency support with daily live exchange rate sync (ExchangeRate-API)
 - Account tracking (bank accounts and credit cards, matched from SMS sender + last-4 digits)
-- 17 bank-specific SMS parsers covering Indian and Saudi banks
-- 4 bill statement parsers (Emirates NBD, Al Rajhi, HDFC, Generic)
+- 18 bank-specific SMS parsers covering Indian and Saudi banks
+- 9 bill statement parsers (HDFC, EmiratesNBD, AlRajhi, IdfcFirstBank, AxisBank, Tamara, SaudiEnergy, Ejar, Generic)
 - Onboarding flow (currency selection, notification permission)
 - Settings (home currency, notification access toggle, SMS import trigger)
 
 **Explicitly out of scope**
 - iOS (planned Phase 3 via KMP, not started)
 - Email parsing (architecture discussed, not implemented)
-- Analytics dashboard, budgets, alerts (Phase 2)
+- Budgets, alerts (Phase 2 remaining)
 - CSV/PDF export (Phase 2)
 - Cloud backup / Google Drive sync (Phase 2)
 - Web or desktop interface
@@ -40,7 +40,7 @@ Expense Analyst is an Android application that automatically detects and categor
 | UI | Jetpack Compose + Material 3 (dark neon theme) |
 | Architecture | Clean Architecture — MVVM, multi-module |
 | DI | Hilt (KSP) |
-| Database | Room v10 (SQLite), 8 entities, inline migrations |
+| Database | Room v13 (SQLite), 10 entities, inline migrations |
 | Async | Kotlin Coroutines + Flow |
 | HTTP | Ktor client (ExchangeRate-API for live rates) |
 | Navigation | Jetpack Navigation Compose |
@@ -61,7 +61,8 @@ Expense Analyst is an Android application that automatically detects and categor
 :feature:expenses     → Add/Edit/Detail/List/Bills screens + ViewModels
 :feature:emi          → EMI create/list/detail screens + ViewModels
 :feature:notification → 17+4 parsers, SMS service, SmsReceiver, inbox, import UI
-:feature:settings     → Settings screen + ViewModel
+:feature:settings     → Settings screen, Account Management + ViewModels
+:feature:analytics    → Analytics dashboard screen + ViewModel
 :feature:onboarding   → 3-step onboarding screen + ViewModel
 ```
 

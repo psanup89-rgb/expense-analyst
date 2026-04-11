@@ -112,11 +112,12 @@ Android-first expense tracking app that reads bank SMS/notifications to auto-cre
 app/src/main/              → MainActivity, NavGraph, DI wiring, MainBottomNav
 core/src/main/             → Theme, reusable components, CurrencyFormatter, DateTimeUtil, CurrencyCatalog
 domain/src/main/           → Models, repository interfaces, use cases, CurrencyConversion
-data/src/main/             → Room DB (7 entities/DAOs, v9), repositories, CurrencyApiService, SeedCurrencyRates
+data/src/main/             → Room DB (10 entities/DAOs, v13), repositories, CurrencyApiService, SeedCurrencyRates
 feature/expenses/          → Expense list, add, edit, detail screens + ViewModels
 feature/emi/               → EMI create, list, detail screens + ViewModels
 feature/notification/      → NotificationListenerService, parsers, banner UI
-feature/settings/          → Settings screen + ViewModel
+feature/settings/          → Settings, Account Management screens + ViewModels
+feature/analytics/         → Analytics dashboard screen + ViewModel
 feature/onboarding/        → 3-step onboarding screen + ViewModel
 docs/                      → ARCHITECTURE.md, DATA_MODELS.md, NOTIFICATION_PARSING.md, FEATURES.md, TESTING.md, SETUP.md
 ```

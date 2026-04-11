@@ -1,123 +1,65 @@
 # Expense Analyst — Open Questions
 
-Items that could not be determined from the code alone, appear inconsistent, or require human clarification before work continues.
+Items requiring human input or that are ambiguous in the code.
 
 ---
 
-## 1. HANDOFF.md accuracy ✅ RESOLVED 2026-03-29
+## 1. Home currency hardcoded in Expense Detail ⚠️ BUG
 
-HANDOFF.md has been rewritten to reflect DB v10, Bills feature complete, Inbox restored, all 2026-03-29 session work. README.md still shows DB v9 (minor, not blocking).
-
----
-
-## 2. Bills tab — bill detail screen
-
-**Issue**: `BillsScreen.kt` shows a card with `BillCard` composable, but there is no `BillDetailScreen` registered in `AppNavGraph.kt`. Tapping a bill card has no navigation action wired (based on visible code).
-
-**Question**: Is a Bill Detail screen planned? Should tapping a bill card open a detail view showing the linked payment expenses?
-
-**Impact**: Bills tab is functional for viewing status but has no drill-down.
-
----
-
-## 3. Duplicate detection for live notifications
-
-**Issue**: `SmsReceiver` and `TransactionNotificationService` have no deduplication. The same SMS can create multiple inbox entries. Bulk import has two-tier deduplication; the live path does not.
-
-**Question**: Should the live path deduplicate against (a) existing pending inbox items, (b) already-saved expenses, or (c) both?
-
-**Impact**: Users with dual-SIM or SMS retry can get duplicate inbox entries.
-
----
-
-## 4. Home currency hardcoded in Expense Detail
-
-**Issue**: `ExpenseDetailScreen.kt` (line ~240) hardcodes `"SAR"` as the home currency check:
+**File**: `ExpenseDetailScreen.kt` ~line 240
 ```kotlin
-if (expense.currencyCode != "SAR") { // show if not same as home
+if (expense.currencyCode != "SAR") { // should be uiState.homeCurrency
 ```
-This is not reading from `CurrencyRepository.getHomeCurrency()`.
+Users who set INR or USD as home currency see incorrect behaviour on the detail screen.
 
-**Question**: Is SAR intentionally hardcoded for the initial user base (Saudi Arabia), or is this a bug that should use the user's actual home currency setting?
-
-**Impact**: Users who set INR or USD as home currency will see incorrect behaviour on the detail screen.
+**Fix is straightforward** — see `HANDOFF.md` "First Action for Next Agent".
 
 ---
 
-## 5. Settings screen — category management
+## 2. Release build / ProGuard
 
-**Issue**: Category management (add/edit/delete custom categories) is listed as a known gap in the settings screen. The pre-seeded categories are hardcoded in `ExpenseAnalystDatabase.kt`. `CategoryRepository` has a `getCategories()` method but no write operations are exposed.
+No ProGuard/R8 rules file exists. `assembleRelease` is unverified (Hilt, Room, and Ktor all require keep rules).
 
-**Question**: Is category management planned for Phase 1.5 or deferred to Phase 2?
-
-**Impact**: Users cannot add a custom category (e.g. "Fuel") or rename "Other" to something more meaningful.
+**Question**: Is a signed release build needed soon?
 
 ---
 
-## 6. Parser registry — Mubasher position
+## 3. "Unknown Bank" auto-detected accounts
 
-**Issue**: `MubasherParser` was added to `ParserRegistry` but the plan noted it should go "before GenericParser, after D360Parser." The exact position matters because the Saudi-bank parsers (AlRajhi, StcBank, Alinma, D360) all come before Generic and could potentially conflict.
+SMS-inferred accounts are created with `displayName = "Unknown Bank *XXXX · Savings"` when the bank name can't be parsed. There's no cleanup UX (user can edit account names in Manage Accounts, but they need to know to do it).
 
-**Question**: Has the Mubasher sender pattern been verified not to overlap with any existing parser's `canParse()`?
-
-**Impact**: If Mubasher SMS are sent from a sender matching another parser's pattern, the wrong parser runs first.
+**Question**: Should account matching try harder to infer bank name from SMS sender? Or add a "Review Accounts" prompt after bulk SMS import?
 
 ---
 
-## 7. Bill statement parser — statement keyword false positives
+## 4. Parser registry — Mubasher sender overlap
 
-**Issue**: `GenericStatementParser.canParse()` triggers on any SMS body containing `\bstatement\b` + `\btotal due\b` etc. Regular transaction SMS from some banks (e.g. HDFC Savings alerts) mention "statement" in passing.
+`MubasherParser` was added to `ParserRegistry` but its sender pattern hasn't been formally verified against the other Saudi bank parsers (AlRajhi, StcBank, Alinma, D360).
 
-**Question**: Has the Generic statement parser been tested against the full SMS corpus to verify it doesn't accidentally classify transaction SMS as bill statements?
-
-**Impact**: Transaction SMS misrouted to `BillStatementManager` would create phantom Bill records.
+**Question**: Has the Mubasher `canParse()` been tested against the full SMS corpus?
 
 ---
 
-## 8. Exchange rate — offline manual entry
+## 5. Exchange rate — offline manual entry
 
-**Issue**: When `CurrencyRepository.refreshRates()` fails (no internet) and the stored rate is stale, the app falls back to `SeedCurrencyRates`. There is no UI to let the user enter an exchange rate manually for an expense.
+When `refreshRates()` fails and the stored rate is stale, the app falls back to `SeedCurrencyRates`. No UI to enter an exchange rate manually.
 
-**Question**: Is offline manual rate entry needed, or is the seed-rate fallback acceptable for all intended use cases?
-
-**Impact**: Users in areas with unreliable connectivity may get incorrect homeAmount calculations.
+**Question**: Is seed-rate fallback acceptable for all intended use cases?
 
 ---
 
-## 9. Release build / ProGuard
+## 6. `DuckDuckGoApiService.kt` dead code
 
-**Issue**: No ProGuard/R8 rules file exists in the codebase. `assembleRelease` has not been verified to produce a working APK (Hilt, Room, and Ktor all require specific keep rules).
+`data/` module contains `DuckDuckGoApiService.kt` — unused since Google Places replaced it.
 
-**Question**: Is a signed release build needed in the near term? If so, R8 rules need to be written and tested.
-
-**Impact**: Debug build works fine; release build is unverified.
+**Action**: Safe to delete. No callers.
 
 ---
 
-## 11. JAVA_HOME not set in shell profile
+## ✅ RESOLVED
 
-**Issue**: The shell profile (`~/.zshrc`) does not set `JAVA_HOME`. Every Gradle build attempt fails with "Unable to locate a Java Runtime" unless the agent manually sets `JAVA_HOME="/Applications/Android Studio.app/Contents/jbr/Contents/Home"` in the shell before running Gradle.
-
-**Question**: Should `JAVA_HOME` be permanently added to `~/.zshrc`? Running `echo 'export JAVA_HOME="/Applications/Android Studio.app/Contents/jbr/Contents/Home"' >> ~/.zshrc` would fix it for all future sessions.
-
-**Impact**: Every agent session that needs to build must manually discover and set `JAVA_HOME` or the build will fail.
-
----
-
-## 12. APK signing key mismatch
-
-**Issue**: The app currently installed on the Samsung Galaxy S26 Ultra (SM-S948B) was signed with a different key than the debug build key. Running `adb install` fails with `INSTALL_FAILED_UPDATE_INCOMPATIBLE`. The user must manually uninstall the existing app from device settings before a debug APK can be installed.
-
-**Question**: Should the project maintain a consistent signing key for debug builds? Or is this expected (e.g. the installed version was a release build)?
-
-**Impact**: Agent cannot deploy APK changes to the device without user intervention (uninstall first, which loses local data).
-
----
-
-## 10. Test device — Samsung S26 Ultra
-
-**Issue**: The project uses a real device (Samsung Galaxy S26 Ultra, SM-S948B) for testing via ADB. The Android emulator is not mentioned anywhere.
-
-**Question**: Is the emulator set up and usable as a fallback for testing? SMS permission flows behave differently on emulator vs real device.
-
-**Impact**: Agents without access to the device cannot verify SMS capture features.
+- **Bill detail screen** (item 2, 2026-03-29): `BillDetailScreen` exists and is wired.
+- **Duplicate detection for live notifications** (item 3): Soft-duplicate system shipped in DB v12.
+- **JAVA_HOME not in shell profile** (item 11): Build works without manual workaround in current sessions.
+- **APK signing mismatch** (item 12): No longer blocking — `installDebug` works on SM-S948B.
+- **Category management** (item 5): Category management screen shipped (add/edit/delete/icon picker).

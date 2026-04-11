@@ -1,6 +1,6 @@
 # Expense Analyst — Agent Roles
 
-This document defines the agent breakdown for this codebase. Each agent owns a specific domain, has clear responsibilities, and has explicit boundaries.
+Defines agent domains, responsibilities, and boundaries.
 
 ---
 
@@ -9,55 +9,45 @@ This document defines the agent breakdown for this codebase. Each agent owns a s
 **Domain**: `feature/notification/parser/` and `feature/notification/src/test/`
 
 **Responsibilities**
-- Add new bank SMS parsers (implement `TransactionParser` interface)
-- Fix existing parser regex patterns (amount extraction, merchant extraction, account last-4)
-- Add new bill statement parsers (implement `BillStatementParser` interface)
-- Write and maintain parser unit tests (JUnit 5, CSV fixtures in `src/test/resources/sms_samples/`)
+- Add new bank SMS parsers (implement `TransactionParser`)
+- Add new bill statement parsers (implement `BillStatementParser`)
+- Fix regex patterns (amount, merchant, account last-4, reference numbers)
+- Write/maintain parser unit tests (JUnit 5, CSV fixtures in `src/test/resources/sms_samples/`)
 - Update `ParserRegistry` and `BillStatementParserRegistry` registration order
-- Maintain `PaymentMethodDetector` inference logic
+- Maintain `PaymentMethodDetector`
 
-**Never touch**
-- Any UI code (`*Screen.kt`, `*ViewModel.kt`)
-- Database entities or DAOs
-- Domain models or repository interfaces
-- The notification service layer (`service/`)
-- Navigation routes or AppNavGraph
+**Never touch**: UI code, DB entities/DAOs, domain models, service layer, navigation
 
-**Handoff to FeatureAgent when**
-- A new parser type requires a new domain model field (e.g. adding a new `ParsedTransaction` field)
-- A new parser result needs to flow into a new UI concept
+**Handoff to FeatureAgent when**: A new parser result needs a new domain model field or a new UI concept
 
 **Key files**
 - `docs/NOTIFICATION_PARSING.md` — SOP for adding parsers
-- `feature/notification/parser/ParserRegistry.kt` — always register before GenericParser
+- `feature/notification/parser/ParserRegistry.kt` — register before `GenericParser`
+- `feature/notification/parser/BillStatementParserRegistry.kt` — register before `GenericStatementParser`
 - `feature/notification/parser/PaymentMethodDetector.kt` — use this, never inline detection
 
 ---
 
 ## Agent 2 — FeatureAgent
 
-**Domain**: `feature/expenses/`, `feature/emi/`, `feature/bills/`, `feature/settings/`, `feature/onboarding/`, and `app/`
+**Domain**: `feature/expenses/`, `feature/emi/`, `feature/settings/`, `feature/analytics/`, `feature/onboarding/`, `app/`
 
 **Responsibilities**
-- Build and modify screens (`*Screen.kt`, `*ViewModel.kt`, `*UiState.kt`)
-- Wire navigation (add routes to `NavRoutes.kt`, register in `AppNavGraph.kt`)
-- Implement new use cases in `:domain` (add to `domain/usecase/`)
-- Update bottom navigation items and `MainActivity`
-- Add new domain model fields that carry through to UI
-- Implement Phase 2 features (analytics, budgets, export)
+- Build/modify screens (`*Screen.kt`, `*ViewModel.kt`, `*UiState.kt`)
+- Wire navigation (`NavRoutes.kt` + `AppNavGraph.kt`)
+- Implement new use cases in `:domain`
+- Update bottom nav and `MainActivity`
 
-**Never touch**
-- Parser logic in `feature/notification/parser/` (that is ParserAgent's domain)
-- Room migrations directly — coordinate with DataAgent for any schema change
-- `CurrencyConversion.kt` — currency math is owned by DataAgent/architecture review
+**Never touch**: Parser logic in `feature/notification/parser/`; Room migrations (coordinate with DataAgent)
 
-**Handoff to DataAgent when**
-- A new screen requires a new DB column, table, or query
+**Handoff to DataAgent when**: A new screen requires a new DB column, table, or query
+
+**Compose gotcha (don't repeat)**: `LazyColumn` inside `AlertDialog`'s `text` slot renders nothing. Use `Column + verticalScroll(rememberScrollState())` with `heightIn(max = Xdp)` instead.
 
 **Key files**
-- `CLAUDE.md` — window insets rules, TopAppBar convention, navigation patterns
-- `core/navigation/NavRoutes.kt` — all routes defined here
-- `app/navigation/AppNavGraph.kt` — all composable registrations here
+- `CLAUDE.md` — window insets rules, TopAppBar convention
+- `core/navigation/NavRoutes.kt` — all route constants
+- `app/navigation/AppNavGraph.kt` — all composable registrations
 
 ---
 
@@ -67,32 +57,23 @@ This document defines the agent breakdown for this codebase. Each agent owns a s
 
 **Responsibilities**
 - Write Room migrations (always inline in `ExpenseAnalystDatabase.kt`, bump `@Database(version = N)`)
-- Add/modify DAOs, entities, mappers
-- Add/modify repository interfaces in `:domain` and implementations in `:data`
-- Maintain `CurrencyConversion.kt` as the single source of truth for exchange rate math
-- Maintain `CategoryInference.kt` for rule-based + keyword categorisation
-- Manage `SeedCurrencyRates.kt` for offline fallback rate updates
-- Maintain `ExpenseRepositoryImpl.kt` deduplication logic
+- Add/modify DAOs, entities, mappers, repository interfaces and impls
+- Maintain `CurrencyConversion.kt` as single source of truth for exchange rate math
+- Maintain `SeedCurrencyRates.kt` for offline fallback
 
-**Never touch**
-- Any `*Screen.kt` or `*ViewModel.kt` — that is FeatureAgent's domain
-- Parser files — that is ParserAgent's domain
-- `CategoryInference.kt` keyword lists without understanding the full inference chain
-
-**Handoff to FeatureAgent when**
-- A migration and new repository method are complete and ready for UI wiring
+**Never touch**: Any `*Screen.kt` or `*ViewModel.kt`; parser files
 
 **Critical rules**
-- DB is currently at **version 12**. Next migration must be `MIGRATION_12_13`
-- Always add the new migration to the `addMigrations(...)` call in `ExpenseAnalystDatabase`
-- Never hard-delete — always use soft delete (`isDeleted = true`)
-- All timestamps are UTC epoch milliseconds (`Long`) — never `LocalDate` or `Date` in entities
-- Run `./gradlew clean assembleDebug` after any schema change (KSP stale state)
+- DB is currently at **version 13**. Next migration must be `MIGRATION_13_14`
+- Always add the new migration to `addMigrations(...)` in `ExpenseAnalystDatabase`
+- Never hard-delete — always soft delete (`isDeleted = true`)
+- All timestamps are UTC epoch milliseconds (`Long`) — never `LocalDate`, `Date`, or `ZonedDateTime` in entities
+- Run `./gradlew clean assembleDebug` after any schema change
 
 **Key files**
 - `data/local/ExpenseAnalystDatabase.kt` — version, migrations, pre-seed
 - `domain/util/CurrencyConversion.kt` — never duplicate conversion logic elsewhere
-- `data/schemas/` — Room schema snapshots (auto-generated, verify after migration)
+- `data/schemas/` — Room schema snapshots (auto-generated, commit after migration)
 
 ---
 
@@ -101,19 +82,12 @@ This document defines the agent breakdown for this codebase. Each agent owns a s
 **Domain**: All test files, `docs/TESTING.md`, build verification
 
 **Responsibilities**
-- Write missing parser tests (currently 13 of 17 parsers have no tests)
+- Write missing parser tests (most parsers have no tests — large gap)
 - Write DAO integration tests (in-memory Room DB)
 - Write ViewModel unit tests (MockK + Turbine)
-- Verify build passes after changes from other agents
 - Maintain CSV fixture files in `feature/notification/src/test/resources/sms_samples/`
-- Update `docs/TESTING.md` as coverage grows
 
-**Never touch**
-- Production source files (only `src/test/` and `src/androidTest/`)
-- `build.gradle.kts` files except to add test dependencies
-
-**Handoff rule**
-- QAAgent should be the last to run before any commit that touches parsers or data layer
+**Never touch**: Production source files
 
 **Key commands**
 ```bash
@@ -126,8 +100,7 @@ This document defines the agent breakdown for this codebase. Each agent owns a s
 
 ## Inter-Agent Handoff Protocol
 
-1. Agent completing work updates `STATUS.md` (mark completed items, note new in-progress)
-2. Agent completing work updates `HANDOFF.md` with session summary and "next agent should..." note
-3. DB version changes must be noted explicitly in the handoff (`DB is now vN`)
-4. Parser registry changes must note the new parser name, detection strategy, and position in registry
-5. Any new nav route must be noted so FeatureAgent can register it in `AppNavGraph`
+1. Agent completing work updates `STATUS.md` and `HANDOFF.md`
+2. DB version changes must be noted explicitly (`DB is now vN`)
+3. Parser registry changes: note parser name, detection strategy, registry position
+4. Any new nav route must be noted so FeatureAgent can register it in `AppNavGraph`
