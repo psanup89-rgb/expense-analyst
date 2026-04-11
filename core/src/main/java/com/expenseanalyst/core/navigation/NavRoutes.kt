@@ -15,6 +15,7 @@ object NavRoutes {
     const val PENDING_INBOX = "pending_inbox"
     const val BILLS = "bills"
     const val BILL_DETAIL = "bill_detail/{billId}"
+    const val EDIT_BILL = "edit_bill/{billId}"
     const val CURRENCY_PICKER = "currency_picker"
     const val CATEGORY_MANAGEMENT = "category_management"
     const val ACCOUNT_MANAGEMENT = "account_management"
@@ -26,6 +27,7 @@ object NavRoutes {
         if (autoStart != null) "sms_import?autoStart=$autoStart" else "sms_import"
 
     fun billDetail(billId: Long) = "bill_detail/$billId"
+    fun editBill(billId: Long) = "edit_bill/$billId"
     fun editExpense(expenseId: Long) = "edit_expense/$expenseId"
     fun expenseDetail(expenseId: Long) = "expense_detail/$expenseId"
     fun emiDetail(emiGroupId: Long) = "emi_detail/$emiGroupId"

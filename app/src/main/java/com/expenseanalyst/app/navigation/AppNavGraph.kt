@@ -21,6 +21,7 @@ import com.expenseanalyst.feature.emi.ui.EmiListScreen
 import com.expenseanalyst.feature.expenses.ui.AddExpenseScreen
 import com.expenseanalyst.feature.expenses.ui.BillDetailScreen
 import com.expenseanalyst.feature.expenses.ui.BillsScreen
+import com.expenseanalyst.feature.expenses.ui.EditBillScreen
 import com.expenseanalyst.feature.expenses.ui.EditExpenseScreen
 import com.expenseanalyst.feature.expenses.ui.ExpenseDetailScreen
 import com.expenseanalyst.feature.expenses.ui.ExpenseListScreen
@@ -186,9 +187,21 @@ fun AppNavGraph(
         composable(
             route = NavRoutes.BILL_DETAIL,
             arguments = listOf(navArgument("billId") { type = NavType.LongType })
-        ) {
+        ) { backStackEntry ->
+            val billId = backStackEntry.arguments?.getLong("billId") ?: return@composable
             BillDetailScreen(
-                onBack = { navController.popBackStack() }
+                onBack = { navController.popBackStack() },
+                onEdit = { navController.navigate(NavRoutes.editBill(billId)) }
+            )
+        }
+
+        composable(
+            route = NavRoutes.EDIT_BILL,
+            arguments = listOf(navArgument("billId") { type = NavType.LongType })
+        ) {
+            EditBillScreen(
+                onBack = { navController.popBackStack() },
+                onSaved = { navController.popBackStack() }
             )
         }
 
