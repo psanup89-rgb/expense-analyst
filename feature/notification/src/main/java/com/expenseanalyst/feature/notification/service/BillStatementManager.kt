@@ -41,7 +41,8 @@ class BillStatementManager @Inject constructor(
                         statementPeriodEnd = statement.statementPeriodEnd,
                         status = BillStatus.PENDING,
                         sourceType = SourceType.SMS_AUTO,
-                        createdAtMillis = System.currentTimeMillis()
+                        createdAtMillis = System.currentTimeMillis(),
+                        reference = statement.reference
                     )
                 )
             } else {
@@ -52,7 +53,8 @@ class BillStatementManager @Inject constructor(
                         minimumDue = statement.minimumDue ?: existing.minimumDue,
                         dueDateMillis = statement.dueDateMillis ?: existing.dueDateMillis,
                         statementPeriodStart = statement.statementPeriodStart ?: existing.statementPeriodStart,
-                        statementPeriodEnd = statement.statementPeriodEnd ?: existing.statementPeriodEnd
+                        statementPeriodEnd = statement.statementPeriodEnd ?: existing.statementPeriodEnd,
+                        reference = statement.reference ?: existing.reference
                     )
                 )
             }

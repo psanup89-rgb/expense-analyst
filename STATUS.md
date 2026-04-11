@@ -45,7 +45,7 @@ Tags system shipped. Google Places API key secured at build time. Tier 3 inferen
 - [x] Live notification dedup (60s window + expense body hash check)
 - [x] Banner dismissed correctly after tray-tap → AddExpense → save flow
 
-### SMS Parsers (transaction parsers: 17; bill statement parsers: 7)
+### SMS Parsers (transaction parsers: 18; bill statement parsers: 9)
 - [x] HDFC, SBI, ICICI, Axis, Kotak, Yes Bank, IDFC First Bank, OneCard (Indian banks)
 - [x] Al Rajhi, STC Bank, Alinma, D360, Emirates NBD, Mubasher (Saudi/UAE banks)
 - [x] FASTag, Wallet, UPI (payment channel parsers)

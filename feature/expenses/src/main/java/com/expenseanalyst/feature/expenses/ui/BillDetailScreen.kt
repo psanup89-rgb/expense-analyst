@@ -166,6 +166,9 @@ fun BillDetailScreen(
                         modifier = Modifier.padding(16.dp),
                         verticalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
+                        if (bill.reference != null) {
+                            DetailInfoRow("Reference", "#${bill.reference}")
+                        }
                         if (totalDue != null) {
                             DetailInfoRow("Total Due", "%.2f %s".format(totalDue, bill.currencyCode))
                         }

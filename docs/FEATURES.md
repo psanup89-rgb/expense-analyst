@@ -130,7 +130,7 @@
 
 | Feature | Status | Description |
 |---------|--------|-------------|
-| F11: Bills Section | Partial ✅ | DB schema (`bills` table, v9→v10), `BillEntity`, `BillRepository`, `BillDao`, bill statement parsers (7 parsers: IDFC, Axis, Emirates NBD, Al Rajhi, HDFC, Tamara, Generic), navigation routes (`BILLS`, `BILL_DETAIL`), `BillDetailScreen`, and expense-bill linking UI in `ExpenseDetailScreen` are all implemented. Remaining: bills list screen polish, payment matching (PAYMENT→bill), and subscription tracking. |
+| F11: Bills Section | Partial ✅ | DB schema (`bills` table, v9→v10), `BillEntity`, `BillRepository`, `BillDao`, bill statement parsers (9 parsers: IDFC, Axis, Emirates NBD, Al Rajhi, HDFC, Tamara, Saudi Energy, Ejar, Generic), navigation routes (`BILLS`, `BILL_DETAIL`), `BillDetailScreen`, and expense-bill linking UI in `ExpenseDetailScreen` are all implemented. Remaining: bills list screen polish, payment matching (PAYMENT→bill), and subscription tracking. |
 | F12: Analytics Dashboard | Not started | Monthly pie chart by category, daily bar chart, trend line, top merchants |
 | F13: Budgets & Alerts | Not started | Monthly budget per category, progress bars, push notifications at 80%/100% |
 | F14: Export | Not started | CSV + PDF with date range filter, Android share sheet |

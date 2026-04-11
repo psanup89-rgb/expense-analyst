@@ -48,7 +48,8 @@ class BillRepositoryImpl @Inject constructor(
         status = BillStatus.valueOf(status),
         sourceType = SourceType.valueOf(sourceType),
         createdAtMillis = createdAtMillis,
-        isDeleted = isDeleted
+        isDeleted = isDeleted,
+        reference = reference
     )
 
     private fun Bill.toEntity() = BillEntity(
@@ -64,6 +65,7 @@ class BillRepositoryImpl @Inject constructor(
         status = status.name,
         sourceType = sourceType.name,
         createdAtMillis = createdAtMillis,
-        isDeleted = isDeleted
+        isDeleted = isDeleted,
+        reference = reference
     )
 }

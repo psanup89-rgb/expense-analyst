@@ -2,9 +2,9 @@
 
 ## Database: Room (SQLite)
 - Database class: `ExpenseAnalystDatabase`
-- **Current schema version: `12`**
+- **Current schema version: `13`**
 - Room schema export is enabled under `data/schemas/`
-- All migrations are inline in `ExpenseAnalystDatabase.kt` (v1→v2→...→v12)
+- All migrations are inline in `ExpenseAnalystDatabase.kt` (v1→v2→...→v13)
 - Home currency preference is stored separately in DataStore, not in Room
 
 ---
@@ -149,6 +149,7 @@ Credit card statements, utility bills, and subscriptions parsed from notificatio
 | source_type | TEXT | NOT NULL | How bill was detected (e.g. NOTIFICATION_AUTO) |
 | created_at_millis | INTEGER | NOT NULL | Record creation timestamp |
 | is_deleted | INTEGER | NOT NULL, DEFAULT 0 | Soft delete flag |
+| reference | TEXT | NULLABLE | Bill/account/contract reference number (e.g. utility account, rental contract) — added in v12→v13 |
 
 ### tags
 User-defined tags for labelling expenses. Added in DB migration v10→v11.

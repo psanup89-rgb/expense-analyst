@@ -13,5 +13,6 @@ data class Bill(
     val status: BillStatus,
     val sourceType: SourceType,
     val createdAtMillis: Long,
-    val isDeleted: Boolean = false
+    val isDeleted: Boolean = false,
+    val reference: String? = null
 )

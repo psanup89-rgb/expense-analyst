@@ -15,5 +15,6 @@ data class ParsedBillStatement(
     val statementPeriodEnd: Long?,
     val accountLast4: String?,
     val bankName: String,
-    val rawBody: String? = null
+    val rawBody: String? = null,
+    val reference: String? = null
 )
