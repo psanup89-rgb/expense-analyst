@@ -238,7 +238,8 @@ fun AppNavGraph(
 
         composable(NavRoutes.ACCOUNT_MANAGEMENT) {
             AccountManagementScreen(
-                onBack = { navController.popBackStack() }
+                onBack = { navController.popBackStack() },
+                onEditExpense = { expenseId -> navController.navigate(NavRoutes.editExpense(expenseId)) }
             )
         }
 

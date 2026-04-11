@@ -16,6 +16,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -68,6 +69,7 @@ import com.expenseanalyst.domain.model.Expense
 @Composable
 fun AccountManagementScreen(
     onBack: () -> Unit,
+    onEditExpense: (Long) -> Unit = {},
     viewModel: AccountManagementViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
@@ -84,7 +86,8 @@ fun AccountManagementScreen(
         onAccountTypeChange = viewModel::onAccountTypeChange,
         onSave = viewModel::saveAccount,
         onRemapTargetSelected = viewModel::onRemapTargetSelected,
-        onConfirmDelete = viewModel::confirmDelete
+        onConfirmDelete = viewModel::confirmDelete,
+        onEditExpense = onEditExpense
     )
 }
 
@@ -102,7 +105,8 @@ private fun AccountManagementContent(
     onAccountTypeChange: (AccountType) -> Unit,
     onSave: () -> Unit,
     onRemapTargetSelected: (Long?) -> Unit,
-    onConfirmDelete: () -> Unit
+    onConfirmDelete: () -> Unit,
+    onEditExpense: (Long) -> Unit
 ) {
     if (uiState.showAddDialog || uiState.showEditDialog) {
         AccountDialog(
@@ -129,7 +133,8 @@ private fun AccountManagementContent(
             isSaving = uiState.isSaving,
             onRemapTargetSelected = onRemapTargetSelected,
             onDismiss = onDismissDialog,
-            onConfirm = onConfirmDelete
+            onConfirm = onConfirmDelete,
+            onEditExpense = onEditExpense
         )
     }
 
@@ -208,7 +213,8 @@ private fun DeleteRemapDialog(
     isSaving: Boolean,
     onRemapTargetSelected: (Long?) -> Unit,
     onDismiss: () -> Unit,
-    onConfirm: () -> Unit
+    onConfirm: () -> Unit,
+    onEditExpense: (Long) -> Unit
 ) {
     var dropdownExpanded by remember { mutableStateOf(false) }
 
@@ -239,6 +245,7 @@ private fun DeleteRemapDialog(
                             Row(
                                 modifier = Modifier
                                     .fillMaxWidth()
+                                    .clickable { onEditExpense(expense.id) }
                                     .padding(vertical = 6.dp),
                                 horizontalArrangement = Arrangement.SpaceBetween,
                                 verticalAlignment = Alignment.CenterVertically
@@ -260,6 +267,14 @@ private fun DeleteRemapDialog(
                                     text = CurrencyFormatter.format(expense.amount, expense.currencyCode),
                                     style = MaterialTheme.typography.bodySmall,
                                     color = MaterialTheme.colorScheme.onSurface
+                                )
+                                Icon(
+                                    imageVector = Icons.Default.Edit,
+                                    contentDescription = "Edit expense",
+                                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    modifier = Modifier
+                                        .padding(start = 8.dp)
+                                        .size(14.dp)
                                 )
                             }
                             androidx.compose.material3.HorizontalDivider(
