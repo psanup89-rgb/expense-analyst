@@ -16,6 +16,8 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
@@ -226,13 +228,13 @@ private fun DeleteRemapDialog(
                         style = MaterialTheme.typography.bodyMedium
                     )
                     // Scrollable expense list
-                    LazyColumn(
+                    Column(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .heightIn(max = 200.dp),
-                        verticalArrangement = Arrangement.spacedBy(0.dp)
+                            .heightIn(max = 200.dp)
+                            .verticalScroll(rememberScrollState())
                     ) {
-                        items(expenses) { expense ->
+                        expenses.forEach { expense ->
                             val dateStr = DateTimeUtil.formatDateHeader(expense.date)
                             Row(
                                 modifier = Modifier
