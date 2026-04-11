@@ -1,8 +1,8 @@
 # Feature Specifications & Acceptance Criteria
 
-**Last updated**: 2026-03-28
+**Last updated**: 2026-04-11
 **Phase 1 + 1.5**: Complete
-**Phase 2**: Not started
+**Phase 2**: Partially started (see F11)
 
 ---
 
@@ -57,7 +57,7 @@
 - [x] In-app banner: "₹450 at Swiggy detected. Tap to save."
 - [x] Tapping banner opens Add Expense pre-filled with parsed data
 - [x] "Dismiss" option on banner
-- [x] Supported banks: HDFC, SBI, ICICI, Axis (incl. Forex cards), Kotak, Yes Bank, IDFC First Bank, OneCard (Federal Bank), Al Rajhi, STC Bank, Alinma, D360, Emirates NBD, FASTag (LivQuik), Google Wallet/Pay, Apple Pay, Samsung Pay, UPI apps, generic fallback
+- [x] Supported banks: HDFC, SBI, ICICI, Axis (incl. Forex cards), Kotak, Yes Bank, IDFC First Bank, OneCard (Federal Bank), Al Rajhi, STC Bank, Alinma, D360, Emirates NBD, FASTag (LivQuik), Google Wallet/Pay, Apple Pay, Samsung Pay, UPI apps, Mubasher (bill payment), generic fallback
 - [x] Settings toggle to enable/disable auto-capture
 - [x] Android system tray notification when transaction detected (tapping pre-fills AddExpense)
 - [x] Bulk SMS import from device inbox (all-time or last 30 days) with smart dedup (primary: SMS body hash; fallback: amount+day+merchant)
@@ -126,21 +126,21 @@
 
 ---
 
-## Phase 2 (not started)
+## Phase 2 (partially started)
 
-| Feature | Description |
-|---------|-------------|
-| F11: Bills Section | Track credit card statements, utility bills, subscriptions from SMS. Match payments (PAYMENT type) to open bills and mark as paid. Needs new `Bill` model + DB migration + new screen. |
-| F12: Analytics Dashboard | Monthly pie chart by category, daily bar chart, trend line, top merchants |
-| F13: Budgets & Alerts | Monthly budget per category, progress bars, push notifications at 80%/100% |
-| F14: Export | CSV + PDF with date range filter, Android share sheet |
-| F15: Cloud Backup | Google Drive backup/restore via Google Sign-In, weekly auto-backup |
-| F16: Home Screen Widget | Glance widget: today's spend + monthly total |
-| F17: Dynamic Colors | Material 3 dynamic color (opt-out of neon theme) |
-| F18: Bulk Operations | Multi-select, bulk delete, bulk re-categorize |
+| Feature | Status | Description |
+|---------|--------|-------------|
+| F11: Bills Section | Partial ✅ | DB schema (`bills` table, v9→v10), `BillEntity`, `BillRepository`, `BillDao`, bill statement parsers (7 parsers: IDFC, Axis, Emirates NBD, Al Rajhi, HDFC, Tamara, Generic), navigation routes (`BILLS`, `BILL_DETAIL`), `BillDetailScreen`, and expense-bill linking UI in `ExpenseDetailScreen` are all implemented. Remaining: bills list screen polish, payment matching (PAYMENT→bill), and subscription tracking. |
+| F12: Analytics Dashboard | Not started | Monthly pie chart by category, daily bar chart, trend line, top merchants |
+| F13: Budgets & Alerts | Not started | Monthly budget per category, progress bars, push notifications at 80%/100% |
+| F14: Export | Not started | CSV + PDF with date range filter, Android share sheet |
+| F15: Cloud Backup | Not started | Google Drive backup/restore via Google Sign-In, weekly auto-backup |
+| F16: Home Screen Widget | Not started | Glance widget: today's spend + monthly total |
+| F17: Dynamic Colors | Not started | Material 3 dynamic color (opt-out of neon theme) |
+| F18: Bulk Operations | Not started | Multi-select, bulk delete, bulk re-categorize |
 
 ---
 
 ## Phase 3 (not started)
 
-F18: iOS App (KMP) · F19: Smart Categorization · F20: Recurring Detection · F21: Receipt Photos · F22: Split Expenses · F23: Income Tracking · F24: Multiple Accounts · F25: Tags · F26: Spending Insights · F27: Bill Reminders
+F18: iOS App (KMP) · F19: Smart Categorization · F20: Recurring Detection · F21: Receipt Photos · F22: Split Expenses · F23: Income Tracking · F24: Multiple Accounts · F25: Tags (DB schema + `TagRepository` already implemented in v10→v11; UI not started) · F26: Spending Insights · F27: Bill Reminders

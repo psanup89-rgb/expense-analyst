@@ -2,9 +2,9 @@
 
 ## Database: Room (SQLite)
 - Database class: `ExpenseAnalystDatabase`
-- **Current schema version: `9`**
+- **Current schema version: `12`**
 - Room schema export is enabled under `data/schemas/`
-- All migrations are inline in `ExpenseAnalystDatabase.kt` (v1→v2→...→v9)
+- All migrations are inline in `ExpenseAnalystDatabase.kt` (v1→v2→...→v12)
 - Home currency preference is stored separately in DataStore, not in Room
 
 ---
@@ -129,6 +129,46 @@ Transactions detected from SMS/notifications awaiting user action (add or dismis
 | detected_at_millis | INTEGER | NOT NULL | When detected |
 | raw_body | TEXT | NULLABLE | Original SMS / notification text (shown as "Source SMS" in AddExpense) |
 | payment_method | TEXT | NULLABLE | PaymentMethod enum name e.g. "APPLE_PAY" |
+| is_possible_duplicate | INTEGER | NOT NULL, DEFAULT 0 | Flag set when a similar pending notification already exists (added in v11→v12) |
+
+### bills
+Credit card statements, utility bills, and subscriptions parsed from notification/SMS. Added in DB migration v9→v10.
+
+| Column | Type | Constraints | Description |
+|--------|------|-------------|-------------|
+| id | INTEGER | PK, autoGenerate | |
+| biller_name | TEXT | NOT NULL | e.g. "Axis Bank", "ENBD" |
+| account_id | INTEGER | FK → accounts.id, NULLABLE | Linked account |
+| total_due | REAL | NULLABLE | Total amount due |
+| minimum_due | REAL | NULLABLE | Minimum payment amount |
+| currency_code | TEXT | NOT NULL | ISO 4217 |
+| due_date_millis | INTEGER | NULLABLE | Bill due date (UTC epoch ms) |
+| statement_period_start_millis | INTEGER | NULLABLE | Statement period start (UTC epoch ms) |
+| statement_period_end_millis | INTEGER | NULLABLE | Statement period end (UTC epoch ms) |
+| status | TEXT | NOT NULL | Enum: OPEN, PAID, OVERDUE |
+| source_type | TEXT | NOT NULL | How bill was detected (e.g. NOTIFICATION_AUTO) |
+| created_at_millis | INTEGER | NOT NULL | Record creation timestamp |
+| is_deleted | INTEGER | NOT NULL, DEFAULT 0 | Soft delete flag |
+
+### tags
+User-defined tags for labelling expenses. Added in DB migration v10→v11.
+
+| Column | Type | Constraints | Description |
+|--------|------|-------------|-------------|
+| id | INTEGER | PK, autoGenerate | |
+| name | TEXT | NOT NULL, UNIQUE | Tag label (e.g. "work", "travel") |
+
+**Index**: unique on `name`
+
+### expense_tags
+Junction table linking expenses to tags (many-to-many). Added in DB migration v10→v11.
+
+| Column | Type | Constraints | Description |
+|--------|------|-------------|-------------|
+| expense_id | INTEGER | FK → expenses.id, CASCADE | |
+| tag_id | INTEGER | FK → tags.id, CASCADE | |
+
+**Index**: on `tag_id`
 
 ### currency_rates
 Cached exchange rates for offline support.

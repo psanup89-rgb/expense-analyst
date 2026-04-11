@@ -29,14 +29,14 @@ Android-first expense tracking app that reads bank SMS/notifications to auto-cre
 
 ## Database
 
-- **Room** — entities in `data/local/entity/`. **Current version: 9**. All migrations inline in `ExpenseAnalystDatabase.kt`.
+- **Room** — entities in `data/local/entity/`. **Current version: 12**. All migrations inline in `ExpenseAnalystDatabase.kt`.
 - Dates: **UTC epoch milliseconds** (`Long`). Display converts via `TimeZone.currentSystemDefault()`
 - **Soft delete** — `isDeleted: Boolean` flag. Never hard-delete.
 - Expenses store both `amount` (original currency) and `homeAmount` (converted to home currency)
 - `Expense` has: `merchantName` (primary, mandatory in UI), `description` (optional user notes), `accountId`, `rawSmsBody`
 - `TransactionType`: `EXPENSE | INCOME | TRANSFER | PAYMENT`
 - `AccountType`: `SAVINGS | CURRENT | CREDIT_CARD | DEBIT_CARD | FOREX_CARD | WALLET | OTHER`
-- 7 entities: Expense, Category, EmiGroup, CurrencyRate, **Account**, **MerchantRule**, **PendingNotification**
+- 10 entities: Expense, Category, EmiGroup, CurrencyRate, **Account**, **MerchantRule**, **PendingNotification**, **Bill**, **Tag**, **ExpenseTagCrossRef**
 - Pre-seeded categories: Food, Transport, Shopping, Bills, Entertainment, Health, Education, Groceries, Rent, Salary, Transfer, Other
 
 ---
@@ -46,7 +46,7 @@ Android-first expense tracking app that reads bank SMS/notifications to auto-cre
 - `@HiltViewModel` on all ViewModels
 - Each module has a `di/` package with `@Module` classes
 - `@AndroidEntryPoint` on `MainActivity` and `TransactionNotificationService`
-- 9 repository interfaces in `:domain`: Expense, Category, Currency, EMI, Onboarding, **Account**, **MerchantRule**, **PendingNotification**, **AppPreferences**
+- 12 repository interfaces in `:domain`: Expense, Category, Currency, EMI, Onboarding, **Account**, **MerchantRule**, **PendingNotification**, **AppPreferences**, **Bill**, **Tag**, **MerchantSearch**
 
 ---
 
@@ -86,7 +86,7 @@ Android-first expense tracking app that reads bank SMS/notifications to auto-cre
 - Service: `feature/notification/service/TransactionNotificationService` (NotificationListenerService)
 - Parsers: `feature/notification/parser/` — one file per bank, all implement `TransactionParser`
 - Registry: `ParserRegistry` tries parsers in priority order; `GenericParser` is last resort
-- 17 parsers: HDFC, SBI, ICICI, Axis, Kotak, YesBank, IdfcFirstBank, OneCard, AlRajhi, StcBank, Alinma, D360, EmiratesNBD, FASTag, Wallet, UPI, Generic
+- 18 parsers: HDFC, SBI, ICICI, Axis, Kotak, YesBank, IdfcFirstBank, OneCard, AlRajhi, StcBank, Alinma, D360, EmiratesNBD, FASTag, Wallet, UPI, Mubasher, Generic
 - `TransactionDirection`: `DEBIT | CREDIT | PAYMENT` (PAYMENT = bill/card payment confirmation)
 - `PaymentMethodDetector` — shared utility that infers payment method (Credit Card, UPI, Net Banking, Apple Pay, etc.) from SMS body text. Used by all parsers.
 - Parsed result flows via `PendingNotificationManager` → `NotificationBanner` UI **and** Android system tray notification (`TransactionAlertNotification.post()`)

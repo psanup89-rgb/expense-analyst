@@ -1,7 +1,7 @@
 # Notification Parsing - Standard Operating Procedure
 
 ## Current Status
-The notification parsing system is **fully implemented and active**. 17 bank/wallet parsers are in production, handling real-time notification capture and bulk SMS import.
+The notification parsing system is **fully implemented and active**. 18 bank/wallet parsers are in production, handling real-time notification capture and bulk SMS import.
 
 ## Overview
 The notification parsing system intercepts bank SMS and push notifications, extracts transaction data using regex parsers, and presents pre-filled expense entries for user confirmation.
@@ -30,7 +30,7 @@ AddExpenseScreen (pre-filled with parsed data, Source SMS card shown)
 - `feature/notification/service/TransactionNotificationService.kt` — Android NotificationListenerService
 - `feature/notification/parser/TransactionParser.kt` — Parser interface
 - `feature/notification/parser/ParserRegistry.kt` — Dispatcher (ordered list, first match wins)
-- `feature/notification/parser/<Bank>Parser.kt` — Bank-specific parsers (17 total)
+- `feature/notification/parser/<Bank>Parser.kt` — Bank-specific parsers (18 total)
 - `feature/notification/parser/PaymentMethodDetector.kt` — Shared utility for inferring payment method from SMS text
 - `feature/notification/parser/ParsedTransaction.kt` — Parsed result model
 - `feature/notification/service/PendingNotificationManager.kt` — Saves to Room + posts tray notification
@@ -87,7 +87,7 @@ Priority: Wallet overlays > UPI > Net Banking > Credit Card > Debit Card.
 
 Some parsers add context-aware fallbacks (e.g. IDFC CC spend → `CREDIT_CARD`, FASTag → `WALLET`, OneCard → `CREDIT_CARD`).
 
-## Supported Parsers (17 total)
+## Supported Parsers (18 total)
 
 ### ParserRegistry Order (first match wins)
 
@@ -109,7 +109,8 @@ Some parsers add context-aware fallbacks (e.g. IDFC CC spend → `CREDIT_CARD`, 
 | 14 | FasTagParser | FASTag (LivQuik) | Sender `qwfstg` | INR | `debited RsX for VEHICLE in LOCATION at DATE` |
 | 15 | WalletParser | Digital Wallet | Sender Apple/Google/Samsung Pay | Multi | `Payment of $X at`, `Paid X to` |
 | 16 | UpiParser | UPI (GPay/PhonePe/Paytm) | Sender or `UPI` in body | INR | `paid ₹X to`, `received from` |
-| 17 | GenericParser | Unknown (fallback) | Always matches | Multi | Best-effort: `At:` merchant, `Card:` account, amount + direction |
+| 17 | MubasherParser | Mubasher (bill payment) | Sender `mub/mubasher` OR body fingerprint | SAR | `Biller:`, `Service:`, `Bill:` — bill payment confirmations |
+| 18 | GenericParser | Unknown (fallback) | Always matches | Multi | Best-effort: `At:` merchant, `Card:` account, amount + direction |
 
 ## SMS Import (Bulk)
 
