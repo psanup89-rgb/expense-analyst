@@ -22,6 +22,9 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.items as gridItems
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
@@ -34,6 +37,7 @@ import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Schedule
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -83,20 +87,27 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.platform.LocalContext
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import android.content.Context
+import android.content.Intent
+import android.net.Uri
 import com.expenseanalyst.core.util.CurrencyCatalog
 import com.expenseanalyst.core.util.CurrencyFormatter
 import com.expenseanalyst.core.util.DateTimeUtil
+import com.expenseanalyst.core.util.availableCategoryIcons
 import com.expenseanalyst.core.util.categoryIconVector
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toLocalDateTime
 import com.expenseanalyst.domain.model.AccountType
 import com.expenseanalyst.domain.model.Category
 import com.expenseanalyst.domain.model.PaymentMethod
+import com.expenseanalyst.domain.model.SourceType
 import com.expenseanalyst.domain.model.Tag
 import com.expenseanalyst.domain.model.TransactionType
 import com.expenseanalyst.domain.usecase.InferenceSource
+
 
 @Composable
 fun AddExpenseScreen(
@@ -119,6 +130,11 @@ fun AddExpenseScreen(
         onCategorySelect = viewModel::onCategorySelect,
         onShowCategorySheet = viewModel::showCategorySheet,
         onDismissCategorySheet = viewModel::dismissCategorySheet,
+        onShowAddNewCategory = viewModel::showAddNewCategoryForm,
+        onHideAddNewCategory = viewModel::hideAddNewCategoryForm,
+        onNewCategoryNameChange = viewModel::onNewCategoryNameChange,
+        onNewCategoryIconChange = viewModel::onNewCategoryIconChange,
+        onSaveNewCategory = viewModel::saveNewCategory,
         onPaymentMethodChange = viewModel::onPaymentMethodChange,
         onDescriptionChange = viewModel::onDescriptionChange,
         onMerchantChange = viewModel::onMerchantChange,
@@ -167,6 +183,11 @@ internal fun AddExpenseContent(
     onCategorySelect: (Category) -> Unit,
     onShowCategorySheet: () -> Unit,
     onDismissCategorySheet: () -> Unit,
+    onShowAddNewCategory: () -> Unit,
+    onHideAddNewCategory: () -> Unit,
+    onNewCategoryNameChange: (String) -> Unit,
+    onNewCategoryIconChange: (String) -> Unit,
+    onSaveNewCategory: () -> Unit,
     onPaymentMethodChange: (PaymentMethod) -> Unit,
     onDescriptionChange: (String) -> Unit,
     onMerchantChange: (String) -> Unit,
@@ -279,29 +300,135 @@ internal fun AddExpenseContent(
                     .navigationBarsPadding()
             ) {
                 Text("Select Category", style = MaterialTheme.typography.titleLarge, color = MaterialTheme.colorScheme.onSurface)
-                Spacer(Modifier.height(12.dp))
-                OutlinedTextField(
-                    value = categoryQuery,
-                    onValueChange = { categoryQuery = it },
-                    modifier = Modifier.fillMaxWidth(),
-                    label = { Text("Search category") },
-                    singleLine = true,
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = MaterialTheme.colorScheme.primary,
-                        focusedLabelColor = MaterialTheme.colorScheme.primary
+                Spacer(Modifier.height(8.dp))
+                if (!uiState.isAddingNewCategory) {
+                    // Normal mode: "Add new category" button + search + grid
+                    TextButton(
+                        onClick = onShowAddNewCategory,
+                        modifier = Modifier.padding(top = 4.dp)
+                    ) {
+                        Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(18.dp))
+                        Spacer(Modifier.width(4.dp))
+                        Text("Add new category")
+                    }
+                    Spacer(Modifier.height(4.dp))
+                    OutlinedTextField(
+                        value = categoryQuery,
+                        onValueChange = { categoryQuery = it },
+                        modifier = Modifier.fillMaxWidth(),
+                        label = { Text("Search category") },
+                        singleLine = true,
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = MaterialTheme.colorScheme.primary,
+                            focusedLabelColor = MaterialTheme.colorScheme.primary
+                        )
                     )
-                )
-                Spacer(Modifier.height(16.dp))
-                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    filteredCategoryRows.forEach { rowCategories ->
-                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                            rowCategories.forEach { category ->
-                                CategoryItem(
-                                    category = category,
-                                    selected = uiState.selectedCategory?.id == category.id,
-                                    onClick = { onCategorySelect(category) },
-                                    modifier = Modifier.width(72.dp)
+                    Spacer(Modifier.height(16.dp))
+                    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                        filteredCategoryRows.forEach { rowCategories ->
+                            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                                rowCategories.forEach { category ->
+                                    CategoryItem(
+                                        category = category,
+                                        selected = uiState.selectedCategory?.id == category.id,
+                                        onClick = { onCategorySelect(category) },
+                                        modifier = Modifier.width(72.dp)
+                                    )
+                                }
+                            }
+                        }
+                    }
+                } else {
+                    // Inline "new category" form
+                    Spacer(Modifier.height(12.dp))
+                    Text("New Category", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurface)
+                    Spacer(Modifier.height(12.dp))
+                    OutlinedTextField(
+                        value = uiState.newCategoryName,
+                        onValueChange = onNewCategoryNameChange,
+                        label = { Text("Category name *") },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = MaterialTheme.colorScheme.primary,
+                            focusedLabelColor = MaterialTheme.colorScheme.primary
+                        )
+                    )
+                    Spacer(Modifier.height(12.dp))
+                    Text(
+                        "Icon",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.primary,
+                        fontWeight = FontWeight.Bold,
+                        letterSpacing = 1.2.sp
+                    )
+                    Spacer(Modifier.height(8.dp))
+                    var iconSearch by remember { mutableStateOf("") }
+                    val filteredIcons = remember(iconSearch) {
+                        availableCategoryIcons.filter {
+                            it.replace("_", " ").contains(iconSearch.trim(), ignoreCase = true)
+                        }
+                    }
+                    OutlinedTextField(
+                        value = iconSearch,
+                        onValueChange = { iconSearch = it },
+                        placeholder = { Text("Search icons…") },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth(),
+                        leadingIcon = { Icon(Icons.Filled.Search, contentDescription = null) },
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = MaterialTheme.colorScheme.primary,
+                            focusedLabelColor = MaterialTheme.colorScheme.primary
+                        )
+                    )
+                    Spacer(Modifier.height(8.dp))
+                    LazyVerticalGrid(
+                        columns = GridCells.Fixed(5),
+                        modifier = Modifier.fillMaxWidth().height(200.dp),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        gridItems(filteredIcons) { icon ->
+                            val selected = icon == uiState.newCategoryIconName
+                            Box(
+                                modifier = Modifier
+                                    .size(48.dp)
+                                    .clip(RoundedCornerShape(10.dp))
+                                    .then(
+                                        if (selected) Modifier.border(2.dp, MaterialTheme.colorScheme.primary, RoundedCornerShape(10.dp))
+                                        else Modifier
+                                    )
+                                    .background(
+                                        if (selected) MaterialTheme.colorScheme.primary.copy(alpha = 0.15f)
+                                        else MaterialTheme.colorScheme.surfaceContainerHigh
+                                    )
+                                    .clickable { onNewCategoryIconChange(icon) },
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(
+                                    imageVector = categoryIconVector(icon),
+                                    contentDescription = icon,
+                                    tint = if (selected) MaterialTheme.colorScheme.primary
+                                    else MaterialTheme.colorScheme.onSurfaceVariant,
+                                    modifier = Modifier.size(24.dp)
                                 )
+                            }
+                        }
+                    }
+                    Spacer(Modifier.height(12.dp))
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End)
+                    ) {
+                        TextButton(onClick = onHideAddNewCategory) { Text("Cancel") }
+                        Button(
+                            onClick = onSaveNewCategory,
+                            enabled = uiState.newCategoryName.isNotBlank() && !uiState.isSavingCategory
+                        ) {
+                            if (uiState.isSavingCategory) {
+                                CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp, color = MaterialTheme.colorScheme.onPrimary)
+                            } else {
+                                Text("Save")
                             }
                         }
                     }
@@ -571,6 +698,7 @@ internal fun AddExpenseContent(
             }
         }
     ) { padding ->
+        val context = LocalContext.current
         LazyColumn(
             modifier = Modifier
                 .fillMaxSize()
@@ -851,10 +979,29 @@ internal fun AddExpenseContent(
                 }
             }
 
-            // Raw SMS preview (only shown when pre-filled from a notification/SMS)
-            if (!uiState.rawSmsBody.isNullOrBlank()) {
+            // Raw SMS preview (shown for auto-imported expenses; hidden for manually added ones)
+            val isAutoImported = uiState.expenseSourceType != null &&
+                uiState.expenseSourceType != SourceType.MANUAL
+            if (isAutoImported || !uiState.rawSmsBody.isNullOrBlank()) {
+                val rawBody = uiState.rawSmsBody
                 item { Spacer(Modifier.height(16.dp)) }
-                item { RawSmsPreviewCard(rawBody = uiState.rawSmsBody) }
+                item {
+                    RawSmsPreviewCard(
+                        rawBody = rawBody,
+                        onOpenInMessages = if (!rawBody.isNullOrBlank()) {
+                            {
+                                val address = findSmsAddress(context, rawBody)
+                                val intent = if (address != null) {
+                                    Intent(Intent.ACTION_VIEW, Uri.parse("sms:$address"))
+                                } else {
+                                    Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_APP_MESSAGING)
+                                }
+                                intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                                context.startActivity(intent)
+                            }
+                        } else null
+                    )
+                }
             }
 
             item { Spacer(Modifier.height(24.dp)) }
@@ -863,7 +1010,8 @@ internal fun AddExpenseContent(
 }
 
 @Composable
-private fun RawSmsPreviewCard(rawBody: String) {
+private fun RawSmsPreviewCard(rawBody: String?, onOpenInMessages: (() -> Unit)? = null) {
+    val hasBody = !rawBody.isNullOrBlank()
     var expanded by remember { mutableStateOf(false) }
     Card(
         modifier = Modifier
@@ -876,7 +1024,7 @@ private fun RawSmsPreviewCard(rawBody: String) {
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .clickable { expanded = !expanded },
+                    .then(if (hasBody) Modifier.clickable { expanded = !expanded } else Modifier),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
@@ -887,20 +1035,42 @@ private fun RawSmsPreviewCard(rawBody: String) {
                     fontWeight = FontWeight.Bold,
                     letterSpacing = 1.2.sp
                 )
-                Icon(
-                    imageVector = if (expanded) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown,
-                    contentDescription = if (expanded) "Collapse" else "Expand",
-                    modifier = Modifier.size(18.dp),
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant
-                )
+                if (hasBody) {
+                    Icon(
+                        imageVector = if (expanded) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown,
+                        contentDescription = if (expanded) "Collapse" else "Expand",
+                        modifier = Modifier.size(18.dp),
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
             }
-            if (expanded) {
+            if (hasBody && expanded) {
                 Spacer(Modifier.height(8.dp))
                 Text(
-                    text = rawBody,
+                    text = rawBody!!,
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace
+                )
+                if (onOpenInMessages != null) {
+                    Spacer(Modifier.height(4.dp))
+                    TextButton(
+                        onClick = onOpenInMessages,
+                        contentPadding = PaddingValues(horizontal = 0.dp, vertical = 0.dp),
+                        modifier = Modifier.align(Alignment.End)
+                    ) {
+                        Text(
+                            "Open in Messages \u2197",
+                            style = MaterialTheme.typography.labelSmall
+                        )
+                    }
+                }
+            } else if (!hasBody) {
+                Spacer(Modifier.height(4.dp))
+                Text(
+                    "Auto-imported from SMS",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
         }
@@ -1086,4 +1256,19 @@ private fun TagSelector(
             }
         }
     }
+}
+
+private fun findSmsAddress(context: Context, body: String?): String? {
+    if (body.isNullOrBlank()) return null
+    return try {
+        context.contentResolver.query(
+            Uri.parse("content://sms/inbox"),
+            arrayOf("address"),
+            "body = ?",
+            arrayOf(body),
+            "date DESC LIMIT 1"
+        )?.use { cursor ->
+            if (cursor.moveToFirst()) cursor.getString(0) else null
+        }
+    } catch (_: Exception) { null }
 }

@@ -28,6 +28,7 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -46,6 +47,9 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -53,26 +57,9 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.expenseanalyst.core.util.availableCategoryIcons
 import com.expenseanalyst.core.util.categoryIconVector
 import com.expenseanalyst.domain.model.Category
-
-private val availableIcons = listOf(
-    "restaurant",
-    "directions_car",
-    "shopping_bag",
-    "receipt_long",
-    "movie",
-    "medical_services",
-    "school",
-    "local_grocery_store",
-    "home",
-    "payments",
-    "swap_horiz",
-    "more_horiz",
-    "help_outline",
-    "account_balance",
-    "favorite"
-)
 
 @Composable
 fun CategoryManagementScreen(
@@ -309,15 +296,37 @@ private fun CategoryDialog(
 
                 Spacer(Modifier.height(8.dp))
 
+                var iconSearch by remember { mutableStateOf("") }
+                val filteredIcons = remember(iconSearch) {
+                    availableCategoryIcons.filter {
+                        it.replace("_", " ").contains(iconSearch.trim(), ignoreCase = true)
+                    }
+                }
+
+                OutlinedTextField(
+                    value = iconSearch,
+                    onValueChange = { iconSearch = it },
+                    placeholder = { Text("Search icons…") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth(),
+                    leadingIcon = { Icon(Icons.Filled.Search, contentDescription = null) },
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = MaterialTheme.colorScheme.primary,
+                        focusedLabelColor = MaterialTheme.colorScheme.primary
+                    )
+                )
+
+                Spacer(Modifier.height(8.dp))
+
                 LazyVerticalGrid(
                     columns = GridCells.Fixed(5),
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(180.dp),
+                        .height(260.dp),
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                     verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    items(availableIcons) { icon ->
+                    items(filteredIcons) { icon ->
                         val selected = icon == iconName
                         Box(
                             modifier = Modifier
