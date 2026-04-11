@@ -1,9 +1,8 @@
 package com.expenseanalyst.feature.notification.service
 
-import com.expenseanalyst.domain.model.Bill
-import com.expenseanalyst.domain.model.BillStatus
-import com.expenseanalyst.domain.model.SourceType
+import com.expenseanalyst.domain.model.PendingNotification
 import com.expenseanalyst.domain.repository.BillRepository
+import com.expenseanalyst.domain.repository.PendingNotificationRepository
 import com.expenseanalyst.feature.notification.parser.ParsedBillStatement
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -13,12 +12,18 @@ import javax.inject.Inject
 import javax.inject.Singleton
 
 /**
- * Processes a parsed bill statement: creates a new PENDING Bill or updates
- * an existing open bill with fresh statement data (total due, due date, etc.).
+ * Processes a parsed bill statement by enqueueing it to the pending inbox
+ * as a BILL-type item. The user then confirms whether to create a new bill
+ * or update an existing open bill for that biller.
+ *
+ * If an open (PENDING/PARTIAL) bill already exists for the biller, its id
+ * is stored in [linkedBillId] so the inbox UI can offer "Update Bill" instead
+ * of "Add as New Bill".
  */
 @Singleton
 class BillStatementManager @Inject constructor(
-    private val billRepository: BillRepository
+    private val billRepository: BillRepository,
+    private val pendingRepository: PendingNotificationRepository
 ) {
     private val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
 
@@ -28,36 +33,22 @@ class BillStatementManager @Inject constructor(
                 billerName = statement.billerName,
                 accountId = null
             )
-            if (existing == null) {
-                billRepository.saveBill(
-                    Bill(
-                        billerName = statement.billerName,
-                        accountId = null,
-                        totalDue = statement.totalDue,
-                        minimumDue = statement.minimumDue,
-                        currencyCode = statement.currencyCode,
-                        dueDateMillis = statement.dueDateMillis,
-                        statementPeriodStart = statement.statementPeriodStart,
-                        statementPeriodEnd = statement.statementPeriodEnd,
-                        status = BillStatus.PENDING,
-                        sourceType = SourceType.SMS_AUTO,
-                        createdAtMillis = System.currentTimeMillis(),
-                        reference = statement.reference
-                    )
+            pendingRepository.save(
+                PendingNotification(
+                    amount = statement.totalDue ?: 0.0,
+                    currencyCode = statement.currencyCode,
+                    merchantName = statement.billerName,
+                    bankName = statement.billerName,
+                    accountLast4 = null,
+                    transactionType = "BILL",
+                    detectedAtMillis = System.currentTimeMillis(),
+                    rawBody = null,
+                    pendingType = "BILL",
+                    billerName = statement.billerName,
+                    dueDateMillis = statement.dueDateMillis,
+                    linkedBillId = existing?.id
                 )
-            } else {
-                // Refresh existing open bill with latest statement data
-                billRepository.updateBill(
-                    existing.copy(
-                        totalDue = statement.totalDue ?: existing.totalDue,
-                        minimumDue = statement.minimumDue ?: existing.minimumDue,
-                        dueDateMillis = statement.dueDateMillis ?: existing.dueDateMillis,
-                        statementPeriodStart = statement.statementPeriodStart ?: existing.statementPeriodStart,
-                        statementPeriodEnd = statement.statementPeriodEnd ?: existing.statementPeriodEnd,
-                        reference = statement.reference ?: existing.reference
-                    )
-                )
-            }
+            )
         }
     }
 }

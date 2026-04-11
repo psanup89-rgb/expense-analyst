@@ -16,5 +16,9 @@ data class PendingNotificationEntity(
     @ColumnInfo(name = "detected_at_millis") val detectedAtMillis: Long,
     @ColumnInfo(name = "raw_body") val rawBody: String? = null,
     @ColumnInfo(name = "payment_method") val paymentMethod: String? = null,
-    @ColumnInfo(name = "is_possible_duplicate", defaultValue = "0") val isPossibleDuplicate: Boolean = false
+    @ColumnInfo(name = "is_possible_duplicate", defaultValue = "0") val isPossibleDuplicate: Boolean = false,
+    @ColumnInfo(name = "pending_type", defaultValue = "TRANSACTION") val pendingType: String = "TRANSACTION",
+    @ColumnInfo(name = "biller_name") val billerName: String? = null,
+    @ColumnInfo(name = "due_date_millis") val dueDateMillis: Long? = null,
+    @ColumnInfo(name = "linked_bill_id") val linkedBillId: Long? = null
 )

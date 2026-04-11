@@ -68,16 +68,16 @@ class TransactionNotificationService : NotificationListenerService() {
         val effectiveSender = title.ifBlank { packageName }
         val effectiveBody = bigText.ifBlank { body }
 
-        val parsed = ParserRegistry.parse(sender = effectiveSender, body = effectiveBody)
-        if (parsed != null) {
-            if (parsed.amount <= 0 || parsed.amount > 10_000_000) return
-            pendingManager.enqueue(parsed)
+        // Bill statement parsers have specific canParse() logic — try them first so that
+        // bill/reminder SMS are never misrouted to GenericParser as transaction spends.
+        val statement = BillStatementParserRegistry.parse(sender = effectiveSender, body = effectiveBody)
+        if (statement != null) {
+            billStatementManager.process(statement)
             return
         }
 
-        // Second chance: bill statement notification
-        val statement = BillStatementParserRegistry.parse(sender = effectiveSender, body = effectiveBody)
-            ?: return
-        billStatementManager.process(statement)
+        val parsed = ParserRegistry.parse(sender = effectiveSender, body = effectiveBody) ?: return
+        if (parsed.amount <= 0 || parsed.amount > 10_000_000) return
+        pendingManager.enqueue(parsed)
     }
 }

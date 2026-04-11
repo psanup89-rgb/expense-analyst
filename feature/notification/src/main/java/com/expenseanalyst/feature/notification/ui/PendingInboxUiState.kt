@@ -6,5 +6,7 @@ data class PendingInboxUiState(
     val items: List<PendingNotification> = emptyList(),
     val isLoading: Boolean = true,
     val pendingDismissId: Long? = null,
-    val showDismissAllConfirm: Boolean = false
+    val showDismissAllConfirm: Boolean = false,
+    val pendingSaveBillId: Long? = null,
+    val pendingUpdateBillId: Long? = null
 )

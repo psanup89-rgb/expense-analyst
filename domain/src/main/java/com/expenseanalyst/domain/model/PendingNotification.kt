@@ -11,5 +11,9 @@ data class PendingNotification(
     val detectedAtMillis: Long,
     val rawBody: String? = null,
     val paymentMethod: String? = null,  // PaymentMethod enum name, e.g. "APPLE_PAY"
-    val isPossibleDuplicate: Boolean = false
+    val isPossibleDuplicate: Boolean = false,
+    val pendingType: String = "TRANSACTION",  // "TRANSACTION" | "BILL"
+    val billerName: String? = null,
+    val dueDateMillis: Long? = null,
+    val linkedBillId: Long? = null
 )

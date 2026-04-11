@@ -21,6 +21,7 @@ import androidx.compose.material.icons.filled.ArrowDownward
 import androidx.compose.material.icons.filled.ArrowUpward
 import androidx.compose.material.icons.filled.Inbox
 import androidx.compose.material.icons.filled.Payment
+import androidx.compose.material.icons.filled.ReceiptLong
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -101,6 +102,38 @@ fun PendingInboxScreen(
         )
     }
 
+    if (uiState.pendingSaveBillId != null) {
+        AlertDialog(
+            onDismissRequest = viewModel::cancelSaveBill,
+            title = { Text("Add as New Bill?") },
+            text = { Text("A new bill entry will be created. You can track payments against it from the Bills section.") },
+            confirmButton = {
+                TextButton(onClick = viewModel::confirmSaveBill) {
+                    Text("Add Bill", color = MaterialTheme.colorScheme.primary)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = viewModel::cancelSaveBill) { Text("Cancel") }
+            }
+        )
+    }
+
+    if (uiState.pendingUpdateBillId != null) {
+        AlertDialog(
+            onDismissRequest = viewModel::cancelUpdateBill,
+            title = { Text("Update Existing Bill?") },
+            text = { Text("The existing open bill will be updated with the latest amount and due date from this statement.") },
+            confirmButton = {
+                TextButton(onClick = viewModel::confirmUpdateBill) {
+                    Text("Update Bill", color = MaterialTheme.colorScheme.primary)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = viewModel::cancelUpdateBill) { Text("Cancel") }
+            }
+        )
+    }
+
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
         topBar = {
@@ -159,25 +192,161 @@ fun PendingInboxScreen(
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
                 items(uiState.items, key = { it.id }) { item ->
-                    PendingInboxItem(
-                        item = item,
-                        onAdd = {
-                            val accountStr = item.accountLast4?.let { last4 ->
-                                val bank = item.bankName.takeIf { it != "Unknown Bank" } ?: ""
-                                if (bank.isNotBlank()) "$bank *$last4" else "*$last4"
-                            }
-                            onAddExpense(
-                                item.amount,
-                                item.currencyCode,
-                                item.merchantName,
-                                item.transactionType,
-                                accountStr,
-                                item.id,
-                                item.paymentMethod
-                            )
-                        },
-                        onDismiss = { viewModel.requestDismiss(item.id) }
+                    if (item.pendingType == "BILL") {
+                        PendingBillItem(
+                            item = item,
+                            onSaveAsNew = { viewModel.requestSaveBill(item.id) },
+                            onUpdate = { viewModel.requestUpdateBill(item.id) },
+                            onDismiss = { viewModel.requestDismiss(item.id) }
+                        )
+                    } else {
+                        PendingInboxItem(
+                            item = item,
+                            onAdd = {
+                                val accountStr = item.accountLast4?.let { last4 ->
+                                    val bank = item.bankName.takeIf { it != "Unknown Bank" } ?: ""
+                                    if (bank.isNotBlank()) "$bank *$last4" else "*$last4"
+                                }
+                                onAddExpense(
+                                    item.amount,
+                                    item.currencyCode,
+                                    item.merchantName,
+                                    item.transactionType,
+                                    accountStr,
+                                    item.id,
+                                    item.paymentMethod
+                                )
+                            },
+                            onDismiss = { viewModel.requestDismiss(item.id) }
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun PendingBillItem(
+    item: PendingNotification,
+    onSaveAsNew: () -> Unit,
+    onUpdate: () -> Unit,
+    onDismiss: () -> Unit
+) {
+    val timeStr = remember(item.detectedAtMillis) {
+        SimpleDateFormat("dd MMM, hh:mm a", Locale.getDefault())
+            .format(Date(item.detectedAtMillis))
+    }
+    val dueDateStr = remember(item.dueDateMillis) {
+        item.dueDateMillis?.let {
+            "Due: " + SimpleDateFormat("dd MMM yyyy", Locale.getDefault()).format(Date(it))
+        }
+    }
+
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer)
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.Top
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
+                    Icon(
+                        imageVector = Icons.Default.ReceiptLong,
+                        contentDescription = null,
+                        modifier = Modifier.size(20.dp),
+                        tint = MaterialTheme.colorScheme.primary
                     )
+                    Spacer(Modifier.width(8.dp))
+                    Column {
+                        // "Bill Statement" badge
+                        Surface(
+                            color = MaterialTheme.colorScheme.primaryContainer,
+                            shape = RoundedCornerShape(4.dp)
+                        ) {
+                            Text(
+                                text = "Bill Statement",
+                                fontSize = 11.sp,
+                                color = MaterialTheme.colorScheme.onPrimaryContainer,
+                                fontWeight = FontWeight.Medium,
+                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                            )
+                        }
+                        Spacer(Modifier.height(4.dp))
+                        Text(
+                            text = item.billerName ?: item.merchantName ?: "Unknown Biller",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                        if (item.amount > 0) {
+                            Text(
+                                text = "%.2f %s".format(item.amount, item.currencyCode),
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+                        }
+                        if (dueDateStr != null) {
+                            Text(
+                                text = dueDateStr,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                        if (item.linkedBillId != null) {
+                            Spacer(Modifier.height(4.dp))
+                            Surface(
+                                color = Color(0xFFE8F5E9),
+                                shape = RoundedCornerShape(4.dp)
+                            ) {
+                                Text(
+                                    text = "Open bill found — can update",
+                                    fontSize = 11.sp,
+                                    color = Color(0xFF2E7D32),
+                                    fontWeight = FontWeight.Medium,
+                                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                                )
+                            }
+                        }
+                    }
+                }
+                Text(
+                    text = timeStr,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+            Spacer(Modifier.height(12.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                OutlinedButton(
+                    onClick = onDismiss,
+                    modifier = Modifier.weight(1f),
+                    colors = ButtonDefaults.outlinedButtonColors(
+                        contentColor = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                ) {
+                    Text("Dismiss")
+                }
+                if (item.linkedBillId != null) {
+                    Button(
+                        onClick = onUpdate,
+                        modifier = Modifier.weight(1f),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = Color(0xFF4CAF50)
+                        )
+                    ) {
+                        Text("Update Bill")
+                    }
+                } else {
+                    Button(
+                        onClick = onSaveAsNew,
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Text("Add as Bill")
+                    }
                 }
             }
         }
