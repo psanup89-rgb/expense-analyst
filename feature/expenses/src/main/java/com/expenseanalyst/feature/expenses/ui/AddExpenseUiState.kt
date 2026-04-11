@@ -41,7 +41,13 @@ data class AddExpenseUiState(
     val error: String? = null,
     val rawSmsBody: String? = null,
     val isCategoryInferring: Boolean = false,
-    val categoryInferenceSource: InferenceSource? = null
+    val categoryInferenceSource: InferenceSource? = null,
+    val showDatePicker: Boolean = false,
+    val showTimePicker: Boolean = false,
+    val editingAccount: Account? = null,
+    val editBankName: String = "",
+    val editLastFour: String = "",
+    val editAccountType: AccountType = AccountType.SAVINGS
 ) {
     val selectedAccount: Account? get() = accounts.find { it.id == selectedAccountId }
 

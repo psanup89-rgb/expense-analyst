@@ -29,6 +29,7 @@ import com.expenseanalyst.feature.notification.ui.PendingInboxScreen
 import com.expenseanalyst.feature.notification.ui.SmsImportScreen
 import com.expenseanalyst.feature.onboarding.ui.OnboardingScreen
 import com.expenseanalyst.feature.analytics.ui.AnalyticsScreen
+import com.expenseanalyst.feature.settings.ui.AccountManagementScreen
 import com.expenseanalyst.feature.settings.ui.CategoryManagementScreen
 import com.expenseanalyst.feature.settings.ui.SettingsScreen
 
@@ -217,7 +218,14 @@ fun AppNavGraph(
                             .addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
                     )
                 },
-                onNavigateToCategoryManagement = { navController.navigate(NavRoutes.CATEGORY_MANAGEMENT) }
+                onNavigateToCategoryManagement = { navController.navigate(NavRoutes.CATEGORY_MANAGEMENT) },
+                onNavigateToAccountManagement = { navController.navigate(NavRoutes.ACCOUNT_MANAGEMENT) }
+            )
+        }
+
+        composable(NavRoutes.ACCOUNT_MANAGEMENT) {
+            AccountManagementScreen(
+                onBack = { navController.popBackStack() }
             )
         }
 

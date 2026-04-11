@@ -48,6 +48,18 @@ fun EditExpenseScreen(
         onNewAccountLastFourChange = viewModel::onNewAccountLastFourChange,
         onNewAccountTypeChange = viewModel::onNewAccountTypeChange,
         onSaveNewAccount = viewModel::saveNewAccount,
+        onEditAccount = {},
+        onDismissEditAccount = {},
+        onEditBankNameChange = {},
+        onEditLastFourChange = {},
+        onEditAccountTypeChange = {},
+        onSaveEditAccount = {},
+        onShowDatePicker = viewModel::showDatePicker,
+        onDismissDatePicker = viewModel::dismissDatePicker,
+        onDateChange = viewModel::onDateChange,
+        onShowTimePicker = viewModel::showTimePicker,
+        onDismissTimePicker = viewModel::dismissTimePicker,
+        onTimeChange = viewModel::onTimeChange,
         onSave = viewModel::saveExpense
     )
 }

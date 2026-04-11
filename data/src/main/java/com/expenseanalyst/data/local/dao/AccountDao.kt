@@ -25,4 +25,7 @@ interface AccountDao {
 
     @Query("SELECT * FROM accounts WHERE bank_name = :bankName AND last_four IS :lastFour LIMIT 1")
     suspend fun findByBankAndLastFour(bankName: String, lastFour: String?): AccountEntity?
+
+    @Query("DELETE FROM accounts WHERE id = :id")
+    suspend fun deleteById(id: Long)
 }

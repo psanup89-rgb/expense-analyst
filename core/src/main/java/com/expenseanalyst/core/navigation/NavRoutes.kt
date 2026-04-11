@@ -17,6 +17,7 @@ object NavRoutes {
     const val BILL_DETAIL = "bill_detail/{billId}"
     const val CURRENCY_PICKER = "currency_picker"
     const val CATEGORY_MANAGEMENT = "category_management"
+    const val ACCOUNT_MANAGEMENT = "account_management"
     const val ANALYTICS = "analytics"
     const val SMS_IMPORT = "sms_import"
     const val SMS_IMPORT_ROUTE = "sms_import?autoStart={autoStart}"

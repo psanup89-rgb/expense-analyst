@@ -45,6 +45,8 @@ class AccountRepositoryImpl @Inject constructor(
         return accountDao.findByBankAndLastFour(bankName, lastFour)!!.id
     }
 
+    override suspend fun deleteAccount(id: Long) = accountDao.deleteById(id)
+
     private fun buildDisplayName(bankName: String, lastFour: String?, type: AccountType): String =
         if (lastFour != null) "$bankName *$lastFour · ${type.label}"
         else "$bankName · ${type.label}"

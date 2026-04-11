@@ -4,6 +4,12 @@ import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.expenseanalyst.core.util.DateTimeUtil
+import kotlinx.datetime.Instant
+import kotlinx.datetime.LocalDateTime
+import kotlinx.datetime.LocalTime
+import kotlinx.datetime.TimeZone
+import kotlinx.datetime.toInstant
+import kotlinx.datetime.toLocalDateTime
 import com.expenseanalyst.domain.model.AccountType
 import com.expenseanalyst.domain.model.Bill
 import com.expenseanalyst.domain.model.BillStatus
@@ -152,6 +158,7 @@ class AddExpenseViewModel @Inject constructor(
                 val pending = pendingNotificationRepository.getById(pendingIdArg) ?: return@launch
                 val updates = mutableListOf<AddExpenseUiState.() -> AddExpenseUiState>()
                 if (pending.rawBody != null) updates.add { copy(rawSmsBody = pending.rawBody) }
+                updates.add { copy(date = Instant.fromEpochMilliseconds(pending.detectedAtMillis)) }
                 if (pending.paymentMethod != null && paymentMethodArg == null) {
                     val pm = PaymentMethod.entries.find { it.name == pending.paymentMethod }
                     if (pm != null) updates.add { copy(paymentMethod = pm) }
@@ -258,6 +265,28 @@ class AddExpenseViewModel @Inject constructor(
             }
         }
     }
+    fun showDatePicker() = _form.update { it.copy(showDatePicker = true) }
+    fun dismissDatePicker() = _form.update { it.copy(showDatePicker = false) }
+    fun showTimePicker() = _form.update { it.copy(showTimePicker = true) }
+    fun dismissTimePicker() = _form.update { it.copy(showTimePicker = false) }
+
+    fun onDateChange(selectedDateMillis: Long) {
+        _form.update { state ->
+            val tz = TimeZone.currentSystemDefault()
+            val newDate = Instant.fromEpochMilliseconds(selectedDateMillis).toLocalDateTime(tz).date
+            val currentTime = state.date.toLocalDateTime(tz).time
+            state.copy(date = LocalDateTime(newDate, currentTime).toInstant(tz), showDatePicker = false)
+        }
+    }
+
+    fun onTimeChange(hour: Int, minute: Int) {
+        _form.update { state ->
+            val tz = TimeZone.currentSystemDefault()
+            val currentDate = state.date.toLocalDateTime(tz).date
+            state.copy(date = LocalDateTime(currentDate, LocalTime(hour, minute)).toInstant(tz), showTimePicker = false)
+        }
+    }
+
     fun onCurrencyChange(code: String) = _form.update {
         it.copy(currencyCode = code, exchangeRateInput = "", isCurrencyPickerVisible = false, currencySearchQuery = "")
     }
@@ -273,6 +302,27 @@ class AddExpenseViewModel @Inject constructor(
     fun dismissCurrencyPicker() = _form.update { it.copy(isCurrencyPickerVisible = false) }
     fun onCurrencySearchQueryChange(value: String) = _form.update { it.copy(currencySearchQuery = value) }
     fun clearError() = _form.update { it.copy(error = null) }
+
+    fun showEditAccount(account: com.expenseanalyst.domain.model.Account) = _form.update {
+        it.copy(editingAccount = account, editBankName = account.bankName, editLastFour = account.lastFour ?: "", editAccountType = account.accountType)
+    }
+    fun dismissEditAccount() = _form.update { it.copy(editingAccount = null, editBankName = "", editLastFour = "") }
+    fun onEditBankNameChange(value: String) = _form.update { it.copy(editBankName = value) }
+    fun onEditLastFourChange(value: String) = _form.update { it.copy(editLastFour = value.filter { c -> c.isDigit() }.take(4)) }
+    fun onEditAccountTypeChange(type: com.expenseanalyst.domain.model.AccountType) = _form.update { it.copy(editAccountType = type) }
+    fun saveEditAccount() {
+        val s = _form.value
+        val acct = s.editingAccount ?: return
+        val bankName = s.editBankName.trim()
+        if (bankName.isBlank()) return
+        viewModelScope.launch {
+            val lastFour = s.editLastFour.ifEmpty { null }
+            val displayName = if (lastFour != null) "$bankName *$lastFour · ${s.editAccountType.label}"
+                             else "$bankName · ${s.editAccountType.label}"
+            accountRepository.updateAccount(acct.copy(bankName = bankName, lastFour = lastFour, accountType = s.editAccountType, displayName = displayName))
+            _form.update { it.copy(editingAccount = null, editBankName = "", editLastFour = "") }
+        }
+    }
 
     fun showAccountSheet() = _form.update { it.copy(isAccountSheetVisible = true) }
     fun dismissAccountSheet() = _form.update { it.copy(isAccountSheetVisible = false, isAddingNewAccount = false) }

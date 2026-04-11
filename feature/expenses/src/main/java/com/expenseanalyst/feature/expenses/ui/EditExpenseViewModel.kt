@@ -12,6 +12,12 @@ import com.expenseanalyst.domain.model.TransactionType
 import com.expenseanalyst.domain.repository.AccountRepository
 import com.expenseanalyst.domain.repository.CurrencyRepository
 import com.expenseanalyst.domain.repository.TagRepository
+import kotlinx.datetime.Instant
+import kotlinx.datetime.LocalDateTime
+import kotlinx.datetime.LocalTime
+import kotlinx.datetime.TimeZone
+import kotlinx.datetime.toInstant
+import kotlinx.datetime.toLocalDateTime
 import com.expenseanalyst.domain.usecase.GetAccountsUseCase
 import com.expenseanalyst.domain.usecase.GetCategoriesUseCase
 import com.expenseanalyst.domain.usecase.GetExpenseByIdUseCase
@@ -140,6 +146,28 @@ class EditExpenseViewModel @Inject constructor(
             }
         }
     }
+    fun showDatePicker() = _form.update { it.copy(showDatePicker = true) }
+    fun dismissDatePicker() = _form.update { it.copy(showDatePicker = false) }
+    fun showTimePicker() = _form.update { it.copy(showTimePicker = true) }
+    fun dismissTimePicker() = _form.update { it.copy(showTimePicker = false) }
+
+    fun onDateChange(selectedDateMillis: Long) {
+        _form.update { state ->
+            val tz = TimeZone.currentSystemDefault()
+            val newDate = Instant.fromEpochMilliseconds(selectedDateMillis).toLocalDateTime(tz).date
+            val currentTime = state.date.toLocalDateTime(tz).time
+            state.copy(date = LocalDateTime(newDate, currentTime).toInstant(tz), showDatePicker = false)
+        }
+    }
+
+    fun onTimeChange(hour: Int, minute: Int) {
+        _form.update { state ->
+            val tz = TimeZone.currentSystemDefault()
+            val currentDate = state.date.toLocalDateTime(tz).date
+            state.copy(date = LocalDateTime(currentDate, LocalTime(hour, minute)).toInstant(tz), showTimePicker = false)
+        }
+    }
+
     fun onCurrencyChange(code: String) = _form.update {
         it.copy(currencyCode = code, exchangeRateInput = "", isCurrencyPickerVisible = false, currencySearchQuery = "")
     }

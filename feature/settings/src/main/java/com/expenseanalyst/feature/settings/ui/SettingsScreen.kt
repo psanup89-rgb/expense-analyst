@@ -59,6 +59,7 @@ fun SettingsScreen(
     onBack: (() -> Unit)? = null,
     onNavigateToSmsImport: () -> Unit = {},
     onNavigateToCategoryManagement: () -> Unit = {},
+    onNavigateToAccountManagement: () -> Unit = {},
     onTestNotification: () -> Unit = {},
     onGrantNotificationAccess: () -> Unit = {},
     viewModel: SettingsViewModel = hiltViewModel()
@@ -87,6 +88,7 @@ fun SettingsScreen(
         onGooglePlacesToggle = viewModel::toggleGooglePlaces,
         onNavigateToSmsImport = onNavigateToSmsImport,
         onNavigateToCategoryManagement = onNavigateToCategoryManagement,
+        onNavigateToAccountManagement = onNavigateToAccountManagement,
         onTestNotification = onTestNotification,
         onGrantNotificationAccess = onGrantNotificationAccess
     )
@@ -107,6 +109,7 @@ private fun SettingsContent(
     onGooglePlacesToggle: (Boolean) -> Unit,
     onNavigateToSmsImport: () -> Unit,
     onNavigateToCategoryManagement: () -> Unit,
+    onNavigateToAccountManagement: () -> Unit,
     onTestNotification: () -> Unit,
     onGrantNotificationAccess: () -> Unit
 ) {
@@ -483,6 +486,36 @@ private fun SettingsContent(
                                     checkedTrackColor = MaterialTheme.colorScheme.primary
                                 )
                             )
+                        }
+                    }
+                }
+            }
+
+            // Accounts section
+            item {
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer)
+                ) {
+                    Column(modifier = Modifier.padding(20.dp)) {
+                        Text(
+                            text = "Accounts",
+                            style = MaterialTheme.typography.titleMedium,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                        Spacer(Modifier.height(12.dp))
+                        Text(
+                            text = "Add, edit, or remove bank accounts and wallets.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Spacer(Modifier.height(12.dp))
+                        FilledTonalButton(
+                            onClick = onNavigateToAccountManagement,
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = androidx.compose.foundation.shape.RoundedCornerShape(10.dp)
+                        ) {
+                            Text("Manage Accounts")
                         }
                     }
                 }

@@ -31,11 +31,17 @@ import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
+import androidx.compose.material.icons.filled.CalendarMonth
+import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.Schedule
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DatePicker
+import androidx.compose.material3.DatePickerDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
@@ -48,6 +54,7 @@ import androidx.compose.material3.ListItem
 import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Scaffold
@@ -56,8 +63,11 @@ import androidx.compose.material3.SegmentedButtonDefaults
 import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.TimePicker
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.material3.rememberDatePickerState
+import androidx.compose.material3.rememberTimePickerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -77,7 +87,10 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.expenseanalyst.core.util.CurrencyCatalog
 import com.expenseanalyst.core.util.CurrencyFormatter
+import com.expenseanalyst.core.util.DateTimeUtil
 import com.expenseanalyst.core.util.categoryIconVector
+import kotlinx.datetime.TimeZone
+import kotlinx.datetime.toLocalDateTime
 import com.expenseanalyst.domain.model.AccountType
 import com.expenseanalyst.domain.model.Category
 import com.expenseanalyst.domain.model.PaymentMethod
@@ -127,6 +140,18 @@ fun AddExpenseScreen(
         onNewAccountLastFourChange = viewModel::onNewAccountLastFourChange,
         onNewAccountTypeChange = viewModel::onNewAccountTypeChange,
         onSaveNewAccount = viewModel::saveNewAccount,
+        onEditAccount = viewModel::showEditAccount,
+        onDismissEditAccount = viewModel::dismissEditAccount,
+        onEditBankNameChange = viewModel::onEditBankNameChange,
+        onEditLastFourChange = viewModel::onEditLastFourChange,
+        onEditAccountTypeChange = viewModel::onEditAccountTypeChange,
+        onSaveEditAccount = viewModel::saveEditAccount,
+        onShowDatePicker = viewModel::showDatePicker,
+        onDismissDatePicker = viewModel::dismissDatePicker,
+        onDateChange = viewModel::onDateChange,
+        onShowTimePicker = viewModel::showTimePicker,
+        onDismissTimePicker = viewModel::dismissTimePicker,
+        onTimeChange = viewModel::onTimeChange,
         onSave = viewModel::saveExpense
     )
 }
@@ -163,6 +188,18 @@ internal fun AddExpenseContent(
     onNewAccountLastFourChange: (String) -> Unit,
     onNewAccountTypeChange: (AccountType) -> Unit,
     onSaveNewAccount: () -> Unit,
+    onEditAccount: (com.expenseanalyst.domain.model.Account) -> Unit,
+    onDismissEditAccount: () -> Unit,
+    onEditBankNameChange: (String) -> Unit,
+    onEditLastFourChange: (String) -> Unit,
+    onEditAccountTypeChange: (AccountType) -> Unit,
+    onSaveEditAccount: () -> Unit,
+    onShowDatePicker: () -> Unit,
+    onDismissDatePicker: () -> Unit,
+    onDateChange: (Long) -> Unit,
+    onShowTimePicker: () -> Unit,
+    onDismissTimePicker: () -> Unit,
+    onTimeChange: (hour: Int, minute: Int) -> Unit,
     onSave: () -> Unit
 ) {
     val isExpense = uiState.transactionType == TransactionType.EXPENSE
@@ -227,6 +264,10 @@ internal fun AddExpenseContent(
 
     // Category picker sheet
     if (uiState.isCategorySheetVisible) {
+        var categoryQuery by remember { mutableStateOf("") }
+        val filteredCategoryRows = uiState.categories
+            .filter { it.name.contains(categoryQuery.trim(), ignoreCase = true) }
+            .chunked(4)
         ModalBottomSheet(
             onDismissRequest = onDismissCategorySheet,
             containerColor = MaterialTheme.colorScheme.surface
@@ -238,9 +279,21 @@ internal fun AddExpenseContent(
                     .navigationBarsPadding()
             ) {
                 Text("Select Category", style = MaterialTheme.typography.titleLarge, color = MaterialTheme.colorScheme.onSurface)
+                Spacer(Modifier.height(12.dp))
+                OutlinedTextField(
+                    value = categoryQuery,
+                    onValueChange = { categoryQuery = it },
+                    modifier = Modifier.fillMaxWidth(),
+                    label = { Text("Search category") },
+                    singleLine = true,
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = MaterialTheme.colorScheme.primary,
+                        focusedLabelColor = MaterialTheme.colorScheme.primary
+                    )
+                )
                 Spacer(Modifier.height(16.dp))
                 Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    categoryRows.forEach { rowCategories ->
+                    filteredCategoryRows.forEach { rowCategories ->
                         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                             rowCategories.forEach { category ->
                                 CategoryItem(
@@ -260,6 +313,10 @@ internal fun AddExpenseContent(
 
     // Account picker sheet
     if (uiState.isAccountSheetVisible) {
+        var accountQuery by remember { mutableStateOf("") }
+        val filteredAccounts = uiState.accounts.filter {
+            it.displayName.contains(accountQuery.trim(), ignoreCase = true)
+        }
         ModalBottomSheet(
             onDismissRequest = onDismissAccountSheet,
             containerColor = MaterialTheme.colorScheme.surface
@@ -272,23 +329,6 @@ internal fun AddExpenseContent(
             ) {
                 Text("Select Account", style = MaterialTheme.typography.titleLarge, color = MaterialTheme.colorScheme.onSurface)
                 Spacer(Modifier.height(8.dp))
-                if (uiState.accounts.isEmpty() && !uiState.isAddingNewAccount) {
-                    Text("No accounts yet. Add one below.", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(vertical = 8.dp))
-                }
-                uiState.accounts.forEach { account ->
-                    ListItem(
-                        headlineContent = { Text(account.displayName, style = MaterialTheme.typography.bodyMedium) },
-                        supportingContent = { Text(account.accountType.label, style = MaterialTheme.typography.bodySmall) },
-                        trailingContent = {
-                            if (account.id == uiState.selectedAccountId) {
-                                Icon(Icons.Default.Check, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
-                            }
-                        },
-                        modifier = Modifier.clickable { onAccountSelect(account.id) },
-                        colors = ListItemDefaults.colors(containerColor = Color.Transparent)
-                    )
-                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
-                }
                 if (!uiState.isAddingNewAccount) {
                     TextButton(
                         onClick = onShowAddNewAccount,
@@ -349,9 +389,143 @@ internal fun AddExpenseContent(
                         }
                     }
                 }
+                if (!uiState.isAddingNewAccount) {
+                    Spacer(Modifier.height(8.dp))
+                    OutlinedTextField(
+                        value = accountQuery,
+                        onValueChange = { accountQuery = it },
+                        modifier = Modifier.fillMaxWidth(),
+                        label = { Text("Search account") },
+                        singleLine = true,
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = MaterialTheme.colorScheme.primary,
+                            focusedLabelColor = MaterialTheme.colorScheme.primary
+                        )
+                    )
+                }
+                if (uiState.accounts.isEmpty() && !uiState.isAddingNewAccount) {
+                    Text("No accounts yet. Add one above.", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(vertical = 8.dp))
+                }
+                LazyColumn(modifier = Modifier.fillMaxWidth()) {
+                    items(filteredAccounts, key = { it.id }) { account ->
+                        ListItem(
+                            headlineContent = { Text(account.displayName, style = MaterialTheme.typography.bodyMedium) },
+                            supportingContent = { Text(account.accountType.label, style = MaterialTheme.typography.bodySmall) },
+                            trailingContent = {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    IconButton(onClick = { onEditAccount(account) }, modifier = Modifier.size(36.dp)) {
+                                        Icon(Icons.Default.Edit, contentDescription = "Edit account", modifier = Modifier.size(18.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                                    }
+                                    if (account.id == uiState.selectedAccountId) {
+                                        Icon(Icons.Default.Check, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                                    }
+                                }
+                            },
+                            modifier = Modifier.clickable { onAccountSelect(account.id) },
+                            colors = ListItemDefaults.colors(containerColor = Color.Transparent)
+                        )
+                        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
+                    }
+                }
                 Spacer(Modifier.height(8.dp))
             }
         }
+    }
+
+    // Edit account dialog
+    if (uiState.editingAccount != null) {
+        AlertDialog(
+            onDismissRequest = onDismissEditAccount,
+            title = { Text("Edit Account") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    OutlinedTextField(
+                        value = uiState.editBankName,
+                        onValueChange = onEditBankNameChange,
+                        label = { Text("Bank / Wallet name *") },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = MaterialTheme.colorScheme.primary,
+                            focusedLabelColor = MaterialTheme.colorScheme.primary
+                        )
+                    )
+                    OutlinedTextField(
+                        value = uiState.editLastFour,
+                        onValueChange = onEditLastFourChange,
+                        label = { Text("Last 4 digits (optional)") },
+                        singleLine = true,
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = MaterialTheme.colorScheme.primary,
+                            focusedLabelColor = MaterialTheme.colorScheme.primary
+                        )
+                    )
+                    Text("Account type", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        items(AccountType.entries) { type ->
+                            FilterChip(
+                                selected = uiState.editAccountType == type,
+                                onClick = { onEditAccountTypeChange(type) },
+                                label = { Text(type.label, style = MaterialTheme.typography.labelSmall) },
+                                colors = FilterChipDefaults.filterChipColors(
+                                    selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
+                                    selectedLabelColor = MaterialTheme.colorScheme.onPrimaryContainer
+                                )
+                            )
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = onSaveEditAccount, enabled = uiState.editBankName.isNotBlank()) {
+                    Text("Save")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = onDismissEditAccount) { Text("Cancel") }
+            }
+        )
+    }
+
+    // Date picker dialog
+    if (uiState.showDatePicker) {
+        val datePickerState = rememberDatePickerState(
+            initialSelectedDateMillis = uiState.date.toEpochMilliseconds()
+        )
+        DatePickerDialog(
+            onDismissRequest = onDismissDatePicker,
+            confirmButton = {
+                TextButton(onClick = {
+                    datePickerState.selectedDateMillis?.let { onDateChange(it) }
+                }) { Text("OK") }
+            },
+            dismissButton = {
+                TextButton(onClick = onDismissDatePicker) { Text("Cancel") }
+            }
+        ) { DatePicker(state = datePickerState) }
+    }
+
+    // Time picker dialog
+    if (uiState.showTimePicker) {
+        val ldt = uiState.date.toLocalDateTime(TimeZone.currentSystemDefault())
+        val timePickerState = rememberTimePickerState(
+            initialHour = ldt.hour,
+            initialMinute = ldt.minute,
+            is24Hour = false
+        )
+        AlertDialog(
+            onDismissRequest = onDismissTimePicker,
+            title = { Text("Select Time") },
+            text = { TimePicker(state = timePickerState) },
+            confirmButton = {
+                TextButton(onClick = { onTimeChange(timePickerState.hour, timePickerState.minute) }) { Text("OK") }
+            },
+            dismissButton = {
+                TextButton(onClick = onDismissTimePicker) { Text("Cancel") }
+            }
+        )
     }
 
     Scaffold(
@@ -497,6 +671,37 @@ internal fun AddExpenseContent(
                         uiState.computedHomeAmount?.let { homeAmount ->
                             Spacer(Modifier.height(12.dp))
                             Text("Home amount: ${CurrencyFormatter.format(homeAmount, uiState.homeCurrencyCode)}", style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.SemiBold)
+                        }
+                    }
+                }
+            }
+
+            item { Spacer(Modifier.height(16.dp)) }
+
+            // Date & Time
+            item {
+                FormSection(title = "Date & Time") {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        OutlinedButton(
+                            onClick = onShowDatePicker,
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Icon(Icons.Default.CalendarMonth, contentDescription = null, modifier = Modifier.size(16.dp))
+                            Spacer(Modifier.width(6.dp))
+                            Text(DateTimeUtil.formatDateHeader(uiState.date), style = MaterialTheme.typography.bodyMedium)
+                        }
+                        OutlinedButton(
+                            onClick = onShowTimePicker,
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Icon(Icons.Default.Schedule, contentDescription = null, modifier = Modifier.size(16.dp))
+                            Spacer(Modifier.width(6.dp))
+                            Text(DateTimeUtil.formatTime(uiState.date), style = MaterialTheme.typography.bodyMedium)
                         }
                     }
                 }

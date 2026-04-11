@@ -10,4 +10,5 @@ interface AccountRepository {
     suspend fun addAccount(account: Account): Long
     suspend fun updateAccount(account: Account)
     suspend fun findOrCreate(bankName: String, lastFour: String?, accountType: AccountType): Long
+    suspend fun deleteAccount(id: Long)
 }
