@@ -18,5 +18,6 @@ interface ExpenseRepository {
     suspend fun restoreExpense(id: Long)
     fun getExpensesByBillId(billId: Long): Flow<List<Expense>>
     suspend fun countByAccount(accountId: Long): Int
+    suspend fun getExpensesByAccount(accountId: Long): List<Expense>
     suspend fun remapAccount(fromAccountId: Long, toAccountId: Long?)
 }

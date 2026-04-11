@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
@@ -56,8 +57,11 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.expenseanalyst.core.util.CurrencyFormatter
+import com.expenseanalyst.core.util.DateTimeUtil
 import com.expenseanalyst.domain.model.Account
 import com.expenseanalyst.domain.model.AccountType
+import com.expenseanalyst.domain.model.Expense
 
 @Composable
 fun AccountManagementScreen(
@@ -117,7 +121,7 @@ private fun AccountManagementContent(
     if (uiState.showDeleteDialog && uiState.deletingAccount != null) {
         DeleteRemapDialog(
             account = uiState.deletingAccount,
-            expenseCount = uiState.deletingAccountExpenseCount,
+            expenses = uiState.deletingAccountExpenses,
             otherAccounts = uiState.accounts.filter { it.id != uiState.deletingAccount.id },
             remapTargetId = uiState.remapTargetAccountId,
             isSaving = uiState.isSaving,
@@ -196,7 +200,7 @@ private fun AccountManagementContent(
 @Composable
 private fun DeleteRemapDialog(
     account: Account,
-    expenseCount: Int,
+    expenses: List<Expense>,
     otherAccounts: List<Account>,
     remapTargetId: Long?,
     isSaving: Boolean,
@@ -206,7 +210,6 @@ private fun DeleteRemapDialog(
 ) {
     var dropdownExpanded by remember { mutableStateOf(false) }
 
-    // Label for currently selected remap target
     val selectedLabel = when {
         remapTargetId == null -> "Unassign (no account)"
         else -> otherAccounts.find { it.id == remapTargetId }?.displayName ?: "Select account"
@@ -217,11 +220,52 @@ private fun DeleteRemapDialog(
         title = { Text("Delete ${account.displayName}") },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                if (expenseCount > 0) {
+                if (expenses.isNotEmpty()) {
                     Text(
-                        text = "$expenseCount expense${if (expenseCount != 1) "s are" else " is"} linked to this account.",
+                        text = "${expenses.size} expense${if (expenses.size != 1) "s are" else " is"} linked to this account.",
                         style = MaterialTheme.typography.bodyMedium
                     )
+                    // Scrollable expense list
+                    LazyColumn(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .heightIn(max = 200.dp),
+                        verticalArrangement = Arrangement.spacedBy(0.dp)
+                    ) {
+                        items(expenses) { expense ->
+                            val dateStr = DateTimeUtil.formatDateHeader(expense.date)
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(vertical = 6.dp),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(
+                                        text = expense.merchantName ?: expense.description.ifBlank { "Unknown" },
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurface,
+                                        maxLines = 1
+                                    )
+                                    Text(
+                                        text = dateStr,
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
+                                Text(
+                                    text = CurrencyFormatter.format(expense.amount, expense.currencyCode),
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurface
+                                )
+                            }
+                            androidx.compose.material3.HorizontalDivider(
+                                color = MaterialTheme.colorScheme.outlineVariant,
+                                thickness = 0.5.dp
+                            )
+                        }
+                    }
                     Text(
                         text = "Remap them to:",
                         style = MaterialTheme.typography.bodyMedium,

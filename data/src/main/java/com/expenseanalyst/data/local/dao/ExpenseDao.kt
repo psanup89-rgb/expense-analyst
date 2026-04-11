@@ -71,6 +71,10 @@ interface ExpenseDao {
     @Query("SELECT COUNT(*) FROM expenses WHERE account_id = :accountId AND is_deleted = 0")
     suspend fun countByAccount(accountId: Long): Int
 
+    @Transaction
+    @Query("SELECT * FROM expenses WHERE account_id = :accountId AND is_deleted = 0 ORDER BY date_utc_millis DESC")
+    suspend fun getExpensesByAccount(accountId: Long): List<ExpenseWithCategory>
+
     @Query("UPDATE expenses SET account_id = :toAccountId WHERE account_id = :fromAccountId AND is_deleted = 0")
     suspend fun remapAccount(fromAccountId: Long, toAccountId: Long?)
 }

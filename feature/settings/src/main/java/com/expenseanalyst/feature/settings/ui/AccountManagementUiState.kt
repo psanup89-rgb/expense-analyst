@@ -2,6 +2,7 @@ package com.expenseanalyst.feature.settings.ui
 
 import com.expenseanalyst.domain.model.Account
 import com.expenseanalyst.domain.model.AccountType
+import com.expenseanalyst.domain.model.Expense
 
 data class AccountManagementUiState(
     val accounts: List<Account> = emptyList(),
@@ -18,6 +19,6 @@ data class AccountManagementUiState(
     // Delete-with-remap dialog
     val showDeleteDialog: Boolean = false,
     val deletingAccount: Account? = null,
-    val deletingAccountExpenseCount: Int = 0,
+    val deletingAccountExpenses: List<Expense> = emptyList(),
     val remapTargetAccountId: Long? = null   // null = unassign (set account_id to null)
 )

@@ -40,4 +40,5 @@ dependencies {
     ksp(libs.hilt.compiler)
     implementation(libs.hilt.navigation.compose)
     implementation(libs.datastore.preferences)
+    implementation(libs.kotlinx.datetime)
 }

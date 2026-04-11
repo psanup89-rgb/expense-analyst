@@ -82,6 +82,9 @@ class ExpenseRepositoryImpl @Inject constructor(
     override suspend fun countByAccount(accountId: Long): Int =
         expenseDao.countByAccount(accountId)
 
+    override suspend fun getExpensesByAccount(accountId: Long): List<Expense> =
+        expenseDao.getExpensesByAccount(accountId).map { it.toDomain() }
+
     override suspend fun remapAccount(fromAccountId: Long, toAccountId: Long?) =
         expenseDao.remapAccount(fromAccountId, toAccountId)
 }

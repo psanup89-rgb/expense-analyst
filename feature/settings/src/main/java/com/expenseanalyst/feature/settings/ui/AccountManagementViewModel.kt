@@ -69,6 +69,7 @@ class AccountManagementViewModel @Inject constructor(
                 showDeleteDialog = false,
                 editingAccount = null,
                 deletingAccount = null,
+                deletingAccountExpenses = emptyList(),
                 dialogBankName = "",
                 dialogLastFour = "",
                 remapTargetAccountId = null
@@ -78,12 +79,12 @@ class AccountManagementViewModel @Inject constructor(
 
     fun showDeleteDialog(account: Account) {
         viewModelScope.launch {
-            val count = expenseRepository.countByAccount(account.id)
+            val expenses = expenseRepository.getExpensesByAccount(account.id)
             _form.update {
                 it.copy(
                     showDeleteDialog = true,
                     deletingAccount = account,
-                    deletingAccountExpenseCount = count,
+                    deletingAccountExpenses = expenses,
                     remapTargetAccountId = null
                 )
             }
@@ -98,7 +99,7 @@ class AccountManagementViewModel @Inject constructor(
         val account = s.deletingAccount ?: return
         viewModelScope.launch {
             _form.update { it.copy(isSaving = true) }
-            if (s.deletingAccountExpenseCount > 0) {
+            if (s.deletingAccountExpenses.isNotEmpty()) {
                 expenseRepository.remapAccount(
                     fromAccountId = account.id,
                     toAccountId = s.remapTargetAccountId
@@ -110,6 +111,7 @@ class AccountManagementViewModel @Inject constructor(
                     isSaving = false,
                     showDeleteDialog = false,
                     deletingAccount = null,
+                    deletingAccountExpenses = emptyList(),
                     remapTargetAccountId = null
                 )
             }
