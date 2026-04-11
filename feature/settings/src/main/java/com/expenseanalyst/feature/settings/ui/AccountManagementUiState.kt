@@ -12,5 +12,12 @@ data class AccountManagementUiState(
     val dialogBankName: String = "",
     val dialogLastFour: String = "",
     val dialogAccountType: AccountType = AccountType.SAVINGS,
-    val isSaving: Boolean = false
+    val isSaving: Boolean = false,
+    // Expense count shown in edit dialog
+    val editingAccountExpenseCount: Int = 0,
+    // Delete-with-remap dialog
+    val showDeleteDialog: Boolean = false,
+    val deletingAccount: Account? = null,
+    val deletingAccountExpenseCount: Int = 0,
+    val remapTargetAccountId: Long? = null   // null = unassign (set account_id to null)
 )

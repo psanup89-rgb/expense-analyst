@@ -78,4 +78,10 @@ class ExpenseRepositoryImpl @Inject constructor(
 
     override fun getExpensesByBillId(billId: Long): Flow<List<Expense>> =
         expenseDao.getExpensesByBillId(billId).map { list -> list.map { it.toDomain() } }
+
+    override suspend fun countByAccount(accountId: Long): Int =
+        expenseDao.countByAccount(accountId)
+
+    override suspend fun remapAccount(fromAccountId: Long, toAccountId: Long?) =
+        expenseDao.remapAccount(fromAccountId, toAccountId)
 }

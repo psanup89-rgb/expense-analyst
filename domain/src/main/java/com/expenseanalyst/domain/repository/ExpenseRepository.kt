@@ -17,4 +17,6 @@ interface ExpenseRepository {
     suspend fun softDeleteExpense(id: Long)
     suspend fun restoreExpense(id: Long)
     fun getExpensesByBillId(billId: Long): Flow<List<Expense>>
+    suspend fun countByAccount(accountId: Long): Int
+    suspend fun remapAccount(fromAccountId: Long, toAccountId: Long?)
 }

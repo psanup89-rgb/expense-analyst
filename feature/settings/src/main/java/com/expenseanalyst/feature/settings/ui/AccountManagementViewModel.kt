@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.expenseanalyst.domain.model.Account
 import com.expenseanalyst.domain.model.AccountType
 import com.expenseanalyst.domain.repository.AccountRepository
+import com.expenseanalyst.domain.repository.ExpenseRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -16,7 +17,8 @@ import javax.inject.Inject
 
 @HiltViewModel
 class AccountManagementViewModel @Inject constructor(
-    private val accountRepository: AccountRepository
+    private val accountRepository: AccountRepository,
+    private val expenseRepository: ExpenseRepository
 ) : ViewModel() {
 
     private val _form = MutableStateFlow(AccountManagementUiState())
@@ -43,15 +45,19 @@ class AccountManagementViewModel @Inject constructor(
     }
 
     fun showEditDialog(account: Account) {
-        _form.update {
-            it.copy(
-                showEditDialog = true,
-                showAddDialog = false,
-                editingAccount = account,
-                dialogBankName = account.bankName,
-                dialogLastFour = account.lastFour ?: "",
-                dialogAccountType = account.accountType
-            )
+        viewModelScope.launch {
+            val count = expenseRepository.countByAccount(account.id)
+            _form.update {
+                it.copy(
+                    showEditDialog = true,
+                    showAddDialog = false,
+                    editingAccount = account,
+                    dialogBankName = account.bankName,
+                    dialogLastFour = account.lastFour ?: "",
+                    dialogAccountType = account.accountType,
+                    editingAccountExpenseCount = count
+                )
+            }
         }
     }
 
@@ -60,10 +66,53 @@ class AccountManagementViewModel @Inject constructor(
             it.copy(
                 showAddDialog = false,
                 showEditDialog = false,
+                showDeleteDialog = false,
                 editingAccount = null,
+                deletingAccount = null,
                 dialogBankName = "",
-                dialogLastFour = ""
+                dialogLastFour = "",
+                remapTargetAccountId = null
             )
+        }
+    }
+
+    fun showDeleteDialog(account: Account) {
+        viewModelScope.launch {
+            val count = expenseRepository.countByAccount(account.id)
+            _form.update {
+                it.copy(
+                    showDeleteDialog = true,
+                    deletingAccount = account,
+                    deletingAccountExpenseCount = count,
+                    remapTargetAccountId = null
+                )
+            }
+        }
+    }
+
+    fun onRemapTargetSelected(accountId: Long?) =
+        _form.update { it.copy(remapTargetAccountId = accountId) }
+
+    fun confirmDelete() {
+        val s = _form.value
+        val account = s.deletingAccount ?: return
+        viewModelScope.launch {
+            _form.update { it.copy(isSaving = true) }
+            if (s.deletingAccountExpenseCount > 0) {
+                expenseRepository.remapAccount(
+                    fromAccountId = account.id,
+                    toAccountId = s.remapTargetAccountId
+                )
+            }
+            accountRepository.deleteAccount(account.id)
+            _form.update {
+                it.copy(
+                    isSaving = false,
+                    showDeleteDialog = false,
+                    deletingAccount = null,
+                    remapTargetAccountId = null
+                )
+            }
         }
     }
 
@@ -114,10 +163,6 @@ class AccountManagementViewModel @Inject constructor(
                 )
             }
         }
-    }
-
-    fun deleteAccount(account: Account) {
-        viewModelScope.launch { accountRepository.deleteAccount(account.id) }
     }
 
     private fun buildDisplayName(bankName: String, lastFour: String?, type: AccountType): String =

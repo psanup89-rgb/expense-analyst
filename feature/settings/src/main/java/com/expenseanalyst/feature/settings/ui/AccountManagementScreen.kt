@@ -26,13 +26,17 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ExposedDropdownMenuBox
+import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.MenuAnchorType
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Scaffold
@@ -42,8 +46,12 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -63,12 +71,14 @@ fun AccountManagementScreen(
         onBack = onBack,
         onAddClick = viewModel::showAddDialog,
         onEditClick = viewModel::showEditDialog,
-        onDeleteClick = viewModel::deleteAccount,
+        onDeleteClick = viewModel::showDeleteDialog,
         onDismissDialog = viewModel::dismissDialog,
         onBankNameChange = viewModel::onBankNameChange,
         onLastFourChange = viewModel::onLastFourChange,
         onAccountTypeChange = viewModel::onAccountTypeChange,
-        onSave = viewModel::saveAccount
+        onSave = viewModel::saveAccount,
+        onRemapTargetSelected = viewModel::onRemapTargetSelected,
+        onConfirmDelete = viewModel::confirmDelete
     )
 }
 
@@ -84,7 +94,9 @@ private fun AccountManagementContent(
     onBankNameChange: (String) -> Unit,
     onLastFourChange: (String) -> Unit,
     onAccountTypeChange: (AccountType) -> Unit,
-    onSave: () -> Unit
+    onSave: () -> Unit,
+    onRemapTargetSelected: (Long?) -> Unit,
+    onConfirmDelete: () -> Unit
 ) {
     if (uiState.showAddDialog || uiState.showEditDialog) {
         AccountDialog(
@@ -92,12 +104,26 @@ private fun AccountManagementContent(
             bankName = uiState.dialogBankName,
             lastFour = uiState.dialogLastFour,
             accountType = uiState.dialogAccountType,
+            expenseCount = if (uiState.showEditDialog) uiState.editingAccountExpenseCount else 0,
             isSaving = uiState.isSaving,
             onBankNameChange = onBankNameChange,
             onLastFourChange = onLastFourChange,
             onAccountTypeChange = onAccountTypeChange,
             onDismiss = onDismissDialog,
             onConfirm = onSave
+        )
+    }
+
+    if (uiState.showDeleteDialog && uiState.deletingAccount != null) {
+        DeleteRemapDialog(
+            account = uiState.deletingAccount,
+            expenseCount = uiState.deletingAccountExpenseCount,
+            otherAccounts = uiState.accounts.filter { it.id != uiState.deletingAccount.id },
+            remapTargetId = uiState.remapTargetAccountId,
+            isSaving = uiState.isSaving,
+            onRemapTargetSelected = onRemapTargetSelected,
+            onDismiss = onDismissDialog,
+            onConfirm = onConfirmDelete
         )
     }
 
@@ -166,6 +192,106 @@ private fun AccountManagementContent(
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun DeleteRemapDialog(
+    account: Account,
+    expenseCount: Int,
+    otherAccounts: List<Account>,
+    remapTargetId: Long?,
+    isSaving: Boolean,
+    onRemapTargetSelected: (Long?) -> Unit,
+    onDismiss: () -> Unit,
+    onConfirm: () -> Unit
+) {
+    var dropdownExpanded by remember { mutableStateOf(false) }
+
+    // Label for currently selected remap target
+    val selectedLabel = when {
+        remapTargetId == null -> "Unassign (no account)"
+        else -> otherAccounts.find { it.id == remapTargetId }?.displayName ?: "Select account"
+    }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Delete ${account.displayName}") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                if (expenseCount > 0) {
+                    Text(
+                        text = "$expenseCount expense${if (expenseCount != 1) "s are" else " is"} linked to this account.",
+                        style = MaterialTheme.typography.bodyMedium
+                    )
+                    Text(
+                        text = "Remap them to:",
+                        style = MaterialTheme.typography.bodyMedium,
+                        fontWeight = FontWeight.Medium
+                    )
+                    ExposedDropdownMenuBox(
+                        expanded = dropdownExpanded,
+                        onExpandedChange = { dropdownExpanded = it }
+                    ) {
+                        OutlinedTextField(
+                            value = selectedLabel,
+                            onValueChange = {},
+                            readOnly = true,
+                            trailingIcon = {
+                                ExposedDropdownMenuDefaults.TrailingIcon(expanded = dropdownExpanded)
+                            },
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .menuAnchor(MenuAnchorType.PrimaryNotEditable),
+                            textStyle = MaterialTheme.typography.bodySmall
+                        )
+                        ExposedDropdownMenu(
+                            expanded = dropdownExpanded,
+                            onDismissRequest = { dropdownExpanded = false }
+                        ) {
+                            DropdownMenuItem(
+                                text = { Text("Unassign (no account)") },
+                                onClick = {
+                                    onRemapTargetSelected(null)
+                                    dropdownExpanded = false
+                                }
+                            )
+                            otherAccounts.forEach { target ->
+                                DropdownMenuItem(
+                                    text = { Text(target.displayName) },
+                                    onClick = {
+                                        onRemapTargetSelected(target.id)
+                                        dropdownExpanded = false
+                                    }
+                                )
+                            }
+                        }
+                    }
+                } else {
+                    Text(
+                        text = "No expenses are linked to this account.",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(
+                onClick = onConfirm,
+                enabled = !isSaving
+            ) {
+                if (isSaving) {
+                    CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp)
+                } else {
+                    Text("Delete", color = MaterialTheme.colorScheme.error)
+                }
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text("Cancel") }
+        }
+    )
+}
+
 @Composable
 private fun AccountRow(
     account: Account,
@@ -221,6 +347,7 @@ private fun AccountDialog(
     bankName: String,
     lastFour: String,
     accountType: AccountType,
+    expenseCount: Int,
     isSaving: Boolean,
     onBankNameChange: (String) -> Unit,
     onLastFourChange: (String) -> Unit,
@@ -233,6 +360,13 @@ private fun AccountDialog(
         title = { Text(if (isEdit) "Edit Account" else "Add Account") },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                if (isEdit && expenseCount > 0) {
+                    Text(
+                        text = "$expenseCount expense${if (expenseCount != 1) "s" else ""} linked to this account",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
                 OutlinedTextField(
                     value = bankName,
                     onValueChange = onBankNameChange,
