@@ -62,14 +62,14 @@ class InferCategoryUseCase @Inject constructor(
 
         // Tier 3: Google Places API (only when enabled in Settings)
         val isPlacesEnabled = appPreferencesRepository.isGooglePlacesEnabled().first()
-        println("InferCategory [$merchant] Tier3 — placesEnabled=$isPlacesEnabled")
+        println("InferCategory [$merchant] Tier3 — claudeAiEnabled=$isPlacesEnabled")
         if (!isPlacesEnabled) return null
         val categoryName = merchantSearchRepository.searchMerchantCategory(merchant)
             ?: return null
         val matched = categories.find { it.name.equals(categoryName, ignoreCase = true) }
             ?: categories.find { it.name.startsWith(categoryName, ignoreCase = true) }
             ?: return null
-        return InferenceResult(matched, InferenceSource.WEB_SEARCH)
+        return InferenceResult(matched, InferenceSource.AI_SEARCH)
     }
 }
 
@@ -78,4 +78,4 @@ data class InferenceResult(
     val source: InferenceSource
 )
 
-enum class InferenceSource { MERCHANT_RULE, KEYWORD, WEB_SEARCH }
+enum class InferenceSource { MERCHANT_RULE, KEYWORD, AI_SEARCH }

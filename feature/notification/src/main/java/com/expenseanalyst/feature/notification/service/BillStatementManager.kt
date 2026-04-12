@@ -42,7 +42,7 @@ class BillStatementManager @Inject constructor(
                     accountLast4 = null,
                     transactionType = "BILL",
                     detectedAtMillis = System.currentTimeMillis(),
-                    rawBody = null,
+                    rawBody = statement.rawBody,
                     pendingType = "BILL",
                     billerName = statement.billerName,
                     dueDateMillis = statement.dueDateMillis,

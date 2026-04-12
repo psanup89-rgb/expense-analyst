@@ -119,7 +119,7 @@
 - [x] Manage categories (add/edit/delete, icon picker)
 - [x] Account Management (add/edit/delete with expense remap)
 - [x] About section (version, credits)
-- [x] Smart Category Detection toggle (Google Places API, default off)
+- [x] Smart Category Detection toggle (Claude AI Tier 3, default off)
 - [ ] Reorder categories
 
 ---

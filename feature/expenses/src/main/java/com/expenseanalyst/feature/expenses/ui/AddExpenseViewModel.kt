@@ -197,7 +197,7 @@ class AddExpenseViewModel @Inject constructor(
                         )
                     }
                     // Tier 3 web result → persist as MerchantRule for future instant lookups
-                    if (result.source == InferenceSource.WEB_SEARCH) {
+                    if (result.source == InferenceSource.AI_SEARCH) {
                         merchantRuleRepository.saveRule(
                             merchantPattern = merchantArg.trim().lowercase(),
                             categoryId = result.category.id,
@@ -257,6 +257,17 @@ class AddExpenseViewModel @Inject constructor(
         inferenceJob?.cancel()
         inferenceJob = null
         _form.update { it.copy(selectedCategory = category, isCategorySheetVisible = false, isCategoryInferring = false) }
+        // Auto-save merchant rule so future transactions for this merchant are auto-categorized
+        val merchant = _form.value.merchantName.trim()
+        if (merchant.isNotBlank()) {
+            viewModelScope.launch {
+                merchantRuleRepository.saveRule(
+                    merchantPattern = merchant.lowercase(),
+                    categoryId = category.id,
+                    categoryName = category.name
+                )
+            }
+        }
     }
     fun showCategorySheet() = _form.update { it.copy(isCategorySheetVisible = true) }
     fun dismissCategorySheet() = _form.update { it.copy(isCategorySheetVisible = false) }

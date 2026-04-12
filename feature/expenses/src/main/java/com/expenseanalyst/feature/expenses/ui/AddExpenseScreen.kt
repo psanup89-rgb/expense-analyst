@@ -989,7 +989,7 @@ internal fun AddExpenseContent(
                                 )
                                 Column {
                                     Text(selectedCategory.name, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurface)
-                                    if (uiState.categoryInferenceSource == InferenceSource.WEB_SEARCH ||
+                                    if (uiState.categoryInferenceSource == InferenceSource.AI_SEARCH ||
                                         uiState.categoryInferenceSource == InferenceSource.KEYWORD) {
                                         Text(
                                             text = "Suggested · tap to change",

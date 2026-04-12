@@ -1,8 +1,92 @@
 # Expense Analyst — Handoff
 
-**Last updated**: 2026-04-12 (session 2)
+**Last updated**: 2026-04-13
 **DB version**: 14
 **Build**: `./gradlew clean assembleDebug` ✅ | Installed on SM-S948B ✅
+
+---
+
+## Session Summary (2026-04-13) — Claude AI Tier 3, bill fixes, merchant memory
+
+### 1. Airtel bill generation SMS — `AirtelStatementParser`
+
+Previous fingerprint only matched "bill of Rs.X" and "bill payment reminder". Airtel's **bill generation** format ("Bill for your Airtel Wi-Fi 20025035912 has been generated. Amount to be paid: Rs 2119.28") was slipping through to `GenericParser`, which saw the word "paid" and classified it as a DEBIT spend.
+
+Fixes:
+- `bodyFingerprint` extended with `bill\s+for\s+your\s+airtel`
+- `parse()` now uses a dedicated `totalDuePattern` (`amount to be paid: Rs X`) before falling back to raw Rs.X match
+- `dueDatePattern` added to extract `Due Date: dd-MMM-yyyy` when present
+- `GenericParser.billReminderPattern` extended with `bill.{0,70}has\s+been\s+generated` as defence-in-depth
+
+### 2. Source SMS in pending bill card — `PendingInboxScreen`, `BillStatementManager`, `TransactionNotificationService`
+
+`PendingBillItem` now shows a collapsible "Source SMS" row (identical expand/collapse UX to the expense inbox card).
+
+Changes:
+- `TransactionNotificationService`: passes `statement.copy(rawBody = effectiveBody)` so the raw SMS text travels into the pending record
+- `BillStatementManager`: uses `statement.rawBody` (was hardcoded `null`)
+- `PendingInboxScreen`: `PendingBillItem` renders an `AnimatedVisibility` SMS block when `item.rawBody` is non-null
+
+### 3. Auto-save MerchantRule on manual category selection
+
+Previously a rule was only saved when: (a) the user explicitly tapped "Teach App" in Expense Detail, or (b) Tier 3 web search returned a result.
+
+Now: whenever the user manually picks a category in the **Add** or **Edit** Expense category sheet and the merchant name is non-blank, a `MerchantRule` is silently upserted. Tier 1 will catch that merchant instantly on all future transactions.
+
+- `AddExpenseViewModel.onCategorySelect()` — launches `merchantRuleRepository.saveRule()`
+- `EditExpenseViewModel.onCategorySelect()` — same; `MerchantRuleRepository` injected (new dep)
+
+### 4. Tier 3 category inference: Google Places → Claude AI
+
+Replaced the Google Places API (paid, geographic restriction) with a call to an Anthropic-compatible endpoint using `claude-haiku-4.5`.
+
+| What | Before | After |
+|---|---|---|
+| Service class | `GooglePlacesApiService` (deleted) | `ClaudeApiService` (new) |
+| Auth header | `X-Goog-Api-Key` | `Authorization: Bearer <key>` |
+| API | Google Places Text Search | Claude Messages API `/v1/messages` |
+| Model | — | `claude-haiku-4.5` |
+| Config keys | `GOOGLE_PLACES_API_KEY` | `CLAUDE_API_KEY` + `CLAUDE_API_BASE_URL` |
+| Category mapping | `mapPlaceTypesToCategory()` (place type → string) | Claude returns category name directly |
+| Hallucination guard | — | Response validated against `VALID_CATEGORIES` set |
+
+`local.properties` now requires:
+```
+CLAUDE_API_KEY=<key>
+CLAUDE_API_BASE_URL=https://your-proxy.example.com
+```
+Quotes around values are stripped by `localProp()` in `data/build.gradle.kts`. Base URL defaults to `https://api.anthropic.com` if blank. The endpoint at `api.gameron.me` uses `Authorization: Bearer` (not `x-api-key`); this is handled in `ClaudeApiService`.
+
+`InferenceSource.WEB_SEARCH` renamed to `AI_SEARCH`. Settings label updated to "Use Claude AI".
+
+---
+
+## Session Summary (2026-04-12, session 3) — Open issue cleanup
+
+### 1. ProGuard/R8 rules — `app/proguard-rules.pro` created
+
+File was entirely missing (referenced in `build.gradle.kts` but not present). Created with rules for:
+- **Kotlin / JVM**: annotations, metadata, enum valueOf/values, companion objects
+- **Kotlin Coroutines**: MainDispatcherFactory, CoroutineExceptionHandler, volatile fields
+- **kotlinx.datetime**: full keep
+- **Hilt / Dagger**: `@HiltViewModel`, `@AndroidEntryPoint`, `@Module`, `@Provides`, `@Binds`, generated component classes
+- **Room**: `@Entity`, `@Dao`, `@Database`, `@TypeConverter`; explicit keeps on all `data.local.entity`, `data.local.dao`, and `domain.model` packages
+- **Ktor + OkHttp**: full keep + dontwarn for Android engine dependencies
+- **DataStore**: keep + dontwarn
+- **Miscellaneous**: suppression of bouncycastle, conscrypt, openjsse build-time warnings
+- `assembleDebug` ✅ after adding rules
+
+### 2. "Unknown Bank" account names — fixed in `GenericParser`
+
+`GenericParser.parse()` now calls `bankNameFromSender(sender)` instead of the hardcoded `bankName` property. The private method maps recognisable sender substrings to real bank names (same lookup table as `SmsImportViewModel.bankDisplayNameFromSender()`), extended to cover: HDFC, ICICI, Axis, SBI, Kotak, Yes Bank, IndusInd, PNB, Al Rajhi, Alinma, STC, D360, Emirates NBD, IDFC First, OneCard, Canara, Bank of Baroda, Union Bank, Citi, Amex, Paytm, Airtel. Falls back to "Unknown Bank" only if no pattern matches. Applies to both live notification path and bulk SMS import.
+
+### 3. Stale comment — `BillStatementParserRegistry.kt` line 5
+
+Updated comment from "Tried only after [ParserRegistry] returns null" → "Tried FIRST by [TransactionNotificationService], before [ParserRegistry]…" to match actual routing behaviour since 2026-04-12 session 1.
+
+### 4. `DuckDuckGoApiService.kt` — already absent
+
+File not found anywhere in the codebase. Either deleted in a prior commit or never committed. Issue closed with no action.
 
 ---
 
@@ -158,12 +242,7 @@ Route: `NavRoutes.EDIT_BILL = "edit_bill/{billId}"` / `NavRoutes.editBill(billId
 
 ## Open Issues
 
-| Issue | File | Notes |
-|-------|------|-------|
-| `DuckDuckGoApiService.kt` dead code | `data/` | Unused since Google Places replaced it — safe to delete |
-| ProGuard/R8 rules | missing | Release build unverified |
-| "Unknown Bank" account names | Account matching | SMS-inferred accounts have auto-generated names; no cleanup UX |
-| `BillStatementParserRegistry` comment stale | `BillStatementParserRegistry.kt` line 6 | Says "Tried only after ParserRegistry returns null" — actually tried first now |
+No known bugs. All previous open issues resolved (see session 3 summary above).
 
 ---
 
@@ -171,13 +250,9 @@ Route: `NavRoutes.EDIT_BILL = "edit_bill/{billId}"` / `NavRoutes.editBill(billId
 
 No critical bugs. Suggested next tasks in priority order:
 
-1. **Delete `DuckDuckGoApiService.kt`** — dead code, safe to remove. Check for any remaining references with `grep -r "DuckDuckGo"`.
+1. **Phase 2 remaining features** — Budgets (F13), CSV/PDF export (F14), home screen widget (F16).
 
-2. **ProGuard/R8 rules** — `./gradlew assembleRelease` is unverified; may crash on first run due to missing rules for Ktor/Room/Hilt.
-
-3. **Phase 2 remaining features** — Budgets (F13), CSV/PDF export (F14), home screen widget (F16).
-
-4. **Fix stale code comment** in `BillStatementParserRegistry.kt` line 6 (one-liner).
+2. **ProGuard release smoke-test** — `./gradlew assembleRelease` requires a signing config. Set up `keystore.properties` + signing block in `app/build.gradle.kts` and verify release APK starts on device without crashing.
 
 ---
 
@@ -189,3 +264,5 @@ No critical bugs. Suggested next tasks in priority order:
 - **Two-group regex**: `groupValues[1]` is `""` (not `null`) when only group 2 matches. Always `.takeIf { it.isNotBlank() }` on both groups in amount patterns.
 - **KSP + clean**: Always `./gradlew clean assembleDebug` after adding new files. Never bare `assembleDebug`.
 - **`rawSmsBody` on pre-2026-04-11 notification-path expenses**: null in DB (bug was fixed). Edit Expense infers auto-import from `sourceType` and shows "Auto-imported from SMS" label for those.
+- **Claude API proxy (api.gameron.me)**: Uses `Authorization: Bearer <key>` header (not `x-api-key`). Model name is `claude-haiku-4.5` (not `claude-haiku-3-5`). Test with `curl` before assuming the model string is correct on a new proxy.
+- **`local.properties` quoted values**: The `localProp()` helper in `data/build.gradle.kts` strips surrounding double-quotes, so `CLAUDE_API_KEY="sk-..."` and `CLAUDE_API_KEY=sk-...` both work.

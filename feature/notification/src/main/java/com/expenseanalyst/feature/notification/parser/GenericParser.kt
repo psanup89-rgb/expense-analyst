@@ -17,7 +17,7 @@ class GenericParser : TransactionParser {
     // Bill reminders / payment-due notices — not real transactions.
     // These contain "ignore if paid", "minimum amount due", "bill of Rs.X is pending", etc.
     private val billReminderPattern = Regex(
-        """(?i)(?:ignore\s+if\s+(?:already\s+)?paid|if\s+(?:already\s+)?paid[,\s]+(?:please\s+)?ignore|bill\s+(?:of|amount).{0,60}(?:pending|is\s+due)|(?:amount|payment)\s+is\s+due\s+on\s+\d|minimum\s+(?:amount\s+)?due|bill\s+payment\s+reminder|payment\s+(?:overdue|reminder))"""
+        """(?i)(?:ignore\s+if\s+(?:already\s+)?paid|if\s+(?:already\s+)?paid[,\s]+(?:please\s+)?ignore|bill\s+(?:of|amount).{0,60}(?:pending|is\s+due)|(?:amount|payment)\s+is\s+due\s+on\s+\d|minimum\s+(?:amount\s+)?due|bill\s+payment\s+reminder|payment\s+(?:overdue|reminder)|bill.{0,70}has\s+been\s+generated)"""
     )
 
     override fun canParse(sender: String, body: String): Boolean = true
@@ -68,8 +68,42 @@ class GenericParser : TransactionParser {
             merchant = merchant,
             accountLast4 = accountLast4,
             referenceNumber = null,
-            bankName = bankName,
+            bankName = bankNameFromSender(sender),
             paymentMethodName = PaymentMethodDetector.detect(body)
         )
+    }
+
+    /**
+     * Attempts to derive a human-readable bank name from the SMS sender ID.
+     * Falls back to "Unknown Bank" if no pattern matches.
+     * Mirrors the same lookup in SmsImportViewModel.bankDisplayNameFromSender().
+     */
+    private fun bankNameFromSender(sender: String): String {
+        val s = sender.uppercase()
+        return when {
+            "HDFC" in s -> "HDFC Bank"
+            "ICICI" in s -> "ICICI Bank"
+            "AXISBK" in s || "AXISBANK" in s -> "Axis Bank"
+            "SBIINB" in s || "SBIPSG" in s || "SBIUPI" in s || "SBI" in s -> "SBI"
+            "KOTAK" in s -> "Kotak Bank"
+            "YESBNK" in s || "YESBANK" in s -> "Yes Bank"
+            "INDUS" in s -> "IndusInd Bank"
+            "PNBSMS" in s || "PUNJAB" in s -> "PNB"
+            "ALRJHI" in s || "ALRAJHI" in s -> "Al Rajhi Bank"
+            "ALINMA" in s -> "Alinma Bank"
+            "STCBNK" in s || "STCPAY" in s -> "STC Bank"
+            "D360" in s -> "Bank D·360"
+            "EMIRNBD" in s || "ENBD" in s -> "Emirates NBD"
+            "IDFCFB" in s || "IDFCFIRST" in s -> "IDFC First Bank"
+            "ONECARD" in s || "FEDERAL" in s -> "OneCard"
+            "CANARA" in s -> "Canara Bank"
+            "BOB" in s || "BANKOFBARODA" in s -> "Bank of Baroda"
+            "UNION" in s -> "Union Bank"
+            "CITI" in s -> "Citi Bank"
+            "AMEX" in s -> "American Express"
+            "PAYTM" in s -> "Paytm"
+            "AIRTEL" in s -> "Airtel Payments Bank"
+            else -> bankName // "Unknown Bank"
+        }
     }
 }

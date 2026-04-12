@@ -456,7 +456,7 @@ private fun SettingsContent(
                         )
                         Spacer(Modifier.height(4.dp))
                         Text(
-                            text = "Automatically identifies the category of unknown merchants using Google Places.",
+                            text = "Automatically identifies the category of unknown merchants using Claude AI.",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -468,12 +468,12 @@ private fun SettingsContent(
                         ) {
                             Column(modifier = Modifier.weight(1f)) {
                                 Text(
-                                    text = "Use Google Places API",
+                                    text = "Use Claude AI",
                                     style = MaterialTheme.typography.labelLarge,
                                     color = MaterialTheme.colorScheme.onSurface
                                 )
                                 Text(
-                                    text = "Tier 3 lookup for unrecognised merchants",
+                                    text = "Tier 3 AI lookup for unrecognised merchants",
                                     style = MaterialTheme.typography.bodySmall,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )

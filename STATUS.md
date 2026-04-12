@@ -1,6 +1,6 @@
 # Expense Analyst — Current Status
 
-**Date**: 2026-04-12
+**Date**: 2026-04-13
 **DB version**: 14 (MIGRATION_13_14 — 4 new columns on `pending_notifications` for BILL pending type)
 **Build**: `./gradlew clean assembleDebug` ✅ passing
 **Device**: Samsung Galaxy S26 Ultra (SM-S948B) — installed ✅
@@ -58,8 +58,9 @@ All core infrastructure, SMS parsing, account management, bill tracking (with ed
 - [x] `reference` field on `Bill` entity (v13) — stores account/contract number separately from biller name
 - [x] Saudi Energy parser: account number → `reference`
 - [x] Ejar parser (Arabic SMS): contract number → `reference`
-- [x] Airtel parser: "bill of Rs.X is pending" Airtel Wi-Fi/Postpaid/Broadband SMS → bill (not spend)
+- [x] Airtel parser: "bill of Rs.X is pending" AND "Bill for your Airtel … has been generated" formats → bill (not spend); extracts due date when parseable
 - [x] Bill reminder SMS → pending inbox as BILL type (not auto-saved, not spend): DB v14 adds `pending_type`, `biller_name`, `due_date_millis`, `linked_bill_id` to `pending_notifications`
+- [x] Pending bill card shows collapsible "Source SMS" row — raw SMS body passed through `TransactionNotificationService` → `BillStatementManager` → `PendingNotification.rawBody`
 - [x] Routing: `TransactionNotificationService` tries `BillStatementParserRegistry` first; `GenericParser` guards against bill-reminder phrases
 - [x] PAYMENT expenses in Add/Edit screen show "Linked Bill" section: auto-matched by merchant name, manual link/unlink via bill picker
 - [x] On save: bill status updated (SETTLED if paid ≥ totalDue, PARTIAL otherwise); always compared in home currency
@@ -77,10 +78,14 @@ All core infrastructure, SMS parsing, account management, bill tracking (with ed
 - [x] Account picker in AddExpense screen
 
 ### Merchant Category Intelligence Engine
-- [x] 3-tier inference: MerchantRules → Keyword → Google Places API
-- [x] API key at build time via `BuildConfig.GOOGLE_PLACES_API_KEY` (from `local.properties`)
-- [x] Settings toggle: "Smart Category Detection" (default off)
+- [x] 3-tier inference: MerchantRules → Keyword → Claude AI
+- [x] Claude API key + base URL at build time via `BuildConfig.CLAUDE_API_KEY` / `BuildConfig.CLAUDE_API_BASE_URL` (from `local.properties`)
+- [x] Supports any Anthropic-compatible proxy endpoint (configurable base URL)
+- [x] Uses `claude-haiku-4.5` model — fast and cheap for single-label classification
+- [x] Response validated against known category names before accepting (hallucination guard)
+- [x] Settings toggle: "Smart Category Detection — Use Claude AI" (default off)
 - [x] Tier 3 gated in both `InferCategoryUseCase` and `SmsImportViewModel`
+- [x] Auto-save MerchantRule when user manually picks a category in Add/Edit Expense (merchant non-blank) — enables Tier 1 match next time without explicit "Teach App" tap
 
 ### Settings / UX
 - [x] Onboarding (3-step), home currency, notification toggle, SMS import
@@ -98,8 +103,7 @@ All core infrastructure, SMS parsing, account management, bill tracking (with ed
 
 | Item | State | Notes |
 |------|-------|-------|
-| ProGuard/R8 rules | ⚠️ Missing | Release build unverified |
-| `DuckDuckGoApiService.kt` | ⚠️ Dead code | Unused since Google Places replaced it — safe to delete |
+| ProGuard/R8 rules | ✅ Rules created | `app/proguard-rules.pro` added; release APK not smoke-tested (requires signing config) |
 
 ---
 
@@ -117,7 +121,8 @@ All core infrastructure, SMS parsing, account management, bill tracking (with ed
 
 ## Known Constraints
 
-- **`local.properties`** (gitignored): needs `GOOGLE_PLACES_API_KEY=AIzaSy...` for Tier 3 to work
+- **`local.properties`** (gitignored): needs `CLAUDE_API_KEY=<key>` and `CLAUDE_API_BASE_URL=<url>` for Tier 3 to work. Values may be wrapped in double-quotes — the build script strips them automatically. Default base URL is `https://api.anthropic.com` if blank.
 - **kotlinx.serialization compiler plugin**: NOT in project. Use `bodyAsText()` + `JsonElement` for Ktor JSON, not `@Serializable` data classes
 - **LazyColumn inside AlertDialog text slot**: renders nothing (zero height). Always use `Column + verticalScroll` for scrollable content in dialogs
 - **`rawSmsBody` on pre-existing notification-path expenses**: Expenses saved from the inbox *before* the 2026-04-11 fix have `rawSmsBody = null`. The Edit Expense screen shows "Auto-imported from SMS" for those (inferred from `sourceType`); the expandable SMS text only appears for expenses saved after the fix or via bulk SMS import.
+- **"Unknown Bank" on pre-existing accounts**: Accounts already created with "Unknown Bank" bank name remain as-is (historical data); new accounts created by `GenericParser` after 2026-04-12 will use the sender-derived bank name instead.

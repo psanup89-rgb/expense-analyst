@@ -72,7 +72,7 @@ class TransactionNotificationService : NotificationListenerService() {
         // bill/reminder SMS are never misrouted to GenericParser as transaction spends.
         val statement = BillStatementParserRegistry.parse(sender = effectiveSender, body = effectiveBody)
         if (statement != null) {
-            billStatementManager.process(statement)
+            billStatementManager.process(statement.copy(rawBody = effectiveBody))
             return
         }
 

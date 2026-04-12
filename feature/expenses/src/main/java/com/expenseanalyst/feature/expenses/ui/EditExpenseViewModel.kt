@@ -15,6 +15,7 @@ import com.expenseanalyst.domain.repository.AccountRepository
 import com.expenseanalyst.domain.repository.BillRepository
 import com.expenseanalyst.domain.repository.CategoryRepository
 import com.expenseanalyst.domain.repository.CurrencyRepository
+import com.expenseanalyst.domain.repository.MerchantRuleRepository
 import com.expenseanalyst.domain.repository.TagRepository
 import kotlinx.datetime.Instant
 import kotlinx.datetime.LocalDateTime
@@ -53,7 +54,8 @@ class EditExpenseViewModel @Inject constructor(
     private val currencyRepository: CurrencyRepository,
     private val tagRepository: TagRepository,
     private val categoryRepository: CategoryRepository,
-    private val billRepository: BillRepository
+    private val billRepository: BillRepository,
+    private val merchantRuleRepository: MerchantRuleRepository
 ) : ViewModel() {
 
     private val expenseId: Long = checkNotNull(savedStateHandle["expenseId"])
@@ -143,7 +145,20 @@ class EditExpenseViewModel @Inject constructor(
             _form.update { it.copy(linkedBillId = null, linkedBill = null, availableBills = emptyList()) }
         }
     }
-    fun onCategorySelect(category: Category) = _form.update { it.copy(selectedCategory = category, isCategorySheetVisible = false) }
+    fun onCategorySelect(category: Category) {
+        _form.update { it.copy(selectedCategory = category, isCategorySheetVisible = false) }
+        // Auto-save merchant rule so future transactions for this merchant are auto-categorized
+        val merchant = _form.value.merchantName?.trim().orEmpty()
+        if (merchant.isNotBlank()) {
+            viewModelScope.launch {
+                merchantRuleRepository.saveRule(
+                    merchantPattern = merchant.lowercase(),
+                    categoryId = category.id,
+                    categoryName = category.name
+                )
+            }
+        }
+    }
     fun showCategorySheet() = _form.update { it.copy(isCategorySheetVisible = true) }
     fun dismissCategorySheet() = _form.update { it.copy(isCategorySheetVisible = false) }
     fun onPaymentMethodChange(method: PaymentMethod) = _form.update { it.copy(paymentMethod = method) }

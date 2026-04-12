@@ -6,13 +6,15 @@ plugins {
     alias(libs.plugins.room)
 }
 
-val googlePlacesApiKey: String = rootProject.file("local.properties")
-    .takeIf { it.exists() }
-    ?.readLines()
-    ?.find { it.startsWith("GOOGLE_PLACES_API_KEY=") }
-    ?.substringAfter("=")
-    ?.trim()
-    ?: ""
+fun localProp(key: String): String =
+    rootProject.file("local.properties")
+        .takeIf { it.exists() }
+        ?.readLines()
+        ?.find { it.startsWith("$key=") }
+        ?.substringAfter("=")
+        ?.trim()
+        ?.trim('"')   // strip surrounding quotes if the user wrapped the value in "..."
+        ?: ""
 
 android {
     namespace = "com.expenseanalyst.data"
@@ -23,7 +25,8 @@ android {
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
-        buildConfigField("String", "GOOGLE_PLACES_API_KEY", "\"$googlePlacesApiKey\"")
+        buildConfigField("String", "CLAUDE_API_KEY",     "\"${localProp("CLAUDE_API_KEY")}\"")
+        buildConfigField("String", "CLAUDE_API_BASE_URL", "\"${localProp("CLAUDE_API_BASE_URL").ifBlank { "https://api.anthropic.com" }}\"")
     }
 
     buildFeatures {

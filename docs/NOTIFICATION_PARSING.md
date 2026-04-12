@@ -110,7 +110,7 @@ Registered in `BillStatementParserRegistry` (tried before transaction parsers). 
 | 6 | TamaraStatementParser | "payment of X SAR for your ORDER due in N days" | Computes due date from relative "N days" |
 | 7 | SaudiEnergyStatementParser | `se.com.sa` or "your bill for account" | `reference = account number` |
 | 8 | EjarStatementParser | `منصة إيجار` or `checkout.ejar.sa` | Arabic SMS, `reference = contract number` |
-| 9 | AirtelStatementParser | Sender contains "airtel" + "bill of" or "bill payment reminder" | Airtel Wi-Fi / Postpaid / Broadband |
+| 9 | AirtelStatementParser | Sender contains "airtel" + "bill of", "bill payment reminder", OR "bill for your airtel" (generation notices) | Airtel Wi-Fi / Postpaid / Broadband; also catches "Bill for your Airtel Wi-Fi … has been generated" format |
 | 10 | GenericStatementParser | Generic keywords ("bill due", "payment due", "amount due") | Last-resort fallback for unknown billers |
 
 ---

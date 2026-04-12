@@ -2,7 +2,8 @@ package com.expenseanalyst.feature.notification.parser
 
 /**
  * Dispatches bill statement SMS to the first matching [BillStatementParser].
- * Tried only after [ParserRegistry] returns null (i.e., it's not a transaction SMS).
+ * Tried FIRST by [TransactionNotificationService], before [ParserRegistry], so bill reminders
+ * are never misclassified as spend transactions.
  * Order: specific banks first, generic fallback last.
  */
 object BillStatementParserRegistry {
