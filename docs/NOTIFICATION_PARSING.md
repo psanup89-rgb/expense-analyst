@@ -1,7 +1,7 @@
 # Notification Parsing - Standard Operating Procedure
 
 ## Current Status
-The notification parsing system is **fully implemented and active**. 18 bank/wallet parsers are in production, handling real-time notification capture and bulk SMS import.
+The notification parsing system is **fully implemented and active**. 18 transaction parsers + 10 bill statement parsers are in production, handling real-time notification capture, bulk SMS import, and bill reminder routing.
 
 ## Overview
 The notification parsing system intercepts bank SMS and push notifications, extracts transaction data using regex parsers, and presents pre-filled expense entries for user confirmation.
@@ -13,24 +13,33 @@ Notification/SMS arrives
   ↓
 TransactionNotificationService (NotificationListenerService)
   ↓ extracts text + sender
-ParserRegistry.parse(sender, messageText)
-  ↓ dispatches to matching parser (first match wins)
-BankSpecificParser.parse(sender, body)
-  ↓ returns
-ParsedTransaction (amount, currency, type, merchant, accountLast4, paymentMethodName, bankName, rawBody)
   ↓
-PendingNotificationManager.enqueue(parsed)
-  ↓ saves to Room, posts system tray notification
-NotificationBanner (in-app) + System tray notification
-  ↓ user taps
-AddExpenseScreen (pre-filled with parsed data, Source SMS card shown)
+  ├─ BillStatementParserRegistry.parse(sender, body)   ← tried FIRST
+  │    if match → BillStatementManager.process(statement)
+  │               → PendingNotification(pendingType="BILL") saved to Room
+  │               → PendingInboxScreen shows PendingBillItem card
+  │    if no match ↓
+  │
+  └─ ParserRegistry.parse(sender, body)
+       ↓ dispatches to matching transaction parser (first match wins)
+       ↓ GenericParser has billReminderPattern guard (returns null for bill phrases)
+       ParsedTransaction (amount, currency, type, merchant, accountLast4, paymentMethodName, bankName, rawBody)
+         ↓
+         PendingNotificationManager.enqueue(parsed)
+           ↓ saves to Room, posts system tray notification
+           NotificationBanner (in-app) + System tray notification
+             ↓ user taps
+             AddExpenseScreen (pre-filled with parsed data, Source SMS card shown)
 ```
 
 ## Key Files
 - `feature/notification/service/TransactionNotificationService.kt` — Android NotificationListenerService
 - `feature/notification/parser/TransactionParser.kt` — Parser interface
 - `feature/notification/parser/ParserRegistry.kt` — Dispatcher (ordered list, first match wins)
-- `feature/notification/parser/<Bank>Parser.kt` — Bank-specific parsers (18 total)
+- `feature/notification/parser/<Bank>Parser.kt` — Transaction parsers (18 total)
+- `feature/notification/parser/<Bank>StatementParser.kt` — Bill statement parsers (10 total)
+- `feature/notification/parser/BillStatementParserRegistry.kt` — Bill dispatcher (tried BEFORE ParserRegistry)
+- `feature/notification/service/BillStatementManager.kt` — Enqueues bill SMS as PendingNotification(pendingType="BILL")
 - `feature/notification/parser/PaymentMethodDetector.kt` — Shared utility for inferring payment method from SMS text
 - `feature/notification/parser/ParsedTransaction.kt` — Parsed result model
 - `feature/notification/service/PendingNotificationManager.kt` — Saves to Room + posts tray notification
@@ -87,7 +96,26 @@ Priority: Wallet overlays > UPI > Net Banking > Credit Card > Debit Card.
 
 Some parsers add context-aware fallbacks (e.g. IDFC CC spend → `CREDIT_CARD`, FASTag → `WALLET`, OneCard → `CREDIT_CARD`).
 
-## Supported Parsers (18 total)
+## Bill Statement Parsers (10 total)
+
+Registered in `BillStatementParserRegistry` (tried before transaction parsers). Each implements `BillStatementParser` — returns `ParsedBillStatement` with `billerName`, `totalDue`, `minimumDue`, `dueDateMillis`, `currencyCode`, `reference`.
+
+| # | Parser | Fingerprint | Notes |
+|---|--------|-------------|-------|
+| 1 | IdfcFirstBankStatementParser | Sender `idfcfb` + "bill due by" | Full month name date format |
+| 2 | AxisBankStatementParser | "Payment of INR X for Axis Bank Credit Card" | Extracts totalDue, minDue, due date, card last-4 |
+| 3 | EmiratesNbdStatementParser | Sender `ENBD` + body fingerprint | Statement amount, due date |
+| 4 | AlRajhiStatementParser | Sender contains `alrajhi` | Arabic/English statement SMS |
+| 5 | HdfcStatementParser | Sender `hdfc` + "statement" keywords | Extracts totalDue, minDue, due date |
+| 6 | TamaraStatementParser | "payment of X SAR for your ORDER due in N days" | Computes due date from relative "N days" |
+| 7 | SaudiEnergyStatementParser | `se.com.sa` or "your bill for account" | `reference = account number` |
+| 8 | EjarStatementParser | `منصة إيجار` or `checkout.ejar.sa` | Arabic SMS, `reference = contract number` |
+| 9 | AirtelStatementParser | Sender contains "airtel" + "bill of" or "bill payment reminder" | Airtel Wi-Fi / Postpaid / Broadband |
+| 10 | GenericStatementParser | Generic keywords ("bill due", "payment due", "amount due") | Last-resort fallback for unknown billers |
+
+---
+
+## Transaction Parsers (18 total)
 
 ### ParserRegistry Order (first match wins)
 
@@ -110,7 +138,7 @@ Some parsers add context-aware fallbacks (e.g. IDFC CC spend → `CREDIT_CARD`, 
 | 15 | WalletParser | Digital Wallet | Sender Apple/Google/Samsung Pay | Multi | `Payment of $X at`, `Paid X to` |
 | 16 | UpiParser | UPI (GPay/PhonePe/Paytm) | Sender or `UPI` in body | INR | `paid ₹X to`, `received from` |
 | 17 | MubasherParser | Mubasher (bill payment) | Sender `mub/mubasher` OR body fingerprint | SAR | `Biller:`, `Service:`, `Bill:` — bill payment confirmations |
-| 18 | GenericParser | Unknown (fallback) | Always matches | Multi | Best-effort: `At:` merchant, `Card:` account, amount + direction |
+| 18 | GenericParser | Unknown (fallback) | Always matches (unless bill-reminder phrase detected) | Multi | Best-effort: `At:` merchant, `Card:` account, amount + direction. Has `billReminderPattern` guard — returns null for "ignore if already paid", "bill of Rs.X is pending", "minimum amount due", "bill payment reminder" |
 
 ## SMS Import (Bulk)
 

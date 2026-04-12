@@ -1,8 +1,8 @@
 # Feature Specifications & Acceptance Criteria
 
-**Last updated**: 2026-04-11
+**Last updated**: 2026-04-12
 **Phase 1 + 1.5**: Complete
-**Phase 2**: Partially started (see F11)
+**Phase 2**: Partially started (F11 mostly complete, F12 complete)
 
 ---
 
@@ -13,6 +13,7 @@
 - [x] Fields: amount, currency, transaction type (Expense/Income/Transfer/Payment), merchant name (mandatory), category, payment method, account, date, description (optional), notes (optional)
 - [x] Large numeric amount input with decimal support
 - [x] Category displayed as scrollable grid of icons with labels
+- [x] **Inline "Add new category"** in the category picker sheet — name field + icon grid, auto-selects on save (mirrors "Add new account" pattern)
 - [x] Payment method shown as horizontal chips
 - [x] Date picker defaults to today, allows past dates
 - [x] Currency picker is searchable (code + name)
@@ -46,6 +47,8 @@
 - [x] `updatedAtUtcMillis` updated on save
 - [x] Changes reflected immediately in list
 - [x] Cancel discards changes
+- [x] **Source SMS card** shown for auto-imported expenses — expandable, shows raw SMS body text; "Open in Messages ↗" button deep-links to the sender's SMS conversation (falls back to messaging app main screen if SMS no longer in inbox)
+- [x] Inline "Add new category" in category picker (same as Add Expense)
 
 ---
 
@@ -111,10 +114,13 @@
 
 ### F9: Settings (partial)
 - [x] Home currency picker
-- [ ] Theme: Light / Dark / System toggle
+- [x] Theme toggle (dark/light mode)
 - [x] Notification auto-capture toggle
-- [ ] Manage categories (add/edit/delete/reorder)
+- [x] Manage categories (add/edit/delete, icon picker)
+- [x] Account Management (add/edit/delete with expense remap)
 - [x] About section (version, credits)
+- [x] Smart Category Detection toggle (Google Places API, default off)
+- [ ] Reorder categories
 
 ---
 
@@ -130,8 +136,8 @@
 
 | Feature | Status | Description |
 |---------|--------|-------------|
-| F11: Bills Section | Partial ✅ | DB schema (`bills` table, v9→v10), `BillEntity`, `BillRepository`, `BillDao`, bill statement parsers (9 parsers: IDFC, Axis, Emirates NBD, Al Rajhi, HDFC, Tamara, Saudi Energy, Ejar, Generic), navigation routes (`BILLS`, `BILL_DETAIL`), `BillDetailScreen`, and expense-bill linking UI in `ExpenseDetailScreen` are all implemented. Remaining: bills list screen polish, payment matching (PAYMENT→bill), and subscription tracking. |
-| F12: Analytics Dashboard | Not started | Monthly pie chart by category, daily bar chart, trend line, top merchants |
+| F11: Bills Section | Mostly ✅ | Full bill CRUD, lifecycle (PENDING→PARTIAL→SETTLED), 10 bill statement parsers (IDFC, Axis, EmiratesNBD, AlRajhi, HDFC, Tamara, SaudiEnergy, Ejar, Airtel, Generic), bill routing from SMS, bill SMS → pending inbox as BILL type (DB v14), PAYMENT bill linking in Add/Edit Expense, expense↔bill navigation, unlink payment from bill, Add Bill form matches Edit Bill. Remaining: subscription tracking, recurring bill auto-detection. |
+| F12: Analytics Dashboard | ✅ Complete | Month navigation, summary cards, category breakdown, daily bar chart, top merchants, drill-down bottom sheet. |
 | F13: Budgets & Alerts | Not started | Monthly budget per category, progress bars, push notifications at 80%/100% |
 | F14: Export | Not started | CSV + PDF with date range filter, Android share sheet |
 | F15: Cloud Backup | Not started | Google Drive backup/restore via Google Sign-In, weekly auto-backup |
@@ -143,4 +149,4 @@
 
 ## Phase 3 (not started)
 
-F18: iOS App (KMP) · F19: Smart Categorization · F20: Recurring Detection · F21: Receipt Photos · F22: Split Expenses · F23: Income Tracking · F24: Multiple Accounts · F25: Tags (DB schema + `TagRepository` already implemented in v10→v11; UI not started) · F26: Spending Insights · F27: Bill Reminders
+F18: iOS App (KMP) · F19: Smart Categorization · F20: Recurring Detection · F21: Receipt Photos · F22: Split Expenses · F23: Income Tracking · F24: Multiple Accounts · F25: Tags ✅ (fully implemented: DB schema v10→v11, `TagRepository`, `TagDao`, searchable tag selector in Add/Edit Expense, tag chips in Expense Detail, search-by-tag in Expense List) · F26: Spending Insights · F27: Bill Reminders

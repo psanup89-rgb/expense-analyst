@@ -4,6 +4,103 @@ Format: `[Date] — Summary`
 
 ---
 
+## 2026-04-12 (session 2) — Bills section polish + expense↔bill navigation
+
+**Agent role**: FeatureAgent
+
+**Work completed**:
+
+### Add Bill form parity with Edit Bill
+- `AddBillSheetContent` expanded: added Reference field, Minimum Due field, Due Date picker, Status dropdown; Total Due now shows home currency as read-only suffix (currency input removed)
+- `BillsUiState` gained 4 new fields: `newReference`, `newMinimumDue`, `newDueDateMillis`, `newStatus`
+- `BillsViewModel` gained handlers for all 4 new fields + injects `CurrencyRepository`
+
+### Bills always stored in home currency
+- `BillsViewModel.saveNewBill()` uses home currency from `CurrencyRepository` — ignores any transient form currency value
+- `PendingInboxViewModel.confirmSaveBill()` now injects `CurrencyRepository` and sets `currencyCode = homeCurrency` when creating Bill records from pending inbox
+- `AddExpenseViewModel.saveExpense()` bill status comparison always uses `computedHomeAmount ?: parsedAmount` (no currency-matching detour)
+
+### Expense detail ↔ Bill detail bidirectional navigation
+- `ExpenseDetailUiState` gains `linkedBillId: Long?`; populated alongside existing `linkedBillName`
+- "Linked Bill" row in PAYMENT expense detail is now a tappable `TextButton` showing the biller name; tapping navigates to `BillDetailScreen`
+- `AppNavGraph` wires `onViewBill` on `ExpenseDetailScreen` → `billDetail(billId)`
+- `BillDetailScreen.onViewPayment` now routes to `expenseDetail` (not `editExpense`) — tap payment row → read-only `ExpenseDetailScreen` → back to bill
+
+### Unlink payment from bill
+- `BillDetailViewModel.unlinkPayment(expenseId)`: clears `expense.billId`, recalculates bill status (PENDING if no linked payments remain, PARTIAL if some remain)
+- `PaymentItem` in `BillDetailScreen` gains `LinkOff` icon button + confirm `AlertDialog`
+- After unlinking, the expense's "Linked Bill" row reverts to showing "Link to Bill" button
+
+---
+
+## 2026-04-12 (session 1) — Bill SMS routing + PAYMENT bill linking (DB v14)
+
+**Agent role**: ParserAgent / FeatureAgent / DataAgent
+
+**Work completed**:
+
+### Bill reminder SMS → pending inbox as BILL type (DB v13→v14)
+- `BillStatementManager` changed from auto-saving bills silently to enqueueing `PendingNotification` with `pendingType = "BILL"`; sets `linkedBillId` if open bill already exists for that biller
+- `MIGRATION_13_14`: adds 4 columns to `pending_notifications`: `pending_type TEXT NOT NULL DEFAULT 'TRANSACTION'`, `biller_name TEXT`, `due_date_millis INTEGER`, `linked_bill_id INTEGER`
+- `PendingNotification` domain model gains 4 new nullable fields with defaults (backward-compatible)
+- `PendingInboxScreen` shows `PendingBillItem` card for BILL-type items: biller name, amount, due date, "Add as Bill" or "Update Bill" action buttons
+- `PendingInboxViewModel` gains `confirmSaveBill()`, `confirmUpdateBill()`, `requestSaveBill()`, `requestUpdateBill()` and cancel counterparts
+
+### Routing fix: bill SMS no longer misclassified as spend transactions
+- `TransactionNotificationService` now tries `BillStatementParserRegistry` **first** (before `ParserRegistry`); returns early if a bill statement matches
+- `AirtelStatementParser` added: handles Airtel Wi-Fi/Postpaid/Broadband "bill of Rs.X is pending" SMS; registers in `BillStatementParserRegistry`
+- `GenericParser` gains `billReminderPattern` guard: returns null for common bill-reminder phrases ("ignore if already paid", "bill of Rs.X is pending", "minimum amount due", "bill payment reminder")
+- Bill statement parser count: **9 → 10** (IDFC, Axis, EmiratesNBD, AlRajhi, HDFC, Tamara, SaudiEnergy, Ejar, Airtel, Generic)
+
+### PAYMENT bill linking in Add/Edit Expense screens
+- When transaction type is `PAYMENT`, `AddExpenseViewModel` calls `loadBillsForLinking()`: fuzzy-matches open bills by merchant name and pre-populates `linkedBill` in state for user to see/change before saving
+- "Linked Bill" section added to `AddExpenseContent` (shared by Add + Edit): shows auto-linked bill chip or "Link to a Bill" button; user can unlink or swap
+- Bill picker `ModalBottomSheet`: lists all open (PENDING/PARTIAL) bills; tap to link
+- On `saveExpense()` with a linked bill: updates bill status (SETTLED if paid ≥ totalDue, PARTIAL otherwise)
+- `EditExpenseViewModel` gains same `onLinkBill`, `onUnlinkBill`, `showBillPicker`, `dismissBillPicker`, `onTransactionTypeChange` (bill-aware)
+
+---
+
+## 2026-04-11 (session 2) — Source SMS in Edit Expense + inline Add Category
+
+**Agent role**: FeatureAgent
+
+**Work completed**:
+
+### Source SMS card in Edit Expense
+- `EditExpenseViewModel` now populates `rawSmsBody` and `expenseSourceType` from the loaded expense into the shared `AddExpenseUiState`
+- The "Source SMS" collapsible card (already in Add Expense) now appears in Edit Expense for all auto-imported expenses
+- `expenseSourceType: SourceType?` added to `AddExpenseUiState` so the card shows "Auto-imported from SMS" for pre-existing expenses that have `rawSmsBody = null`
+
+### "Open in Messages ↗" deep link
+- `RawSmsPreviewCard` gains an "Open in Messages ↗" `TextButton` (visible when expanded)
+- Queries `content://sms/inbox` by body text to find the sender's phone number; launches `Intent(ACTION_VIEW, "sms:${address}")` to open that conversation directly
+- Falls back to opening the messaging app's main screen if the SMS is no longer in the inbox
+
+### `rawSmsBody` persistence bug fix
+- `AddExpenseViewModel.saveExpense()` was silently discarding `state.rawSmsBody` when building the `Expense` object → all notification-inbox expenses stored with `rawSmsBody = null`
+- Fixed: `rawSmsBody = state.rawSmsBody` added to the constructor call
+- Bulk SMS import (`SmsImportViewModel`) was already saving it correctly; only the notification-inbox path was affected
+
+### Inline "Add new category" in category picker sheet
+- `CategoryRepository` injected into both `AddExpenseViewModel` and `EditExpenseViewModel`
+- 5 new methods on each ViewModel: `showAddNewCategoryForm`, `hideAddNewCategoryForm`, `onNewCategoryNameChange`, `onNewCategoryIconChange`, `saveNewCategory`
+- 4 new fields on `AddExpenseUiState`: `isAddingNewCategory`, `newCategoryName`, `newCategoryIconName`, `isSavingCategory`
+- Category sheet shows "+ Add new category" button above the search field; tapping reveals an inline form with name field + 5-col icon grid (15 icons); Save auto-selects the new category and closes the sheet
+- No DB migration; no new navigation routes
+
+---
+
+## 2026-04-11 (session 1) — Saudi Energy + Ejar parsers + Bill.reference (DB v13)
+
+**Agent role**: ParserAgent / DataAgent / FeatureAgent
+
+**Work completed**: Saudi Energy bill parser, Ejar bill parser, `Bill.reference` field (DB v12→v13), Edit Bill screen, account delete with expense remap.
+
+*(See HANDOFF.md session 1 for full details.)*
+
+---
+
 ## 2026-03-31 — Axis parsers + soft-duplicate detection (DB v12)
 
 **Agent role**: ParserAgent / DataAgent / FeatureAgent

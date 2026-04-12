@@ -2,9 +2,9 @@
 
 ## Database: Room (SQLite)
 - Database class: `ExpenseAnalystDatabase`
-- **Current schema version: `13`**
+- **Current schema version: `14`**
 - Room schema export is enabled under `data/schemas/`
-- All migrations are inline in `ExpenseAnalystDatabase.kt` (v1→v2→...→v13)
+- All migrations are inline in `ExpenseAnalystDatabase.kt` (v1→v2→...→v14)
 - Home currency preference is stored separately in DataStore, not in Room
 
 ---
@@ -33,7 +33,7 @@ Primary table for all transactions (manual and auto-parsed).
 | raw_sms_body | TEXT | NULLABLE | Original SMS text (for SMS_AUTO/NOTIFICATION_AUTO) |
 | emi_group_id | INTEGER | FK → emi_groups.id, NULLABLE | Null if standalone expense |
 | emi_installment_number | INTEGER | NULLABLE | 1, 2, 3... for EMI entries |
-| note | TEXT | NULLABLE | User notes |
+| bill_id | INTEGER | FK → bills.id, NULLABLE | Linked bill (PAYMENT-type expenses only) |
 | is_deleted | INTEGER | NOT NULL, DEFAULT 0 | Soft delete flag (0=active, 1=deleted) |
 | created_at_utc_millis | INTEGER | NOT NULL | Record creation timestamp |
 | updated_at_utc_millis | INTEGER | NOT NULL | Last update timestamp |
@@ -130,6 +130,10 @@ Transactions detected from SMS/notifications awaiting user action (add or dismis
 | raw_body | TEXT | NULLABLE | Original SMS / notification text (shown as "Source SMS" in AddExpense) |
 | payment_method | TEXT | NULLABLE | PaymentMethod enum name e.g. "APPLE_PAY" |
 | is_possible_duplicate | INTEGER | NOT NULL, DEFAULT 0 | Flag set when a similar pending notification already exists (added in v11→v12) |
+| pending_type | TEXT | NOT NULL, DEFAULT 'TRANSACTION' | `"TRANSACTION"` or `"BILL"` — determines which card UI is shown in pending inbox (added in v13→v14) |
+| biller_name | TEXT | NULLABLE | Biller name for BILL-type items (added in v13→v14) |
+| due_date_millis | INTEGER | NULLABLE | Bill due date for BILL-type items (added in v13→v14) |
+| linked_bill_id | INTEGER | FK → bills.id, NULLABLE | Pre-matched open bill for BILL-type items (added in v13→v14) |
 
 ### bills
 Credit card statements, utility bills, and subscriptions parsed from notification/SMS. Added in DB migration v9→v10.
@@ -145,7 +149,7 @@ Credit card statements, utility bills, and subscriptions parsed from notificatio
 | due_date_millis | INTEGER | NULLABLE | Bill due date (UTC epoch ms) |
 | statement_period_start_millis | INTEGER | NULLABLE | Statement period start (UTC epoch ms) |
 | statement_period_end_millis | INTEGER | NULLABLE | Statement period end (UTC epoch ms) |
-| status | TEXT | NOT NULL | Enum: OPEN, PAID, OVERDUE |
+| status | TEXT | NOT NULL | Enum: PENDING, PARTIAL, SETTLED |
 | source_type | TEXT | NOT NULL | How bill was detected (e.g. NOTIFICATION_AUTO) |
 | created_at_millis | INTEGER | NOT NULL | Record creation timestamp |
 | is_deleted | INTEGER | NOT NULL, DEFAULT 0 | Soft delete flag |
@@ -198,7 +202,7 @@ data class Expense(
     val currencyCode: String,
     val homeAmount: Double?,
     val exchangeRate: Double?,
-    val description: String,        // optional user notes (was overloaded pre-v4)
+    val description: String,        // optional user notes
     val category: Category,
     val paymentMethod: PaymentMethod,
     val transactionType: TransactionType,
@@ -210,7 +214,8 @@ data class Expense(
     val rawSmsBody: String? = null, // original SMS text
     val emiGroupId: Long? = null,
     val emiInstallmentNumber: Int? = null,
-    val note: String?,
+    val billId: Long? = null,       // FK to Bill — set for PAYMENT-type expenses
+    val tags: List<Tag> = emptyList(),
     val isDeleted: Boolean = false
 )
 
