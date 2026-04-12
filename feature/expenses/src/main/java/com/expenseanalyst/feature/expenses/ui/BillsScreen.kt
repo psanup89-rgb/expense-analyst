@@ -14,10 +14,13 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Receipt
 import androidx.compose.material.icons.filled.Warning
@@ -26,20 +29,30 @@ import androidx.compose.material3.Badge
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DatePicker
+import androidx.compose.material3.DatePickerDialog
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ExposedDropdownMenuBox
+import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.MenuAnchorType
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.rememberDatePickerState
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -162,7 +175,11 @@ fun BillsScreen(
             AddBillSheetContent(
                 uiState = uiState,
                 onBillerNameChange = viewModel::onBillerNameChange,
+                onReferenceChange = viewModel::onReferenceChange,
                 onTotalDueChange = viewModel::onTotalDueChange,
+                onMinimumDueChange = viewModel::onMinimumDueChange,
+                onDueDateChange = viewModel::onDueDateChange,
+                onStatusChange = viewModel::onStatusChange,
                 onSave = viewModel::saveNewBill,
                 onDismiss = viewModel::dismissAddBillSheet
             )
@@ -304,17 +321,23 @@ private fun BillDetailRow(label: String, value: String) {
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun AddBillSheetContent(
     uiState: BillsUiState,
     onBillerNameChange: (String) -> Unit,
+    onReferenceChange: (String) -> Unit,
     onTotalDueChange: (String) -> Unit,
+    onMinimumDueChange: (String) -> Unit,
+    onDueDateChange: (Long?) -> Unit,
+    onStatusChange: (BillStatus) -> Unit,
     onSave: () -> Unit,
     onDismiss: () -> Unit
 ) {
     Column(
         modifier = Modifier
             .fillMaxWidth()
+            .verticalScroll(rememberScrollState())
             .padding(horizontal = 24.dp, vertical = 16.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
@@ -330,14 +353,42 @@ private fun AddBillSheetContent(
         )
 
         OutlinedTextField(
+            value = uiState.newReference,
+            onValueChange = onReferenceChange,
+            label = { Text("Reference (account / contract number)") },
+            modifier = Modifier.fillMaxWidth(),
+            singleLine = true
+        )
+
+        // Total Due — currency is always home currency (read-only suffix)
+        OutlinedTextField(
             value = uiState.newTotalDue,
             onValueChange = onTotalDueChange,
-            label = { Text("Total Due (optional)") },
+            label = { Text("Total Due") },
             placeholder = { Text("0.00") },
-            modifier = Modifier.fillMaxWidth(),
             singleLine = true,
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-            suffix = { Text(uiState.newCurrencyCode) }
+            suffix = { Text(uiState.newCurrencyCode) },
+            modifier = Modifier.fillMaxWidth()
+        )
+
+        OutlinedTextField(
+            value = uiState.newMinimumDue,
+            onValueChange = onMinimumDueChange,
+            label = { Text("Minimum Due (optional)") },
+            singleLine = true,
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+            modifier = Modifier.fillMaxWidth()
+        )
+
+        AddBillDueDateField(
+            dueDateMillis = uiState.newDueDateMillis,
+            onDateSelected = onDueDateChange
+        )
+
+        AddBillStatusDropdown(
+            selected = uiState.newStatus,
+            onSelected = onStatusChange
         )
 
         Spacer(Modifier.height(4.dp))
@@ -354,5 +405,80 @@ private fun AddBillSheetContent(
             ) { Text("Save") }
         }
         Spacer(Modifier.height(16.dp))
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun AddBillDueDateField(dueDateMillis: Long?, onDateSelected: (Long?) -> Unit) {
+    var showPicker by remember { mutableStateOf(false) }
+    val dateFormat = remember { SimpleDateFormat("dd MMM yyyy", Locale.ENGLISH) }
+    val displayText = dueDateMillis?.let { dateFormat.format(Date(it)) } ?: "Not set"
+
+    OutlinedTextField(
+        value = displayText,
+        onValueChange = {},
+        readOnly = true,
+        label = { Text("Due Date") },
+        trailingIcon = {
+            IconButton(onClick = { showPicker = true }) {
+                Icon(Icons.Default.DateRange, contentDescription = "Pick date")
+            }
+        },
+        modifier = Modifier.fillMaxWidth()
+    )
+
+    if (showPicker) {
+        val pickerState = rememberDatePickerState(initialSelectedDateMillis = dueDateMillis)
+        DatePickerDialog(
+            onDismissRequest = { showPicker = false },
+            confirmButton = {
+                TextButton(onClick = {
+                    onDateSelected(pickerState.selectedDateMillis)
+                    showPicker = false
+                }) { Text("OK") }
+            },
+            dismissButton = {
+                TextButton(onClick = { showPicker = false }) { Text("Cancel") }
+            }
+        ) {
+            DatePicker(state = pickerState)
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun AddBillStatusDropdown(selected: BillStatus, onSelected: (BillStatus) -> Unit) {
+    var expanded by remember { mutableStateOf(false) }
+
+    ExposedDropdownMenuBox(
+        expanded = expanded,
+        onExpandedChange = { expanded = it }
+    ) {
+        OutlinedTextField(
+            value = selected.name,
+            onValueChange = {},
+            readOnly = true,
+            label = { Text("Status") },
+            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
+            modifier = Modifier
+                .fillMaxWidth()
+                .menuAnchor(MenuAnchorType.PrimaryNotEditable)
+        )
+        ExposedDropdownMenu(
+            expanded = expanded,
+            onDismissRequest = { expanded = false }
+        ) {
+            BillStatus.entries.forEach { status ->
+                DropdownMenuItem(
+                    text = { Text(status.name) },
+                    onClick = {
+                        onSelected(status)
+                        expanded = false
+                    }
+                )
+            }
+        }
     }
 }

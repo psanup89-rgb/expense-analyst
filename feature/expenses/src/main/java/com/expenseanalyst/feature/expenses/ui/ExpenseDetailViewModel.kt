@@ -39,6 +39,7 @@ data class ExpenseDetailUiState(
     val showLinkBillSheet: Boolean = false,
     val openBills: List<Bill> = emptyList(),
     val linkedBillName: String? = null,
+    val linkedBillId: Long? = null,
     val homeCurrency: String = "SAR"
 )
 
@@ -76,14 +77,15 @@ class ExpenseDetailViewModel @Inject constructor(
             rules.firstOrNull { text.lowercase().contains(it.merchantPattern.lowercase()) }
         }
         val openBills = bills.filter { it.status != BillStatus.SETTLED && !it.isDeleted }
-        val linkedBillName = expense?.billId?.let { bid -> bills.find { it.id == bid }?.billerName }
+        val linkedBill = expense?.billId?.let { bid -> bills.find { it.id == bid } }
         ui.copy(
             expense = expense,
             isLoading = expense == null && !ui.isDeleted,
             categories = categories,
             existingRule = existingRule,
             openBills = openBills,
-            linkedBillName = linkedBillName,
+            linkedBillName = linkedBill?.billerName,
+            linkedBillId = linkedBill?.id,
             homeCurrency = homeCurrency
         )
     }.stateIn(

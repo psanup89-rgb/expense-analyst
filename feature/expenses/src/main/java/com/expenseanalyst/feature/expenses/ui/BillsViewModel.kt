@@ -6,12 +6,15 @@ import com.expenseanalyst.domain.model.Bill
 import com.expenseanalyst.domain.model.BillStatus
 import com.expenseanalyst.domain.model.SourceType
 import com.expenseanalyst.domain.repository.BillRepository
+import com.expenseanalyst.domain.repository.CurrencyRepository
 import com.expenseanalyst.domain.repository.ExpenseRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
@@ -24,10 +27,18 @@ import javax.inject.Inject
 @HiltViewModel
 class BillsViewModel @Inject constructor(
     private val billRepository: BillRepository,
-    private val expenseRepository: ExpenseRepository
+    private val expenseRepository: ExpenseRepository,
+    private val currencyRepository: CurrencyRepository
 ) : ViewModel() {
 
     private val _form = MutableStateFlow(BillsUiState())
+
+    init {
+        viewModelScope.launch {
+            val homeCurrency = currencyRepository.getHomeCurrency().first()
+            _form.update { it.copy(newCurrencyCode = homeCurrency) }
+        }
+    }
 
     val uiState = combine(
         _form,
@@ -62,15 +73,37 @@ class BillsViewModel @Inject constructor(
     )
 
     fun showAddBillSheet() = _form.update { it.copy(showAddBillSheet = true) }
-    fun dismissAddBillSheet() = _form.update {
-        it.copy(showAddBillSheet = false, newBillerName = "", newTotalDue = "", isSavingBill = false)
+    fun dismissAddBillSheet() {
+        viewModelScope.launch {
+            val homeCurrency = currencyRepository.getHomeCurrency().first()
+            _form.update {
+                it.copy(
+                    showAddBillSheet = false,
+                    newBillerName = "",
+                    newReference = "",
+                    newTotalDue = "",
+                    newCurrencyCode = homeCurrency,
+                    newMinimumDue = "",
+                    newDueDateMillis = null,
+                    newStatus = BillStatus.PENDING,
+                    isSavingBill = false
+                )
+            }
+        }
     }
     fun onBillerNameChange(value: String) = _form.update { it.copy(newBillerName = value) }
+    fun onReferenceChange(value: String) = _form.update { it.copy(newReference = value) }
     fun onTotalDueChange(value: String) {
         val filtered = value.filter { it.isDigit() || it == '.' }
         _form.update { it.copy(newTotalDue = filtered) }
     }
     fun onCurrencyChange(code: String) = _form.update { it.copy(newCurrencyCode = code) }
+    fun onMinimumDueChange(value: String) {
+        val filtered = value.filter { it.isDigit() || it == '.' }
+        _form.update { it.copy(newMinimumDue = filtered) }
+    }
+    fun onDueDateChange(millis: Long?) = _form.update { it.copy(newDueDateMillis = millis) }
+    fun onStatusChange(status: BillStatus) = _form.update { it.copy(newStatus = status) }
 
     fun saveNewBill() {
         val state = _form.value
@@ -78,12 +111,16 @@ class BillsViewModel @Inject constructor(
         viewModelScope.launch {
             _form.update { it.copy(isSavingBill = true) }
             try {
+                val homeCurrency = currencyRepository.getHomeCurrency().first()
                 billRepository.saveBill(
                     Bill(
                         billerName = state.newBillerName.trim(),
+                        reference = state.newReference.trim().ifEmpty { null },
                         totalDue = state.newTotalDue.toDoubleOrNull(),
-                        currencyCode = state.newCurrencyCode,
-                        status = BillStatus.PENDING,
+                        currencyCode = homeCurrency,
+                        minimumDue = state.newMinimumDue.toDoubleOrNull(),
+                        dueDateMillis = state.newDueDateMillis,
+                        status = state.newStatus,
                         sourceType = SourceType.MANUAL,
                         createdAtMillis = System.currentTimeMillis()
                     )

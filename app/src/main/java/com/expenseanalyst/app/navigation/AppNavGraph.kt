@@ -141,7 +141,8 @@ fun AppNavGraph(
             ExpenseDetailScreen(
                 onBack = { navController.popBackStack() },
                 onEdit = { id -> navController.navigate(NavRoutes.editExpense(id)) },
-                onConvertToEmi = { id -> navController.navigate(NavRoutes.emiCreate(id)) }
+                onConvertToEmi = { id -> navController.navigate(NavRoutes.emiCreate(id)) },
+                onViewBill = { billId -> navController.navigate(NavRoutes.billDetail(billId)) }
             )
         }
 
@@ -191,7 +192,8 @@ fun AppNavGraph(
             val billId = backStackEntry.arguments?.getLong("billId") ?: return@composable
             BillDetailScreen(
                 onBack = { navController.popBackStack() },
-                onEdit = { navController.navigate(NavRoutes.editBill(billId)) }
+                onEdit = { navController.navigate(NavRoutes.editBill(billId)) },
+                onViewPayment = { expenseId -> navController.navigate(NavRoutes.expenseDetail(expenseId)) }
             )
         }
 

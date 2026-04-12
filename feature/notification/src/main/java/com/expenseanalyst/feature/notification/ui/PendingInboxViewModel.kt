@@ -6,6 +6,7 @@ import com.expenseanalyst.domain.model.Bill
 import com.expenseanalyst.domain.model.BillStatus
 import com.expenseanalyst.domain.model.SourceType
 import com.expenseanalyst.domain.repository.BillRepository
+import com.expenseanalyst.domain.repository.CurrencyRepository
 import com.expenseanalyst.domain.repository.PendingNotificationRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -20,7 +21,8 @@ import javax.inject.Inject
 @HiltViewModel
 class PendingInboxViewModel @Inject constructor(
     private val repository: PendingNotificationRepository,
-    private val billRepository: BillRepository
+    private val billRepository: BillRepository,
+    private val currencyRepository: CurrencyRepository
 ) : ViewModel() {
 
     private val _ui = MutableStateFlow(PendingInboxUiState())
@@ -57,13 +59,14 @@ class PendingInboxViewModel @Inject constructor(
         _ui.update { it.copy(pendingSaveBillId = null) }
         viewModelScope.launch {
             val item = repository.getById(id) ?: return@launch
+            val homeCurrency = currencyRepository.getHomeCurrency().first()
             billRepository.saveBill(
                 Bill(
                     billerName = item.billerName ?: item.merchantName ?: "Unknown",
                     accountId = null,
                     totalDue = if (item.amount > 0) item.amount else null,
                     minimumDue = null,
-                    currencyCode = item.currencyCode,
+                    currencyCode = homeCurrency,
                     dueDateMillis = item.dueDateMillis,
                     statementPeriodStart = null,
                     statementPeriodEnd = null,

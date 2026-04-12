@@ -462,6 +462,7 @@ class AddExpenseViewModel @Inject constructor(
                 if (state.transactionType == TransactionType.PAYMENT && billId != null) {
                     val linkedBill = billRepository.getBillById(billId).first()
                     if (linkedBill != null) {
+                        // Bills are always stored in home currency; compare using homeAmount
                         val paid = state.computedHomeAmount ?: state.parsedAmount
                         val billTotalDue = linkedBill.totalDue
                         val newStatus = if (billTotalDue == null || paid >= billTotalDue)

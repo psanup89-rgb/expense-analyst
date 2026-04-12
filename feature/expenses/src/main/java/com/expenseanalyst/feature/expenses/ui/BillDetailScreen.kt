@@ -1,5 +1,6 @@
 package com.expenseanalyst.feature.expenses.ui
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -19,6 +20,7 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.LinkOff
 import androidx.compose.material.icons.filled.Receipt
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.AlertDialog
@@ -60,10 +62,12 @@ import java.util.Locale
 fun BillDetailScreen(
     onBack: () -> Unit,
     onEdit: () -> Unit = {},
+    onViewPayment: (Long) -> Unit = {},
     viewModel: BillDetailViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     var showDeleteDialog by remember { mutableStateOf(false) }
+    var unlinkExpenseId by remember { mutableStateOf<Long?>(null) }
     val dateFormat = remember { SimpleDateFormat("dd MMM yyyy", Locale.ENGLISH) }
 
     Scaffold(
@@ -281,7 +285,12 @@ fun BillDetailScreen(
                 }
             } else {
                 items(uiState.payments, key = { it.id }) { expense ->
-                    PaymentItem(expense = expense, dateFormat = dateFormat)
+                    PaymentItem(
+                        expense = expense,
+                        dateFormat = dateFormat,
+                        onClick = { onViewPayment(expense.id) },
+                        onUnlink = { unlinkExpenseId = expense.id }
+                    )
                 }
             }
 
@@ -325,6 +334,27 @@ fun BillDetailScreen(
             }
         )
     }
+
+    if (unlinkExpenseId != null) {
+        AlertDialog(
+            onDismissRequest = { unlinkExpenseId = null },
+            title = { Text("Unlink Payment") },
+            text = { Text("This payment will be unlinked from the bill. The bill status will be updated accordingly.") },
+            confirmButton = {
+                TextButton(onClick = {
+                    viewModel.unlinkPayment(unlinkExpenseId!!)
+                    unlinkExpenseId = null
+                }) {
+                    Text("Unlink", color = MaterialTheme.colorScheme.error)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { unlinkExpenseId = null }) {
+                    Text("Cancel")
+                }
+            }
+        )
+    }
 }
 
 @Composable
@@ -344,15 +374,22 @@ private fun DetailInfoRow(label: String, value: String) {
 }
 
 @Composable
-private fun PaymentItem(expense: Expense, dateFormat: SimpleDateFormat) {
+private fun PaymentItem(
+    expense: Expense,
+    dateFormat: SimpleDateFormat,
+    onClick: () -> Unit,
+    onUnlink: () -> Unit
+) {
     Card(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer)
     ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(12.dp),
+                .padding(start = 12.dp, top = 8.dp, bottom = 8.dp, end = 4.dp),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
@@ -369,10 +406,18 @@ private fun PaymentItem(expense: Expense, dateFormat: SimpleDateFormat) {
                 )
             }
             Text(
-                text = "%.2f %s".format(expense.homeAmount ?: expense.amount, expense.currencyCode),
+                text = "%.2f %s".format(expense.amount, expense.currencyCode),
                 style = MaterialTheme.typography.bodyMedium,
                 fontWeight = FontWeight.SemiBold
             )
+            IconButton(onClick = onUnlink) {
+                Icon(
+                    Icons.Default.LinkOff,
+                    contentDescription = "Unlink payment",
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.size(18.dp)
+                )
+            }
         }
     }
 }

@@ -75,6 +75,7 @@ fun ExpenseDetailScreen(
     onBack: () -> Unit,
     onEdit: (Long) -> Unit,
     onConvertToEmi: (Long) -> Unit,
+    onViewBill: (Long) -> Unit = {},
     viewModel: ExpenseDetailViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
@@ -186,12 +187,14 @@ fun ExpenseDetailScreen(
                 expense = uiState.expense!!,
                 existingRule = uiState.existingRule,
                 linkedBillName = uiState.linkedBillName,
+                linkedBillId = uiState.linkedBillId,
                 hasOpenBills = uiState.openBills.isNotEmpty(),
                 homeCurrency = uiState.homeCurrency,
                 onConvertToEmi = { onConvertToEmi(uiState.expense!!.id) },
                 onSetRule = viewModel::showRuleDialog,
                 onDeleteRule = viewModel::deleteRule,
                 onLinkBill = viewModel::showLinkBillSheet,
+                onViewBill = onViewBill,
                 modifier = Modifier.padding(padding)
             )
         }
@@ -203,12 +206,14 @@ private fun ExpenseDetailContent(
     expense: Expense,
     existingRule: MerchantRule?,
     linkedBillName: String?,
+    linkedBillId: Long?,
     hasOpenBills: Boolean,
     homeCurrency: String,
     onConvertToEmi: () -> Unit,
     onSetRule: () -> Unit,
     onDeleteRule: () -> Unit,
     onLinkBill: () -> Unit,
+    onViewBill: (Long) -> Unit,
     modifier: Modifier = Modifier
 ) {
     val isIncome = expense.transactionType == TransactionType.INCOME
@@ -330,21 +335,30 @@ private fun ExpenseDetailContent(
                 // Bill link row — only visible for PAYMENT type
                 if (isPayment) {
                     DetailDivider()
-                    if (linkedBillName != null) {
-                        DetailRow("Linked Bill", linkedBillName)
-                    } else {
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(vertical = 6.dp),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Text(
-                                text = "Linked Bill",
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 6.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = "Linked Bill",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        if (linkedBillName != null && linkedBillId != null) {
+                            TextButton(
+                                onClick = { onViewBill(linkedBillId) },
+                                contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 8.dp, vertical = 0.dp)
+                            ) {
+                                Text(
+                                    text = linkedBillName,
+                                    style = MaterialTheme.typography.labelMedium,
+                                    color = MaterialTheme.colorScheme.primary
+                                )
+                            }
+                        } else {
                             TextButton(
                                 onClick = onLinkBill,
                                 enabled = hasOpenBills,
