@@ -14,9 +14,18 @@ class GenericParser : TransactionParser {
     )
     private val currencyPattern = Regex("""(?i)\b(INR|SAR|USD|AED|EUR|GBP)\b""")
 
+    // Bill reminders / payment-due notices — not real transactions.
+    // These contain "ignore if paid", "minimum amount due", "bill of Rs.X is pending", etc.
+    private val billReminderPattern = Regex(
+        """(?i)(?:ignore\s+if\s+(?:already\s+)?paid|if\s+(?:already\s+)?paid[,\s]+(?:please\s+)?ignore|bill\s+(?:of|amount).{0,60}(?:pending|is\s+due)|(?:amount|payment)\s+is\s+due\s+on\s+\d|minimum\s+(?:amount\s+)?due|bill\s+payment\s+reminder|payment\s+(?:overdue|reminder))"""
+    )
+
     override fun canParse(sender: String, body: String): Boolean = true
 
     override fun parse(sender: String, body: String): ParsedTransaction? {
+        // Bill reminders / due notices — skip entirely, let BillStatementParserRegistry handle them
+        if (billReminderPattern.containsMatchIn(body)) return null
+
         // Detect bill/card payment confirmations before generic debit/credit
         val isPayment = Regex("""(?i)\b(?:payment\s+(?:received|successful|confirmed|processed)|received\s+payment|paid\s+(?:your|against|towards)|bill\s+paid|due\s+paid)\b""").containsMatchIn(body)
         val isDebit = !isPayment && Regex("""(?i)\b(?:debited|deducted|paid|purchase|sent|withdrawn)\b""").containsMatchIn(body)

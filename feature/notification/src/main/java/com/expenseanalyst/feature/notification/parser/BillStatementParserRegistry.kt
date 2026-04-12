@@ -16,6 +16,7 @@ object BillStatementParserRegistry {
         TamaraStatementParser(),
         SaudiEnergyStatementParser(),
         EjarStatementParser(),
+        AirtelStatementParser(),
         GenericStatementParser()
     )
 
