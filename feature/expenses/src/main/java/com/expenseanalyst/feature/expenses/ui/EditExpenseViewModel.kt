@@ -4,12 +4,16 @@ import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.expenseanalyst.domain.model.AccountType
+import com.expenseanalyst.domain.model.Bill
+import com.expenseanalyst.domain.model.BillStatus
 import com.expenseanalyst.domain.model.Category
 import com.expenseanalyst.domain.model.Expense
 import com.expenseanalyst.domain.model.PaymentMethod
 import com.expenseanalyst.domain.model.Tag
 import com.expenseanalyst.domain.model.TransactionType
 import com.expenseanalyst.domain.repository.AccountRepository
+import com.expenseanalyst.domain.repository.BillRepository
+import com.expenseanalyst.domain.repository.CategoryRepository
 import com.expenseanalyst.domain.repository.CurrencyRepository
 import com.expenseanalyst.domain.repository.TagRepository
 import kotlinx.datetime.Instant
@@ -47,7 +51,9 @@ class EditExpenseViewModel @Inject constructor(
     private val getAccountsUseCase: GetAccountsUseCase,
     private val accountRepository: AccountRepository,
     private val currencyRepository: CurrencyRepository,
-    private val tagRepository: TagRepository
+    private val tagRepository: TagRepository,
+    private val categoryRepository: CategoryRepository,
+    private val billRepository: BillRepository
 ) : ViewModel() {
 
     private val expenseId: Long = checkNotNull(savedStateHandle["expenseId"])
@@ -85,7 +91,9 @@ class EditExpenseViewModel @Inject constructor(
                 description = migratedDescription,
                 merchantName = migratedMerchant,
                 selectedTags = expense.tags,
-                selectedAccountId = expense.accountId
+                selectedAccountId = expense.accountId,
+                rawSmsBody = expense.rawSmsBody,
+                expenseSourceType = expense.sourceType
             )
         }
     }
@@ -123,7 +131,18 @@ class EditExpenseViewModel @Inject constructor(
         _form.update { it.copy(amountInput = filtered) }
     }
 
-    fun onTransactionTypeChange(type: TransactionType) = _form.update { it.copy(transactionType = type) }
+    fun onTransactionTypeChange(type: TransactionType) {
+        _form.update { it.copy(transactionType = type) }
+        if (type == TransactionType.PAYMENT) {
+            viewModelScope.launch {
+                val openBills = billRepository.getBills().first()
+                    .filter { !it.isDeleted && it.status != BillStatus.SETTLED }
+                _form.update { it.copy(availableBills = openBills) }
+            }
+        } else {
+            _form.update { it.copy(linkedBillId = null, linkedBill = null, availableBills = emptyList()) }
+        }
+    }
     fun onCategorySelect(category: Category) = _form.update { it.copy(selectedCategory = category, isCategorySheetVisible = false) }
     fun showCategorySheet() = _form.update { it.copy(isCategorySheetVisible = true) }
     fun dismissCategorySheet() = _form.update { it.copy(isCategorySheetVisible = false) }
@@ -218,6 +237,59 @@ class EditExpenseViewModel @Inject constructor(
             }
         }
     }
+
+    fun showAddNewCategoryForm() = _form.update { it.copy(isAddingNewCategory = true) }
+    fun hideAddNewCategoryForm() = _form.update {
+        it.copy(isAddingNewCategory = false, newCategoryName = "", newCategoryIconName = "more_horiz")
+    }
+    fun onNewCategoryNameChange(value: String) = _form.update { it.copy(newCategoryName = value) }
+    fun onNewCategoryIconChange(icon: String) = _form.update { it.copy(newCategoryIconName = icon) }
+    fun saveNewCategory() {
+        val state = _form.value
+        if (state.newCategoryName.isBlank()) return
+        viewModelScope.launch {
+            _form.update { it.copy(isSavingCategory = true) }
+            try {
+                val maxSortOrder = state.categories.maxOfOrNull { it.sortOrder } ?: -1
+                val newId = categoryRepository.addCategory(
+                    Category(
+                        name = state.newCategoryName.trim(),
+                        iconName = state.newCategoryIconName,
+                        colorHex = "#9E9E9E",
+                        isDefault = false,
+                        sortOrder = maxSortOrder + 1
+                    )
+                )
+                val newCategory = Category(
+                    id = newId,
+                    name = state.newCategoryName.trim(),
+                    iconName = state.newCategoryIconName,
+                    colorHex = "#9E9E9E",
+                    isDefault = false,
+                    sortOrder = maxSortOrder + 1
+                )
+                _form.update {
+                    it.copy(
+                        selectedCategory = newCategory,
+                        isCategorySheetVisible = false,
+                        isAddingNewCategory = false,
+                        newCategoryName = "",
+                        newCategoryIconName = "more_horiz",
+                        isSavingCategory = false
+                    )
+                }
+            } catch (e: Exception) {
+                _form.update { it.copy(isSavingCategory = false) }
+            }
+        }
+    }
+
+    fun onLinkBill(bill: Bill) =
+        _form.update { it.copy(linkedBillId = bill.id, linkedBill = bill, isBillPickerVisible = false) }
+
+    fun onUnlinkBill() = _form.update { it.copy(linkedBillId = null, linkedBill = null) }
+    fun showBillPicker() = _form.update { it.copy(isBillPickerVisible = true) }
+    fun dismissBillPicker() = _form.update { it.copy(isBillPickerVisible = false) }
 
     fun saveExpense() {
         val original = _originalExpense.value ?: return

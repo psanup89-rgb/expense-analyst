@@ -27,6 +27,11 @@ fun EditExpenseScreen(
         onCategorySelect = viewModel::onCategorySelect,
         onShowCategorySheet = viewModel::showCategorySheet,
         onDismissCategorySheet = viewModel::dismissCategorySheet,
+        onShowAddNewCategory = viewModel::showAddNewCategoryForm,
+        onHideAddNewCategory = viewModel::hideAddNewCategoryForm,
+        onNewCategoryNameChange = viewModel::onNewCategoryNameChange,
+        onNewCategoryIconChange = viewModel::onNewCategoryIconChange,
+        onSaveNewCategory = viewModel::saveNewCategory,
         onPaymentMethodChange = viewModel::onPaymentMethodChange,
         onDescriptionChange = viewModel::onDescriptionChange,
         onMerchantChange = viewModel::onMerchantChange,
@@ -60,6 +65,10 @@ fun EditExpenseScreen(
         onShowTimePicker = viewModel::showTimePicker,
         onDismissTimePicker = viewModel::dismissTimePicker,
         onTimeChange = viewModel::onTimeChange,
+        onLinkBill = viewModel::onLinkBill,
+        onUnlinkBill = viewModel::onUnlinkBill,
+        onShowBillPicker = viewModel::showBillPicker,
+        onDismissBillPicker = viewModel::dismissBillPicker,
         onSave = viewModel::saveExpense
     )
 }

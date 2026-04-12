@@ -21,6 +21,7 @@ import com.expenseanalyst.domain.model.Tag
 import com.expenseanalyst.domain.model.TransactionType
 import com.expenseanalyst.domain.repository.AccountRepository
 import com.expenseanalyst.domain.repository.BillRepository
+import com.expenseanalyst.domain.repository.CategoryRepository
 import com.expenseanalyst.domain.repository.CurrencyRepository
 import com.expenseanalyst.domain.repository.MerchantRuleRepository
 import com.expenseanalyst.domain.repository.PendingNotificationRepository
@@ -59,7 +60,8 @@ class AddExpenseViewModel @Inject constructor(
     private val billRepository: BillRepository,
     private val inferCategoryUseCase: InferCategoryUseCase,
     private val merchantRuleRepository: MerchantRuleRepository,
-    private val tagRepository: TagRepository
+    private val tagRepository: TagRepository,
+    private val categoryRepository: CategoryRepository
 ) : ViewModel() {
 
     private var inferenceJob: Job? = null
@@ -151,6 +153,11 @@ class AddExpenseViewModel @Inject constructor(
             }
         }
 
+        // For PAYMENT type: load open bills for picker and attempt auto-link by merchant name
+        if (_form.value.transactionType == TransactionType.PAYMENT) {
+            viewModelScope.launch { loadBillsForLinking() }
+        }
+
         // Load rawSmsBody and paymentMethod from pending notification (inbox path)
         val pendingIdArg = savedStateHandle.get<Long>("pendingId")?.takeIf { it > 0 }
         if (pendingIdArg != null) {
@@ -238,7 +245,14 @@ class AddExpenseViewModel @Inject constructor(
         _form.update { it.copy(amountInput = filtered) }
     }
 
-    fun onTransactionTypeChange(type: TransactionType) = _form.update { it.copy(transactionType = type) }
+    fun onTransactionTypeChange(type: TransactionType) {
+        _form.update { it.copy(transactionType = type) }
+        if (type == TransactionType.PAYMENT) {
+            viewModelScope.launch { loadBillsForLinking() }
+        } else {
+            _form.update { it.copy(linkedBillId = null, linkedBill = null, availableBills = emptyList()) }
+        }
+    }
     fun onCategorySelect(category: Category) {
         inferenceJob?.cancel()
         inferenceJob = null
@@ -361,6 +375,78 @@ class AddExpenseViewModel @Inject constructor(
         }
     }
 
+    fun showAddNewCategoryForm() = _form.update { it.copy(isAddingNewCategory = true) }
+    fun hideAddNewCategoryForm() = _form.update {
+        it.copy(isAddingNewCategory = false, newCategoryName = "", newCategoryIconName = "more_horiz")
+    }
+    fun onNewCategoryNameChange(value: String) = _form.update { it.copy(newCategoryName = value) }
+    fun onNewCategoryIconChange(icon: String) = _form.update { it.copy(newCategoryIconName = icon) }
+    fun saveNewCategory() {
+        val state = _form.value
+        if (state.newCategoryName.isBlank()) return
+        viewModelScope.launch {
+            _form.update { it.copy(isSavingCategory = true) }
+            try {
+                val maxSortOrder = state.categories.maxOfOrNull { it.sortOrder } ?: -1
+                val newId = categoryRepository.addCategory(
+                    Category(
+                        name = state.newCategoryName.trim(),
+                        iconName = state.newCategoryIconName,
+                        colorHex = "#9E9E9E",
+                        isDefault = false,
+                        sortOrder = maxSortOrder + 1
+                    )
+                )
+                val newCategory = Category(
+                    id = newId,
+                    name = state.newCategoryName.trim(),
+                    iconName = state.newCategoryIconName,
+                    colorHex = "#9E9E9E",
+                    isDefault = false,
+                    sortOrder = maxSortOrder + 1
+                )
+                _form.update {
+                    it.copy(
+                        selectedCategory = newCategory,
+                        isCategorySheetVisible = false,
+                        isAddingNewCategory = false,
+                        newCategoryName = "",
+                        newCategoryIconName = "more_horiz",
+                        isSavingCategory = false
+                    )
+                }
+            } catch (e: Exception) {
+                _form.update { it.copy(isSavingCategory = false) }
+            }
+        }
+    }
+
+    fun onLinkBill(bill: com.expenseanalyst.domain.model.Bill) =
+        _form.update { it.copy(linkedBillId = bill.id, linkedBill = bill, isBillPickerVisible = false) }
+
+    fun onUnlinkBill() = _form.update { it.copy(linkedBillId = null, linkedBill = null) }
+    fun showBillPicker() = _form.update { it.copy(isBillPickerVisible = true) }
+    fun dismissBillPicker() = _form.update { it.copy(isBillPickerVisible = false) }
+
+    private suspend fun loadBillsForLinking() {
+        val openBills = billRepository.getBills().first()
+            .filter { !it.isDeleted && it.status != BillStatus.SETTLED }
+        val merchant = _form.value.merchantName.ifBlank { null }
+        val autoMatch = if (merchant != null) {
+            openBills.firstOrNull { bill ->
+                bill.billerName.contains(merchant, ignoreCase = true) ||
+                    merchant.contains(bill.billerName, ignoreCase = true)
+            }
+        } else null
+        _form.update { state ->
+            state.copy(
+                availableBills = openBills,
+                linkedBillId = autoMatch?.id ?: state.linkedBillId,
+                linkedBill = autoMatch ?: state.linkedBill
+            )
+        }
+    }
+
     fun saveExpense() {
         val state = uiState.value
         if (!state.isValid) return
@@ -371,33 +457,16 @@ class AddExpenseViewModel @Inject constructor(
                 val merchantName = state.merchantName.trim().ifEmpty { null }
                 val sourceType = if (fromNotification) SourceType.NOTIFICATION_AUTO else SourceType.MANUAL
 
-                // Auto-link bill for PAYMENT transactions
-                var billId: Long? = null
-                if (state.transactionType == TransactionType.PAYMENT && merchantName != null) {
-                    val openBill = billRepository.findOpenBillByBiller(merchantName, state.selectedAccountId)
-                    billId = if (openBill != null) {
-                        // Update the bill's status based on how much is being paid
+                // Bill linking — use whatever the user explicitly linked (auto or manual)
+                var billId = state.linkedBillId
+                if (state.transactionType == TransactionType.PAYMENT && billId != null) {
+                    val linkedBill = billRepository.getBillById(billId).first()
+                    if (linkedBill != null) {
                         val paid = state.computedHomeAmount ?: state.parsedAmount
-                        val billTotalDue = openBill.totalDue
-                        val newStatus = if (billTotalDue == null || paid >= billTotalDue) {
-                            BillStatus.SETTLED
-                        } else {
-                            BillStatus.PARTIAL
-                        }
-                        billRepository.updateBill(openBill.copy(status = newStatus))
-                        openBill.id
-                    } else {
-                        // Payment arrived before the statement — create a settled bill
-                        billRepository.saveBill(
-                            Bill(
-                                billerName = merchantName,
-                                accountId = state.selectedAccountId,
-                                currencyCode = state.currencyCode,
-                                status = BillStatus.SETTLED,
-                                sourceType = sourceType,
-                                createdAtMillis = System.currentTimeMillis()
-                            )
-                        )
+                        val billTotalDue = linkedBill.totalDue
+                        val newStatus = if (billTotalDue == null || paid >= billTotalDue)
+                            BillStatus.SETTLED else BillStatus.PARTIAL
+                        billRepository.updateBill(linkedBill.copy(status = newStatus))
                     }
                 }
 
@@ -415,7 +484,8 @@ class AddExpenseViewModel @Inject constructor(
                     sourceType = sourceType,
                     tags = state.selectedTags,
                     accountId = state.selectedAccountId,
-                    billId = billId
+                    billId = billId,
+                    rawSmsBody = state.rawSmsBody
                 )
                 val id = addExpenseUseCase(expense)
                 // Clear the pending inbox item only after a successful save

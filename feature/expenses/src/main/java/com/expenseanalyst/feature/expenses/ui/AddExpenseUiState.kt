@@ -2,8 +2,10 @@ package com.expenseanalyst.feature.expenses.ui
 
 import com.expenseanalyst.domain.model.Account
 import com.expenseanalyst.domain.model.AccountType
+import com.expenseanalyst.domain.model.Bill
 import com.expenseanalyst.domain.model.Category
 import com.expenseanalyst.domain.model.PaymentMethod
+import com.expenseanalyst.domain.model.SourceType
 import com.expenseanalyst.domain.model.Tag
 import com.expenseanalyst.domain.model.TransactionType
 import com.expenseanalyst.domain.usecase.InferenceSource
@@ -40,6 +42,11 @@ data class AddExpenseUiState(
     val savedExpenseId: Long? = null,
     val error: String? = null,
     val rawSmsBody: String? = null,
+    val expenseSourceType: SourceType? = null,
+    val isAddingNewCategory: Boolean = false,
+    val newCategoryName: String = "",
+    val newCategoryIconName: String = "more_horiz",
+    val isSavingCategory: Boolean = false,
     val isCategoryInferring: Boolean = false,
     val categoryInferenceSource: InferenceSource? = null,
     val showDatePicker: Boolean = false,
@@ -47,7 +54,12 @@ data class AddExpenseUiState(
     val editingAccount: Account? = null,
     val editBankName: String = "",
     val editLastFour: String = "",
-    val editAccountType: AccountType = AccountType.SAVINGS
+    val editAccountType: AccountType = AccountType.SAVINGS,
+    // Bill linking — visible for PAYMENT type transactions
+    val linkedBillId: Long? = null,
+    val linkedBill: Bill? = null,
+    val availableBills: List<Bill> = emptyList(),
+    val isBillPickerVisible: Boolean = false
 ) {
     val selectedAccount: Account? get() = accounts.find { it.id == selectedAccountId }
 

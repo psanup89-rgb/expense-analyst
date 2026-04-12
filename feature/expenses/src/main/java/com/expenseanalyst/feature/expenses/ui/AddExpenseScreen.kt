@@ -101,12 +101,17 @@ import com.expenseanalyst.core.util.categoryIconVector
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toLocalDateTime
 import com.expenseanalyst.domain.model.AccountType
+import com.expenseanalyst.domain.model.Bill
 import com.expenseanalyst.domain.model.Category
 import com.expenseanalyst.domain.model.PaymentMethod
 import com.expenseanalyst.domain.model.SourceType
 import com.expenseanalyst.domain.model.Tag
 import com.expenseanalyst.domain.model.TransactionType
 import com.expenseanalyst.domain.usecase.InferenceSource
+import androidx.compose.material.icons.filled.LinkOff
+import androidx.compose.material.icons.filled.ReceiptLong
+import java.text.SimpleDateFormat
+import java.util.Date
 
 
 @Composable
@@ -168,6 +173,10 @@ fun AddExpenseScreen(
         onShowTimePicker = viewModel::showTimePicker,
         onDismissTimePicker = viewModel::dismissTimePicker,
         onTimeChange = viewModel::onTimeChange,
+        onLinkBill = viewModel::onLinkBill,
+        onUnlinkBill = viewModel::onUnlinkBill,
+        onShowBillPicker = viewModel::showBillPicker,
+        onDismissBillPicker = viewModel::dismissBillPicker,
         onSave = viewModel::saveExpense
     )
 }
@@ -221,6 +230,10 @@ internal fun AddExpenseContent(
     onShowTimePicker: () -> Unit,
     onDismissTimePicker: () -> Unit,
     onTimeChange: (hour: Int, minute: Int) -> Unit,
+    onLinkBill: (Bill) -> Unit,
+    onUnlinkBill: () -> Unit,
+    onShowBillPicker: () -> Unit,
+    onDismissBillPicker: () -> Unit,
     onSave: () -> Unit
 ) {
     val isExpense = uiState.transactionType == TransactionType.EXPENSE
@@ -616,6 +629,80 @@ internal fun AddExpenseContent(
         )
     }
 
+    // Bill picker sheet (for PAYMENT type)
+    if (uiState.isBillPickerVisible) {
+        ModalBottomSheet(
+            onDismissRequest = onDismissBillPicker,
+            containerColor = MaterialTheme.colorScheme.surface
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp)
+                    .navigationBarsPadding()
+            ) {
+                Text("Link to a Bill", style = MaterialTheme.typography.titleLarge, color = MaterialTheme.colorScheme.onSurface)
+                Spacer(Modifier.height(4.dp))
+                Text(
+                    "Select the open bill this payment settles",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Spacer(Modifier.height(12.dp))
+                if (uiState.availableBills.isEmpty()) {
+                    Text(
+                        "No open bills found",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(vertical = 16.dp)
+                    )
+                } else {
+                    androidx.compose.foundation.lazy.LazyColumn(
+                        contentPadding = PaddingValues(bottom = 24.dp)
+                    ) {
+                        items(uiState.availableBills) { bill ->
+                            val isSelected = bill.id == uiState.linkedBillId
+                            val dueDateStr = bill.dueDateMillis?.let {
+                                "Due " + SimpleDateFormat("dd MMM yyyy", java.util.Locale.getDefault()).format(Date(it))
+                            }
+                            ListItem(
+                                headlineContent = {
+                                    Text(
+                                        bill.billerName,
+                                        style = MaterialTheme.typography.bodyLarge,
+                                        color = if (isSelected) MaterialTheme.colorScheme.primary
+                                                else MaterialTheme.colorScheme.onSurface
+                                    )
+                                },
+                                supportingContent = {
+                                    val parts = listOfNotNull(
+                                        bill.totalDue?.let { "%.2f %s".format(it, bill.currencyCode) },
+                                        dueDateStr
+                                    )
+                                    if (parts.isNotEmpty()) Text(parts.joinToString(" · "), style = MaterialTheme.typography.bodySmall)
+                                },
+                                leadingContent = {
+                                    Icon(
+                                        Icons.Default.ReceiptLong,
+                                        contentDescription = null,
+                                        tint = if (isSelected) MaterialTheme.colorScheme.primary
+                                               else MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                },
+                                trailingContent = {
+                                    if (isSelected) Icon(Icons.Default.Check, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                                },
+                                modifier = Modifier.clickable { onLinkBill(bill) },
+                                colors = ListItemDefaults.colors(containerColor = Color.Transparent)
+                            )
+                            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
+                        }
+                    }
+                }
+            }
+        }
+    }
+
     // Date picker dialog
     if (uiState.showDatePicker) {
         val datePickerState = rememberDatePickerState(
@@ -975,6 +1062,87 @@ internal fun AddExpenseContent(
                             onCreateTag = onCreateTag,
                             accentColor = accentColor
                         )
+                    }
+                }
+            }
+
+            // Linked bill — shown for PAYMENT type only
+            if (uiState.transactionType == TransactionType.PAYMENT) {
+                item { Spacer(Modifier.height(16.dp)) }
+                item {
+                    FormSection(title = "Linked Bill") {
+                        Column(modifier = Modifier.padding(horizontal = 16.dp)) {
+                            if (uiState.linkedBill != null) {
+                                // Linked bill chip row
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .clip(RoundedCornerShape(12.dp))
+                                        .background(MaterialTheme.colorScheme.primaryContainer)
+                                        .padding(horizontal = 12.dp, vertical = 10.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Icon(
+                                        Icons.Default.ReceiptLong,
+                                        contentDescription = null,
+                                        tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                                        modifier = Modifier.size(20.dp)
+                                    )
+                                    Spacer(Modifier.width(8.dp))
+                                    Column(modifier = Modifier.weight(1f)) {
+                                        Text(
+                                            text = uiState.linkedBill.billerName,
+                                            style = MaterialTheme.typography.bodyLarge,
+                                            fontWeight = FontWeight.SemiBold,
+                                            color = MaterialTheme.colorScheme.onPrimaryContainer
+                                        )
+                                        val parts = listOfNotNull(
+                                            uiState.linkedBill.totalDue?.let {
+                                                "%.2f %s due".format(it, uiState.linkedBill.currencyCode)
+                                            },
+                                            uiState.linkedBill.dueDateMillis?.let {
+                                                SimpleDateFormat("dd MMM yyyy", java.util.Locale.getDefault()).format(Date(it))
+                                            }
+                                        )
+                                        if (parts.isNotEmpty()) {
+                                            Text(
+                                                text = parts.joinToString(" · "),
+                                                style = MaterialTheme.typography.bodySmall,
+                                                color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f)
+                                            )
+                                        }
+                                    }
+                                    // Change button
+                                    TextButton(onClick = onShowBillPicker) {
+                                        Text("Change", color = MaterialTheme.colorScheme.onPrimaryContainer)
+                                    }
+                                    // Unlink
+                                    IconButton(onClick = onUnlinkBill, modifier = Modifier.size(36.dp)) {
+                                        Icon(
+                                            Icons.Default.LinkOff,
+                                            contentDescription = "Unlink bill",
+                                            tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                                            modifier = Modifier.size(18.dp)
+                                        )
+                                    }
+                                }
+                            } else {
+                                OutlinedButton(
+                                    onClick = onShowBillPicker,
+                                    modifier = Modifier.fillMaxWidth(),
+                                    colors = ButtonDefaults.outlinedButtonColors(
+                                        contentColor = MaterialTheme.colorScheme.primary
+                                    )
+                                ) {
+                                    Icon(Icons.Default.ReceiptLong, contentDescription = null, modifier = Modifier.size(18.dp))
+                                    Spacer(Modifier.width(8.dp))
+                                    Text(
+                                        if (uiState.availableBills.isEmpty()) "No open bills to link"
+                                        else "Link to a Bill"
+                                    )
+                                }
+                            }
+                        }
                     }
                 }
             }
