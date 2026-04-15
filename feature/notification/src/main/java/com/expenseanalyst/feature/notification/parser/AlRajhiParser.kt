@@ -13,6 +13,8 @@ package com.expenseanalyst.feature.notification.parser
  *   "SAR 1500.00 has been credited to your account ending 5678. Ref: 987654321"
  * Sample (Arabic):
  *   "تم خصم مبلغ 350.00 ر.س من حسابك"
+ * Sample (MOI government payment):
+ *   "MOI Payments From:6805 Amount:SR 400 Provider:Residents Services Service:Extend Exit Re-entry Visa Duration 26/4/14 18:57"
  */
 class AlRajhiParser : TransactionParser {
 
@@ -25,6 +27,11 @@ class AlRajhiParser : TransactionParser {
         RegexOption.DOT_MATCHES_ALL
     )
     private val transferFingerprintPattern = Regex("""(?i)(?:Credit|Debit)\s+Transfer\s+Internal""")
+    // MOI (Ministry of Interior) government service payments via Al Rajhi
+    private val moiFingerprintPattern = Regex("""(?i)MOI\s+Payments""")
+    private val moiAccountPattern = Regex("""(?i)From:\s*(\d{3,4})""")
+    private val moiProviderPattern = Regex("""(?i)Provider:\s*([A-Za-z][A-Za-z ]+?)(?:\s+Service:|\s*${'$'})""")
+    private val moiServicePattern = Regex("""(?i)Service:\s*([A-Za-z][A-Za-z 0-9\-]+?)(?:\s+Duration|\s+\d|\s*${'$'})""")
     private val amountSarPattern = Regex("""(?i)(?:sar|ر\.س|sr)\s*([\d,]+\.?\d*)|([\d,]+\.?\d*)\s*(?:sar|ر\.س|sr)""")
     // Handles: "card ending 1234", "Card:7573", "By:7573", "account no. 5678"
     private val cardPattern = Regex("""(?i)(?:card|account|by)[:\s]*(?:ending|no\.?|number)?\s*[xX*]*(\d{4})""")
@@ -44,9 +51,37 @@ class AlRajhiParser : TransactionParser {
     override fun canParse(sender: String, body: String): Boolean =
         senderPattern.containsMatchIn(sender) ||
         bodyFingerprintPattern.containsMatchIn(body) ||
-        transferFingerprintPattern.containsMatchIn(body)
+        transferFingerprintPattern.containsMatchIn(body) ||
+        moiFingerprintPattern.containsMatchIn(body)
 
     override fun parse(sender: String, body: String): ParsedTransaction? {
+        // Handle MOI government payment: "MOI Payments From:6805 Amount:SR 400 Provider:X Service:Y"
+        if (moiFingerprintPattern.containsMatchIn(body)) {
+            val amountMatch = amountSarPattern.find(body)
+            val amount = (amountMatch?.groupValues?.get(1)?.takeIf { it.isNotBlank() }
+                ?: amountMatch?.groupValues?.get(2)?.takeIf { it.isNotBlank() })
+                ?.replace(",", "")?.toDoubleOrNull() ?: return null
+            val accountLast4 = moiAccountPattern.find(body)?.groupValues?.get(1)
+            val provider = moiProviderPattern.find(body)?.groupValues?.get(1)?.trim()
+            val service = moiServicePattern.find(body)?.groupValues?.get(1)?.trim()
+            val merchant = when {
+                provider != null && service != null -> "$provider - $service"
+                service != null -> service
+                provider != null -> provider
+                else -> "MOI Payment"
+            }.takeIf { it.length < 80 }
+            return ParsedTransaction(
+                amount = amount,
+                currencyCode = "SAR",
+                type = TransactionDirection.DEBIT,
+                merchant = merchant,
+                accountLast4 = accountLast4,
+                referenceNumber = null,
+                bankName = bankName,
+                paymentMethodName = "NET_BANKING"
+            )
+        }
+
         // Handle internal transfer format: "Credit Transfer Internal / Amount:SAR N / To:XXXX / From:NAME / From:YYYY"
         if (transferFingerprintPattern.containsMatchIn(body)) {
             val amountMatch = amountSarPattern.find(body)

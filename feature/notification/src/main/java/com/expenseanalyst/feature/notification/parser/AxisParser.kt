@@ -16,6 +16,8 @@ package com.expenseanalyst.feature.notification.parser
  *   "Debit INR 2200.00\nAxis Bank A/c XX0426\n31-03-26 08:54:04\nACH-DR-MONTHLYSMALLCAS-000\n..."
  * Sample (NACH debit):
  *   "NACH debit towards MONTHLYSMALLCAS for INR 2,200.00 with UMRN ... in A/c no. XX0426 today - Axis Bank"
+ * Sample (credit card spend):
+ *   "Spent INR 4999 Axis Bank Card no. XX4502 13-04-26 16:14:43 IST Airtel Avl Limit: INR 350252.8 Not you?"
  */
 class AxisParser : TransactionParser {
 
@@ -37,12 +39,14 @@ class AxisParser : TransactionParser {
     private val achMerchantPattern = Regex("""(?i)ACH-(?:DR|CR)-([A-Z0-9]+)-\d""")
     // Merchant from NACH: "NACH debit towards MERCHANTNAME for INR"
     private val nachMerchantPattern = Regex("""(?i)NACH\s+debit\s+towards\s+(\S+)\s+for""")
+    // Merchant from credit-card "Spent INR X ... IST MERCHANT Avl Limit"
+    private val spentMerchantPattern = Regex("""(?i)\bIST\s+([A-Za-z0-9][A-Za-z0-9 &_\-]+?)\s+Avl\s*Limit""")
 
     override fun canParse(sender: String, body: String): Boolean =
         senderPattern.containsMatchIn(sender)
 
     override fun parse(sender: String, body: String): ParsedTransaction? {
-        val isDebit = Regex("""(?i)\bdebit(?:ed)?\b""").containsMatchIn(body)
+        val isDebit = Regex("""(?i)\b(?:debit(?:ed)?|spent)\b""").containsMatchIn(body)
         val isCredit = Regex("""(?i)\bcredited\b""").containsMatchIn(body)
         if (!isDebit && !isCredit) return null
 
@@ -64,12 +68,13 @@ class AxisParser : TransactionParser {
 
         val accountLast4 = accountPattern.find(body)?.groupValues?.get(1)
         val ref = refPattern.find(body)?.groupValues?.get(1)
-        // Prefer: UPI transfer target → POS "at Merchant" → UPI compact → NACH towards → ACH-DR
+        // Prefer: UPI transfer target → POS "at Merchant" → UPI compact → NACH towards → ACH-DR → Spent IST
         val merchant = (transferToPattern.find(body)?.groupValues?.get(1)
             ?: atPattern.find(body)?.groupValues?.get(1)
             ?: upiMerchantPattern.find(body)?.groupValues?.get(1)
             ?: nachMerchantPattern.find(body)?.groupValues?.get(1)
-            ?: achMerchantPattern.find(body)?.groupValues?.get(1))
+            ?: achMerchantPattern.find(body)?.groupValues?.get(1)
+            ?: spentMerchantPattern.find(body)?.groupValues?.get(1))
             ?.trim()?.takeIf { it.isNotBlank() && it.length < 60 }
 
         return ParsedTransaction(
