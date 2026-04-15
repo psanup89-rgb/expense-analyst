@@ -1,15 +1,19 @@
 package com.expenseanalyst.data.repository
 
+import android.content.Context
+import androidx.core.app.NotificationManagerCompat
 import com.expenseanalyst.data.local.dao.PendingNotificationDao
 import com.expenseanalyst.data.local.entity.PendingNotificationEntity
 import com.expenseanalyst.domain.model.PendingNotification
 import com.expenseanalyst.domain.repository.PendingNotificationRepository
+import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import javax.inject.Inject
 
 class PendingNotificationRepositoryImpl @Inject constructor(
-    private val dao: PendingNotificationDao
+    private val dao: PendingNotificationDao,
+    @ApplicationContext private val context: Context
 ) : PendingNotificationRepository {
 
     override fun getAll(): Flow<List<PendingNotification>> =
@@ -25,7 +29,12 @@ class PendingNotificationRepositoryImpl @Inject constructor(
     override suspend fun findRecentByRawBody(rawBody: String, sinceMillis: Long): PendingNotification? =
         dao.findRecentByRawBody(rawBody, sinceMillis)?.toDomain()
 
-    override suspend fun delete(id: Long) = dao.deleteById(id)
+    override suspend fun delete(id: Long) {
+        dao.deleteById(id)
+        // Cancel the system tray notification whose ID equals the pending notification's DB id.
+        // TransactionAlertNotification.post() uses pendingId.toInt() as the Android notification ID.
+        NotificationManagerCompat.from(context).cancel(id.toInt())
+    }
 
     override suspend fun deleteAll() = dao.deleteAll()
 

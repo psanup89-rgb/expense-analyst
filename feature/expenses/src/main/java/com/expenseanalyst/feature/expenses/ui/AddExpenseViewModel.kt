@@ -40,6 +40,7 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
@@ -500,7 +501,19 @@ class AddExpenseViewModel @Inject constructor(
                     rawSmsBody = state.rawSmsBody
                 )
                 val id = addExpenseUseCase(expense)
-                // Clear the pending inbox item only after a successful save
+
+                // Clear all matching pending TRANSACTION notifications regardless of how we got here.
+                // This covers: tap-notification flow, banner flow, and manual add with same amount/currency.
+                val allPending = pendingNotificationRepository.getAll().first()
+                allPending
+                    .filter { pending ->
+                        pending.pendingType == "TRANSACTION" &&
+                            pending.amount == expense.amount &&
+                            pending.currencyCode == expense.currencyCode
+                    }
+                    .forEach { pending -> pendingNotificationRepository.delete(pending.id) }
+
+                // Also clear by explicit pendingId in case the user edited the amount before saving.
                 val pendingId = savedStateHandle.get<Long>("pendingId")?.takeIf { it > 0 }
                 if (pendingId != null) pendingNotificationRepository.delete(pendingId)
                 _form.update { it.copy(isSaving = false, savedExpenseId = id) }

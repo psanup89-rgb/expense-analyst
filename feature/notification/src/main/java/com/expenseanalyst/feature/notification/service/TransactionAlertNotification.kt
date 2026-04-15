@@ -64,9 +64,13 @@ object TransactionAlertNotification {
                 flags = Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP
             } ?: return
 
+        // Use pendingId as the notification ID so it can be cancelled later by the same ID.
+        // Fall back to incrementing counter only when there is no DB-backed pending record.
+        val notifId = pendingId?.toInt() ?: nextNotifId++
+
         val pendingIntent = PendingIntent.getActivity(
             context,
-            nextNotifId,
+            notifId,
             launchIntent,
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
@@ -93,7 +97,7 @@ object TransactionAlertNotification {
 
         if (NotificationManagerCompat.from(context).areNotificationsEnabled()) {
             try {
-                NotificationManagerCompat.from(context).notify(nextNotifId++, notification)
+                NotificationManagerCompat.from(context).notify(notifId, notification)
             } catch (_: SecurityException) {
                 // POST_NOTIFICATIONS permission not granted — notification silently skipped
             }
