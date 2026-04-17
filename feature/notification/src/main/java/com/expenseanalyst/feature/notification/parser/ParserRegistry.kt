@@ -31,6 +31,8 @@ object ParserRegistry {
         UpiParser(),
         // Bill payment apps (body-fingerprint detection)
         MubasherParser(),
+        // Merchant apps (food delivery, e-commerce, etc.)
+        KeetaParser(),
         // Generic fallback
         GenericParser()
     )

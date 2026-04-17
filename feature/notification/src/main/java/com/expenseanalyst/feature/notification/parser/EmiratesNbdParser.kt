@@ -10,6 +10,8 @@ package com.expenseanalyst.feature.notification.parser
  *   "Online Purchase (Apple Pay)\nCard: Credit card XX4388\nMerchant: Temu.com\nAmount: SAR 14.36\nOn: 2026-03-24 02:14:13\nRemaining limit SAR 18,172.95"
  * Sample (Credit card payment credited):
  *   "Credit Card: Credited\nCard : XX4388;Credit Card Visa\nAmount: SAR 39.00\nBalance: SAR 18,156.95\nDate: 29-03-2026"
+ * Sample (POS Reversal):
+ *   "POS Reversal\nTo: XX9731; Visa Credit\nAmount: NZD 3,842.51\nFrom: Air New Zealand\nIn NEW ZEALAND\nRemaining limit SAR: 28,800.00\nOn: 2026-04-17 15:26:49"
  */
 class EmiratesNbdParser : TransactionParser {
 
@@ -17,11 +19,18 @@ class EmiratesNbdParser : TransactionParser {
 
     private val senderPattern = Regex("""(?i)(?:emirates\s*nbd|enbd|emiratesnbd)""")
     private val bodyFingerprintPattern = Regex(
-        """(?i)(?:POS|Online)\s+Purchase.*(?:Card:|Merchant:|Amount:)""",
+        """(?i)(?:(?:POS|Online)\s+Purchase|POS\s+Reversal).*(?:Card:|Merchant:|Amount:|To:)""",
         RegexOption.DOT_MATCHES_ALL
     )
 
     private val purchasePattern = Regex("""(?i)(POS|Online)\s+Purchase""")
+
+    // "POS Reversal" — money returned to card
+    private val reversalPattern = Regex("""(?i)POS\s+Reversal""")
+    // "To: XX9731; Visa Credit"
+    private val reversalCardPattern = Regex("""(?i)To:\s*XX(\d{4})""")
+    // "From: Air New Zealand"
+    private val reversalMerchantPattern = Regex("""(?i)From:\s*(.+)""")
 
     // "Credit Card: Credited" — payment received to credit card
     private val creditedPattern = Regex("""(?i)Credit\s+Card:\s*Credited""")
@@ -63,6 +72,26 @@ class EmiratesNbdParser : TransactionParser {
                 referenceNumber = null,
                 bankName = bankName,
                 paymentMethodName = "CREDIT_CARD"
+            )
+        }
+
+        // Handle "POS Reversal" — refund/chargeback credited back to card
+        if (reversalPattern.containsMatchIn(body)) {
+            val amountMatch = amountPattern.find(body) ?: return null
+            val currencyCode = amountMatch.groupValues[1]
+            val amount = amountMatch.groupValues[2].replace(",", "").toDoubleOrNull() ?: return null
+            val accountLast4 = reversalCardPattern.find(body)?.groupValues?.get(1)
+            val merchant = reversalMerchantPattern.find(body)?.groupValues?.get(1)?.trim()
+                ?.takeIf { it.isNotBlank() && it.length < 60 }
+            return ParsedTransaction(
+                amount = amount,
+                currencyCode = currencyCode,
+                type = TransactionDirection.CREDIT,
+                merchant = merchant,
+                accountLast4 = accountLast4,
+                referenceNumber = null,
+                bankName = bankName,
+                paymentMethodName = inferCardType(body) ?: "CREDIT_CARD"
             )
         }
 

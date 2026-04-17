@@ -29,7 +29,7 @@ class GenericParser : TransactionParser {
         // Detect bill/card payment confirmations before generic debit/credit
         val isPayment = Regex("""(?i)\b(?:payment\s+(?:received|successful|confirmed|processed)|received\s+payment|paid\s+(?:your|against|towards)|bill\s+paid|due\s+paid)\b""").containsMatchIn(body)
         val isDebit = !isPayment && Regex("""(?i)\b(?:debited|deducted|paid|purchase|sent|withdrawn)\b""").containsMatchIn(body)
-        val isCredit = !isPayment && Regex("""(?i)\b(?:credited|received|refund)\b""").containsMatchIn(body)
+        val isCredit = !isPayment && Regex("""(?i)\b(?:credited|received|refund(?:ed|s)?)\b""").containsMatchIn(body)
         if (!isDebit && !isCredit && !isPayment) return null
 
         val amountMatch = amountPattern.find(body) ?: return null
