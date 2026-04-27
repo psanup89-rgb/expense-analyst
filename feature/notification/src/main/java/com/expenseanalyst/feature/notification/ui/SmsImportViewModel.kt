@@ -23,7 +23,6 @@ import com.expenseanalyst.feature.notification.parser.BillStatementParserRegistr
 import com.expenseanalyst.feature.notification.parser.ParsedTransaction
 import com.expenseanalyst.feature.notification.parser.ParserRegistry
 import com.expenseanalyst.feature.notification.parser.TransactionDirection
-import com.expenseanalyst.feature.notification.service.BillStatementManager
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
@@ -46,8 +45,7 @@ class SmsImportViewModel @Inject constructor(
     private val accountRepository: AccountRepository,
     private val merchantRuleRepository: MerchantRuleRepository,
     private val merchantSearchRepository: MerchantSearchRepository,
-    private val appPreferencesRepository: AppPreferencesRepository,
-    private val billStatementManager: BillStatementManager
+    private val appPreferencesRepository: AppPreferencesRepository
 ) : ViewModel() {
 
     /** Non-null when launched from onboarding with a pre-selected import range. */
@@ -140,11 +138,9 @@ class SmsImportViewModel @Inject constructor(
             smsList.forEachIndexed { index, sms ->
                 val parsed = ParserRegistry.parse(sms.sender, sms.body)
                 if (parsed == null) {
-                    // Second chance: bill statement SMS (outstanding balance / credit card statement)
+                    // Second chance: bill statement SMS — count but don't enqueue to pending inbox
                     val statement = BillStatementParserRegistry.parse(sms.sender, sms.body)
-                        ?.copy(rawBody = sms.body)
                     if (statement != null) {
-                        billStatementManager.process(statement)
                         billsFound++
                     } else {
                         failed++
