@@ -1,9 +1,36 @@
 # Expense Analyst — Handoff
 
-**Last updated**: 2026-04-28
-**DB version**: 14
-**Build**: `./gradlew clean assembleDebug` ✅ | Installed on SM-S948B ✅
+**Last updated**: 2026-04-29
+**DB version**: 15
+**Build**: `./gradlew clean assembleDebug` ✅ | Device not connected
 **Repo**: `https://github.com/psanup89-rgb/expense-analyst` (public)
+**Release**: v0.1.0-budget (GitHub Release with APK)
+
+---
+
+## Session Summary (2026-04-29) — Budget feature (F13)
+
+### Budget section — new `:feature:budget` module
+
+Full budget tracking feature accessible from Settings, protected by biometric/device credential authentication.
+
+**DB MIGRATION_14_15** creates two new tables:
+- `salary_entries` — monthly salary with unique index on (month, year), optional link to INCOME expense
+- `planned_expenses` — planned expense items per month with soft delete
+
+**Features:**
+- Salary tracking: manual entry, auto-detect from INCOME transactions, salary history view
+- Planned expenses: add/edit/soft-delete with category, carry-forward from previous month
+- Planned vs Actual: category comparison progress bars, unplanned expense flagging, summary card (total planned, actual, savings/overspend)
+- Month navigation (← month →)
+- Biometric gate: `BiometricPrompt` with `BIOMETRIC_WEAK | DEVICE_CREDENTIAL` authenticators; falls through if no lock screen set
+
+**New files (17):**
+- Domain: `SalaryEntry.kt`, `PlannedExpense.kt`, `BudgetRepository.kt`
+- Data: `SalaryEntryEntity.kt`, `PlannedExpenseEntity.kt`, `SalaryDao.kt`, `PlannedExpenseDao.kt`, `BudgetRepositoryImpl.kt`
+- Feature: `BudgetScreen.kt`, `BudgetViewModel.kt`, `BudgetUiState.kt`, `BiometricHelper.kt`, `BudgetComponents.kt`, `BudgetCards.kt`, `BudgetDialogs.kt`, `build.gradle.kts`, `AndroidManifest.xml`
+
+**Modified files:** `ExpenseAnalystDatabase.kt` (v15), `ExpenseDao.kt` (+getIncomeByDateRange), `DatabaseModule.kt`, `RepositoryModule.kt`, `NavRoutes.kt`, `AppNavGraph.kt`, `SettingsScreen.kt`, `app/build.gradle.kts`, `settings.gradle.kts`, `libs.versions.toml` (+biometric)
 
 ---
 
@@ -276,7 +303,7 @@ No known bugs. All previous open issues resolved (see session 3 summary above).
 
 No critical bugs. Suggested next tasks in priority order:
 
-1. **Phase 2 remaining features** — Budgets (F13), CSV/PDF export (F14), home screen widget (F16).
+1. **Phase 2 remaining features** — CSV/PDF export (F14), home screen widget (F16).
 
 2. **ProGuard release smoke-test** — `./gradlew assembleRelease` requires a signing config. Set up `keystore.properties` + signing block in `app/build.gradle.kts` and verify release APK starts on device without crashing.
 

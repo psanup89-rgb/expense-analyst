@@ -33,7 +33,7 @@ These rules apply at all times, without exception.
 
 ## Architecture
 
-- **Multi-module**: `app` · `core` · `domain` · `data` · `feature/expenses` · `feature/emi` · `feature/notification` · `feature/settings` · `feature/onboarding`
+- **Multi-module**: `app` · `core` · `domain` · `data` · `feature/expenses` · `feature/emi` · `feature/notification` · `feature/settings` · `feature/onboarding` · `feature/analytics` · `feature/budget`
 - **Dependency rule**: Feature → Domain. Feature → Core. Data → Domain. Data → Core. App → all. **Features never import from `:data`.**
 - **Domain is pure Kotlin** — zero Android dependencies
 - **MVVM**: Every screen has `*Screen.kt` + `*ViewModel.kt` + `*UiState.kt`
@@ -55,14 +55,14 @@ These rules apply at all times, without exception.
 
 ## Database
 
-- **Room** — entities in `data/local/entity/`. **Current version: 13**. All migrations inline in `ExpenseAnalystDatabase.kt`.
+- **Room** — entities in `data/local/entity/`. **Current version: 15**. All migrations inline in `ExpenseAnalystDatabase.kt`.
 - Dates: **UTC epoch milliseconds** (`Long`). Display converts via `TimeZone.currentSystemDefault()`
 - **Soft delete** — `isDeleted: Boolean` flag. Never hard-delete.
 - Expenses store both `amount` (original currency) and `homeAmount` (converted to home currency)
 - `Expense` has: `merchantName` (primary, mandatory in UI), `description` (optional user notes), `accountId`, `rawSmsBody`
 - `TransactionType`: `EXPENSE | INCOME | TRANSFER | PAYMENT`
 - `AccountType`: `SAVINGS | CURRENT | CREDIT_CARD | DEBIT_CARD | FOREX_CARD | WALLET | OTHER`
-- 10 entities: Expense, Category, EmiGroup, CurrencyRate, **Account**, **MerchantRule**, **PendingNotification**, **Bill**, **Tag**, **ExpenseTagCrossRef**
+- 12 entities: Expense, Category, EmiGroup, CurrencyRate, **Account**, **MerchantRule**, **PendingNotification**, **Bill**, **Tag**, **ExpenseTagCrossRef**, **SalaryEntry**, **PlannedExpense**
 - Pre-seeded categories: Food, Transport, Shopping, Bills, Entertainment, Health, Education, Groceries, Rent, Salary, Transfer, Other
 
 ---
@@ -72,7 +72,7 @@ These rules apply at all times, without exception.
 - `@HiltViewModel` on all ViewModels
 - Each module has a `di/` package with `@Module` classes
 - `@AndroidEntryPoint` on `MainActivity` and `TransactionNotificationService`
-- 12 repository interfaces in `:domain`: Expense, Category, Currency, EMI, Onboarding, **Account**, **MerchantRule**, **PendingNotification**, **AppPreferences**, **Bill**, **Tag**, **MerchantSearch**
+- 13 repository interfaces in `:domain`: Expense, Category, Currency, EMI, Onboarding, **Account**, **MerchantRule**, **PendingNotification**, **AppPreferences**, **Bill**, **Tag**, **MerchantSearch**, **Budget**
 
 ---
 
@@ -138,12 +138,13 @@ These rules apply at all times, without exception.
 app/src/main/              → MainActivity, NavGraph, DI wiring, MainBottomNav
 core/src/main/             → Theme, reusable components, CurrencyFormatter, DateTimeUtil, CurrencyCatalog
 domain/src/main/           → Models, repository interfaces, use cases, CurrencyConversion
-data/src/main/             → Room DB (10 entities/DAOs, v13), repositories, CurrencyApiService, SeedCurrencyRates
+data/src/main/             → Room DB (12 entities/DAOs, v15), repositories, CurrencyApiService, SeedCurrencyRates
 feature/expenses/          → Expense list, add, edit, detail screens + ViewModels
 feature/emi/               → EMI create, list, detail screens + ViewModels
 feature/notification/      → NotificationListenerService, parsers, banner UI
 feature/settings/          → Settings, Account Management screens + ViewModels
 feature/analytics/         → Analytics dashboard screen + ViewModel
+feature/budget/            → Budget screen (biometric gate, salary, planned expenses, comparison) + ViewModel
 feature/onboarding/        → 3-step onboarding screen + ViewModel
 docs/                      → ARCHITECTURE.md, DATA_MODELS.md, NOTIFICATION_PARSING.md, FEATURES.md, TESTING.md, SETUP.md
 ```

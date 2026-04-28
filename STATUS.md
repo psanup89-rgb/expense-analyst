@@ -1,20 +1,20 @@
 # Expense Analyst — Current Status
 
-**Date**: 2026-04-28
-**DB version**: 14 (MIGRATION_13_14 — 4 new columns on `pending_notifications` for BILL pending type)
+**Date**: 2026-04-29
+**DB version**: 15 (MIGRATION_14_15 — salary_entries + planned_expenses tables)
 **Build**: `./gradlew clean assembleDebug` ✅ passing
-**Device**: Samsung Galaxy S26 Ultra (SM-S948B) — installed ✅
+**Device**: Samsung Galaxy S26 Ultra (SM-S948B) — not connected
 **Version**: 0.1.0 (alpha)
 **Repo**: `https://github.com/psanup89-rgb/expense-analyst` (public)
-**Releases**: v1.0.0-debug, v1.0.1-debug (GitHub Releases with APK assets)
+**Releases**: v1.0.0-debug, v1.0.1-debug, v0.1.0-budget (GitHub Releases with APK assets)
 
 ---
 
 ## Current Phase
 
-**Phase 1.5 + Phase 2 Analytics (F12) complete.**
+**Phase 1.5 + Phase 2 Analytics (F12) + Budget (F13) complete.**
 
-All core infrastructure, SMS parsing, account management, bill tracking (with edit), and analytics dashboard are shipped.
+All core infrastructure, SMS parsing, account management, bill tracking (with edit), analytics dashboard, and budget tracking are shipped.
 
 ---
 
@@ -99,6 +99,15 @@ All core infrastructure, SMS parsing, account management, bill tracking (with ed
 - [x] Month navigation, summary cards, category breakdown, daily bar chart, top merchants
 - [x] Drill-down bottom sheet
 
+### Budget (Phase 2 — F13)
+- [x] Budget section accessible from Settings, protected by biometric/device credential authentication
+- [x] Salary tracking: manual entry, auto-detect from INCOME transactions, salary history
+- [x] Planned expenses: add/edit/soft-delete with category, carry-forward from previous month
+- [x] Planned vs Actual: category comparison progress bars, unplanned expense flagging
+- [x] Summary card: total planned, actual, savings/overspend
+- [x] Month navigation (← month →)
+- [x] Room DB v15: salary_entries + planned_expenses tables
+
 ---
 
 ## In Progress / Partially Done
@@ -111,7 +120,6 @@ All core infrastructure, SMS parsing, account management, bill tracking (with ed
 
 ## Not Started (Phase 2 remaining)
 
-- Budgets and overspend alerts
 - CSV / PDF export
 - Google Drive backup
 - Home screen widget
