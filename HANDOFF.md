@@ -1,8 +1,34 @@
 # Expense Analyst — Handoff
 
-**Last updated**: 2026-04-13
+**Last updated**: 2026-04-28
 **DB version**: 14
 **Build**: `./gradlew clean assembleDebug` ✅ | Installed on SM-S948B ✅
+**Repo**: `https://github.com/psanup89-rgb/expense-analyst` (public)
+
+---
+
+## Session Summary (2026-04-28) — Data security, bulk import fix, repo migration
+
+### 1. Data Security Rules added to CLAUDE.md
+
+Added a "Data Security Rules" section to CLAUDE.md (after Project Overview) codifying rules for handling SMS data, PII, credentials, and prompt injection defence. These rules apply to all agent sessions.
+
+### 2. Bulk SMS import — bill statements no longer enqueued to pending inbox
+
+**Bug**: Colleague reported that after bulk SMS import, items appeared in both the expenses list AND the pending notification inbox.
+
+**Root cause**: `SmsImportViewModel.startBulkImport()` called `billStatementManager.process(statement)` for bill-type SMS, which always creates a `PendingNotification` with `pendingType="BILL"`. This is wrong for bulk import — bills should just be counted, not enqueued.
+
+**Fix**: Removed `billStatementManager.process()` call and cleaned up the unused `BillStatementManager` injection from `SmsImportViewModel`. The `billsFound` counter still works so the import summary reports bill SMS correctly.
+
+File changed: `feature/notification/src/main/java/com/expenseanalyst/feature/notification/ui/SmsImportViewModel.kt`
+
+### 3. Git repo migrated to new GitHub account
+
+- Remote changed from `anoop-p-ksa0043/expense-analyst` → `psanup89-rgb/expense-analyst`
+- Repo made public
+- GitHub releases created: `v1.0.0-debug`, `v1.0.1-debug` (with APK assets)
+- `gh auth setup-git` configured for the new account
 
 ---
 

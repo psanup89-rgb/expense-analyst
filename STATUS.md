@@ -1,10 +1,12 @@
 # Expense Analyst — Current Status
 
-**Date**: 2026-04-13
+**Date**: 2026-04-28
 **DB version**: 14 (MIGRATION_13_14 — 4 new columns on `pending_notifications` for BILL pending type)
 **Build**: `./gradlew clean assembleDebug` ✅ passing
 **Device**: Samsung Galaxy S26 Ultra (SM-S948B) — installed ✅
 **Version**: 0.1.0 (alpha)
+**Repo**: `https://github.com/psanup89-rgb/expense-analyst` (public)
+**Releases**: v1.0.0-debug, v1.0.1-debug (GitHub Releases with APK assets)
 
 ---
 
