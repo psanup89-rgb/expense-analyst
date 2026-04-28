@@ -2,6 +2,7 @@ package com.expenseanalyst.data.di
 
 import com.expenseanalyst.data.repository.AccountRepositoryImpl
 import com.expenseanalyst.data.repository.BillRepositoryImpl
+import com.expenseanalyst.data.repository.BudgetRepositoryImpl
 import com.expenseanalyst.data.repository.MerchantRuleRepositoryImpl
 import com.expenseanalyst.data.repository.MerchantSearchRepositoryImpl
 import com.expenseanalyst.data.repository.PendingNotificationRepositoryImpl
@@ -14,6 +15,7 @@ import com.expenseanalyst.data.repository.OnboardingRepositoryImpl
 import com.expenseanalyst.data.repository.TagRepositoryImpl
 import com.expenseanalyst.domain.repository.AccountRepository
 import com.expenseanalyst.domain.repository.BillRepository
+import com.expenseanalyst.domain.repository.BudgetRepository
 import com.expenseanalyst.domain.repository.MerchantRuleRepository
 import com.expenseanalyst.domain.repository.MerchantSearchRepository
 import com.expenseanalyst.domain.repository.PendingNotificationRepository
@@ -81,4 +83,8 @@ abstract class RepositoryModule {
     @Binds
     @Singleton
     abstract fun bindTagRepository(impl: TagRepositoryImpl): TagRepository
+
+    @Binds
+    @Singleton
+    abstract fun bindBudgetRepository(impl: BudgetRepositoryImpl): BudgetRepository
 }

@@ -77,4 +77,15 @@ interface ExpenseDao {
 
     @Query("UPDATE expenses SET account_id = :toAccountId WHERE account_id = :fromAccountId AND is_deleted = 0")
     suspend fun remapAccount(fromAccountId: Long, toAccountId: Long?)
+
+    @Transaction
+    @Query("""
+        SELECT * FROM expenses
+        WHERE is_deleted = 0
+          AND transaction_type = 'INCOME'
+          AND date_utc_millis >= :startMillis
+          AND date_utc_millis < :endMillis
+        ORDER BY amount DESC
+    """)
+    fun getIncomeByDateRange(startMillis: Long, endMillis: Long): Flow<List<ExpenseWithCategory>>
 }

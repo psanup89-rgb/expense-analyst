@@ -20,6 +20,7 @@ object NavRoutes {
     const val CATEGORY_MANAGEMENT = "category_management"
     const val ACCOUNT_MANAGEMENT = "account_management"
     const val ANALYTICS = "analytics"
+    const val BUDGET = "budget"
     const val SMS_IMPORT = "sms_import"
     const val SMS_IMPORT_ROUTE = "sms_import?autoStart={autoStart}"
 

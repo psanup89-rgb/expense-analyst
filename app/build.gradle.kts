@@ -54,6 +54,7 @@ dependencies {
     implementation(project(":feature:settings"))
     implementation(project(":feature:onboarding"))
     implementation(project(":feature:analytics"))
+    implementation(project(":feature:budget"))
 
     // Compose
     implementation(platform(libs.compose.bom))

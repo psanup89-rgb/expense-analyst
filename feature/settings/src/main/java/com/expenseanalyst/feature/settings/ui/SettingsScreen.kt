@@ -60,6 +60,7 @@ fun SettingsScreen(
     onNavigateToSmsImport: () -> Unit = {},
     onNavigateToCategoryManagement: () -> Unit = {},
     onNavigateToAccountManagement: () -> Unit = {},
+    onNavigateToBudget: () -> Unit = {},
     onTestNotification: () -> Unit = {},
     onGrantNotificationAccess: () -> Unit = {},
     viewModel: SettingsViewModel = hiltViewModel()
@@ -89,6 +90,7 @@ fun SettingsScreen(
         onNavigateToSmsImport = onNavigateToSmsImport,
         onNavigateToCategoryManagement = onNavigateToCategoryManagement,
         onNavigateToAccountManagement = onNavigateToAccountManagement,
+        onNavigateToBudget = onNavigateToBudget,
         onTestNotification = onTestNotification,
         onGrantNotificationAccess = onGrantNotificationAccess
     )
@@ -110,6 +112,7 @@ private fun SettingsContent(
     onNavigateToSmsImport: () -> Unit,
     onNavigateToCategoryManagement: () -> Unit,
     onNavigateToAccountManagement: () -> Unit,
+    onNavigateToBudget: () -> Unit,
     onTestNotification: () -> Unit,
     onGrantNotificationAccess: () -> Unit
 ) {
@@ -546,6 +549,36 @@ private fun SettingsContent(
                             shape = androidx.compose.foundation.shape.RoundedCornerShape(10.dp)
                         ) {
                             Text("Manage Categories")
+                        }
+                    }
+                }
+            }
+
+            // Budget section
+            item {
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer)
+                ) {
+                    Column(modifier = Modifier.padding(20.dp)) {
+                        Text(
+                            text = "Budget",
+                            style = MaterialTheme.typography.titleMedium,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                        Spacer(Modifier.height(12.dp))
+                        Text(
+                            text = "Track salary, plan monthly expenses, and compare planned vs actual spending. Protected by device authentication.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Spacer(Modifier.height(12.dp))
+                        FilledTonalButton(
+                            onClick = onNavigateToBudget,
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = androidx.compose.foundation.shape.RoundedCornerShape(10.dp)
+                        ) {
+                            Text("Open Budget")
                         }
                     }
                 }

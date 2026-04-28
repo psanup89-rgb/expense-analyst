@@ -14,6 +14,8 @@ import com.expenseanalyst.data.local.dao.ExpenseDao
 import com.expenseanalyst.data.local.dao.BillDao
 import com.expenseanalyst.data.local.dao.MerchantRuleDao
 import com.expenseanalyst.data.local.dao.PendingNotificationDao
+import com.expenseanalyst.data.local.dao.PlannedExpenseDao
+import com.expenseanalyst.data.local.dao.SalaryDao
 import com.expenseanalyst.data.local.dao.TagDao
 import com.expenseanalyst.data.local.entity.AccountEntity
 import com.expenseanalyst.data.local.entity.BillEntity
@@ -24,6 +26,8 @@ import com.expenseanalyst.data.local.entity.ExpenseEntity
 import com.expenseanalyst.data.local.entity.ExpenseTagCrossRef
 import com.expenseanalyst.data.local.entity.MerchantRuleEntity
 import com.expenseanalyst.data.local.entity.PendingNotificationEntity
+import com.expenseanalyst.data.local.entity.PlannedExpenseEntity
+import com.expenseanalyst.data.local.entity.SalaryEntryEntity
 import com.expenseanalyst.data.local.entity.TagEntity
 
 
@@ -38,9 +42,11 @@ import com.expenseanalyst.data.local.entity.TagEntity
         PendingNotificationEntity::class,
         BillEntity::class,
         TagEntity::class,
-        ExpenseTagCrossRef::class
+        ExpenseTagCrossRef::class,
+        SalaryEntryEntity::class,
+        PlannedExpenseEntity::class
     ],
-    version = 14,
+    version = 15,
     exportSchema = true
 )
 abstract class ExpenseAnalystDatabase : RoomDatabase() {
@@ -53,6 +59,8 @@ abstract class ExpenseAnalystDatabase : RoomDatabase() {
     abstract fun pendingNotificationDao(): PendingNotificationDao
     abstract fun billDao(): BillDao
     abstract fun tagDao(): TagDao
+    abstract fun salaryDao(): SalaryDao
+    abstract fun plannedExpenseDao(): PlannedExpenseDao
 
     companion object {
         const val DATABASE_NAME = "expense_analyst.db"
@@ -173,6 +181,37 @@ abstract class ExpenseAnalystDatabase : RoomDatabase() {
             }
         }
 
+        private val MIGRATION_14_15 = object : Migration(14, 15) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("""
+                    CREATE TABLE IF NOT EXISTS salary_entries (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                        amount REAL NOT NULL,
+                        currency_code TEXT NOT NULL,
+                        month INTEGER NOT NULL,
+                        year INTEGER NOT NULL,
+                        source_expense_id INTEGER,
+                        is_confirmed INTEGER NOT NULL DEFAULT 1,
+                        created_at_millis INTEGER NOT NULL
+                    )
+                """.trimIndent())
+                db.execSQL("CREATE UNIQUE INDEX IF NOT EXISTS idx_salary_month_year ON salary_entries (month, year)")
+                db.execSQL("""
+                    CREATE TABLE IF NOT EXISTS planned_expenses (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                        description TEXT NOT NULL,
+                        amount REAL NOT NULL,
+                        currency_code TEXT NOT NULL,
+                        category_id INTEGER NOT NULL,
+                        month INTEGER NOT NULL,
+                        year INTEGER NOT NULL,
+                        is_deleted INTEGER NOT NULL DEFAULT 0,
+                        created_at_millis INTEGER NOT NULL
+                    )
+                """.trimIndent())
+            }
+        }
+
         private val MIGRATION_7_8 = object : Migration(7, 8) {
             override fun migrate(db: SupportSQLiteDatabase) {
                 db.execSQL("ALTER TABLE pending_notifications ADD COLUMN raw_body TEXT")
@@ -244,7 +283,7 @@ abstract class ExpenseAnalystDatabase : RoomDatabase() {
                 ExpenseAnalystDatabase::class.java,
                 DATABASE_NAME
             )
-                .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13, MIGRATION_13_14)
+                .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13, MIGRATION_13_14, MIGRATION_14_15)
                 .addCallback(SeedDatabaseCallback())
                 .build()
         }

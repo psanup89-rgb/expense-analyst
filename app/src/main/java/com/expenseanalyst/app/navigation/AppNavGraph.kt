@@ -30,6 +30,7 @@ import com.expenseanalyst.feature.notification.ui.PendingInboxScreen
 import com.expenseanalyst.feature.notification.ui.SmsImportScreen
 import com.expenseanalyst.feature.onboarding.ui.OnboardingScreen
 import com.expenseanalyst.feature.analytics.ui.AnalyticsScreen
+import com.expenseanalyst.feature.budget.ui.BudgetScreen
 import com.expenseanalyst.feature.settings.ui.AccountManagementScreen
 import com.expenseanalyst.feature.settings.ui.CategoryManagementScreen
 import com.expenseanalyst.feature.settings.ui.SettingsScreen
@@ -234,7 +235,8 @@ fun AppNavGraph(
                     )
                 },
                 onNavigateToCategoryManagement = { navController.navigate(NavRoutes.CATEGORY_MANAGEMENT) },
-                onNavigateToAccountManagement = { navController.navigate(NavRoutes.ACCOUNT_MANAGEMENT) }
+                onNavigateToAccountManagement = { navController.navigate(NavRoutes.ACCOUNT_MANAGEMENT) },
+                onNavigateToBudget = { navController.navigate(NavRoutes.BUDGET) }
             )
         }
 
@@ -256,6 +258,10 @@ fun AppNavGraph(
                 onBack = { navController.popBackStack() },
                 onExpenseClick = { id -> navController.navigate(NavRoutes.expenseDetail(id)) }
             )
+        }
+
+        composable(NavRoutes.BUDGET) {
+            BudgetScreen(onBack = { navController.popBackStack() })
         }
 
         composable(
