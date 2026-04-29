@@ -13,7 +13,7 @@ Expense Analyst uses **MVVM + Clean Architecture** with a multi-module Gradle pr
 │                Feature Modules                       │
 │  :feature:expenses  :feature:emi  :feature:settings  │
 │  :feature:notification  :feature:onboarding          │
-│  :feature:analytics                                  │
+│  :feature:analytics  :feature:budget                 │
 ├─────────────────────────────────────────────────────┤
 │              :domain (Pure Kotlin)                    │
 │    Models, Repository Interfaces, Use Cases          │
@@ -37,8 +37,8 @@ Expense Analyst uses **MVVM + Clean Architecture** with a multi-module Gradle pr
 
 ### Domain Layer (`:domain`)
 Pure Kotlin module. Contains:
-- **Models**: `Expense`, `Category`, `EmiGroup`, `CurrencyRate`, `Account`, `MerchantRule`, `PendingNotification`, `Bill`, `Tag`
-- **Repository interfaces**: `ExpenseRepository`, `CategoryRepository`, `CurrencyRepository`, `EmiRepository`, `OnboardingRepository`, `AccountRepository`, `MerchantRuleRepository`, `PendingNotificationRepository`, `AppPreferencesRepository`, `BillRepository`, `TagRepository`, `MerchantSearchRepository`
+- **Models**: `Expense`, `Category`, `EmiGroup`, `CurrencyRate`, `Account`, `MerchantRule`, `PendingNotification`, `Bill`, `Tag`, `SalaryEntry`, `PlannedExpense`
+- **Repository interfaces**: `ExpenseRepository`, `CategoryRepository`, `CurrencyRepository`, `EmiRepository`, `OnboardingRepository`, `AccountRepository`, `MerchantRuleRepository`, `PendingNotificationRepository`, `AppPreferencesRepository`, `BillRepository`, `TagRepository`, `MerchantSearchRepository`, `BudgetRepository`
 - **Use cases**: CRUD use cases for expenses/categories, currency helpers, EMI creation
 - **Shared conversion logic**: `domain/util/CurrencyConversion.kt`
 
@@ -47,9 +47,9 @@ The domain module remains Android-free and is the only safe place for reusable b
 ### Data Layer (`:data`)
 Android module. Contains:
 - **Room database**: `ExpenseAnalystDatabase`
-- **Entities / relations / DAOs** for all 10 entities (Expense, Category, EmiGroup, CurrencyRate, Account, MerchantRule, PendingNotification, Bill, Tag, ExpenseTagCrossRef)
+- **Entities / relations / DAOs** for all 12 entities (Expense, Category, EmiGroup, CurrencyRate, Account, MerchantRule, PendingNotification, Bill, Tag, ExpenseTagCrossRef, SalaryEntry, PlannedExpense)
 - **Mappers** between Room entities and domain models
-- **Repository implementations** for all 12 domain repository interfaces
+- **Repository implementations** for all 13 domain repository interfaces
 - **DataStore-backed preferences** for home currency
 - **Offline seed rates** via `SeedCurrencyRates`
 - **Live currency sync**: `CurrencyApiService` fetches from ExchangeRate-API (`open.er-api.com`), cached in Room, refreshed daily via `isStale()` check
@@ -74,6 +74,7 @@ All feature modules are fully implemented:
 - `:feature:emi` — Create EMI from expense, EMI list (active/completed), EMI detail with installment timeline
 - `:feature:onboarding` — 3-step flow: welcome → currency picker → notification access + SMS import
 - `:feature:analytics` — Analytics dashboard (Phase 2)
+- `:feature:budget` — Budget tracking (biometric gate, salary, planned expenses, planned vs actual comparison)
 - `:feature:notification` — 18 bank parsers, NotificationListenerService, SMS import (bulk/browse), notification banner, PaymentMethodDetector
 
 ### App Module (`:app`)
@@ -82,7 +83,7 @@ All feature modules are fully implemented:
 - `AppNavGraph`: central navigation
 - `MainBottomNav`: Home / EMI / Settings
 
-All routes are implemented: Home, Add/Edit/Detail Expense, EMI Create/List/Detail, Settings, SMS Import, Onboarding. Bottom nav: Home · EMI · Settings.
+All routes are implemented: Home, Add/Edit/Detail Expense, EMI Create/List/Detail, Settings, SMS Import, Onboarding, Analytics, Budget. Bottom nav: Home · Inbox · Bills · EMI · Settings.
 
 ## Data Flow
 

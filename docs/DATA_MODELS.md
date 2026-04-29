@@ -2,9 +2,9 @@
 
 ## Database: Room (SQLite)
 - Database class: `ExpenseAnalystDatabase`
-- **Current schema version: `14`**
+- **Current schema version: `15`**
 - Room schema export is enabled under `data/schemas/`
-- All migrations are inline in `ExpenseAnalystDatabase.kt` (v1→v2→...→v14)
+- All migrations are inline in `ExpenseAnalystDatabase.kt` (v1→v2→...→v15)
 - Home currency preference is stored separately in DataStore, not in Room
 
 ---
@@ -175,6 +175,37 @@ Junction table linking expenses to tags (many-to-many). Added in DB migration v1
 
 **Index**: on `tag_id`
 
+### salary_entries
+Monthly salary records for budget tracking. Added in DB migration v14→v15.
+
+| Column | Type | Constraints | Description |
+|--------|------|-------------|-------------|
+| id | INTEGER | PK, autoGenerate | |
+| amount | REAL | NOT NULL | Monthly salary amount |
+| currency_code | TEXT | NOT NULL | ISO 4217 (home currency) |
+| month | INTEGER | NOT NULL | 1–12 |
+| year | INTEGER | NOT NULL | e.g. 2026 |
+| source_expense_id | INTEGER | FK → expenses.id, NULLABLE | Linked INCOME transaction (auto-detect) |
+| is_confirmed | INTEGER | NOT NULL, DEFAULT 1 | Whether user confirmed the amount |
+| created_at_millis | INTEGER | NOT NULL | Record creation timestamp |
+
+**Index**: unique on `(month, year)` — one salary per month.
+
+### planned_expenses
+Planned expense items per month for budget comparison. Added in DB migration v14→v15.
+
+| Column | Type | Constraints | Description |
+|--------|------|-------------|-------------|
+| id | INTEGER | PK, autoGenerate | |
+| description | TEXT | NOT NULL | Planned expense description |
+| amount | REAL | NOT NULL | Planned amount |
+| currency_code | TEXT | NOT NULL | ISO 4217 (home currency) |
+| category_id | INTEGER | FK → categories.id | Expense category |
+| month | INTEGER | NOT NULL | 1–12 |
+| year | INTEGER | NOT NULL | e.g. 2026 |
+| is_deleted | INTEGER | NOT NULL, DEFAULT 0 | Soft delete flag |
+| created_at_millis | INTEGER | NOT NULL | Record creation timestamp |
+
 ### currency_rates
 Cached exchange rates for offline support.
 
@@ -262,6 +293,29 @@ data class CurrencyRate(
     val currencyCode: String,
     val rateToBase: Double,
     val lastUpdated: Instant
+)
+
+data class SalaryEntry(
+    val id: Long = 0,
+    val amount: Double,
+    val currencyCode: String,
+    val month: Int,
+    val year: Int,
+    val sourceExpenseId: Long? = null,
+    val isConfirmed: Boolean = true,
+    val createdAtMillis: Long = System.currentTimeMillis()
+)
+
+data class PlannedExpense(
+    val id: Long = 0,
+    val description: String,
+    val amount: Double,
+    val currencyCode: String,
+    val categoryId: Long,
+    val month: Int,
+    val year: Int,
+    val isDeleted: Boolean = false,
+    val createdAtMillis: Long = System.currentTimeMillis()
 )
 ```
 

@@ -1,8 +1,8 @@
 # Feature Specifications & Acceptance Criteria
 
-**Last updated**: 2026-04-12
+**Last updated**: 2026-04-29
 **Phase 1 + 1.5**: Complete
-**Phase 2**: Partially started (F11 mostly complete, F12 complete)
+**Phase 2**: Partially started (F11 mostly complete, F12 complete, F13 complete)
 
 ---
 
@@ -138,7 +138,7 @@
 |---------|--------|-------------|
 | F11: Bills Section | Mostly ✅ | Full bill CRUD, lifecycle (PENDING→PARTIAL→SETTLED), 10 bill statement parsers (IDFC, Axis, EmiratesNBD, AlRajhi, HDFC, Tamara, SaudiEnergy, Ejar, Airtel, Generic), bill routing from SMS, bill SMS → pending inbox as BILL type (DB v14), PAYMENT bill linking in Add/Edit Expense, expense↔bill navigation, unlink payment from bill, Add Bill form matches Edit Bill. Remaining: subscription tracking, recurring bill auto-detection. |
 | F12: Analytics Dashboard | ✅ Complete | Month navigation, summary cards, category breakdown, daily bar chart, top merchants, drill-down bottom sheet. |
-| F13: Budgets & Alerts | Not started | Monthly budget per category, progress bars, push notifications at 80%/100% |
+| F13: Budgets | ✅ Complete | Biometric-gated budget section (Settings → Budget). Salary tracking (manual + auto-detect from INCOME transactions + history). Planned expenses (add/edit/soft-delete with category, carry-forward from previous month). Planned vs Actual comparison (category progress bars, unplanned expense flagging, summary card). Month navigation. DB v15: salary_entries + planned_expenses tables. |
 | F14: Export | Not started | CSV + PDF with date range filter, Android share sheet |
 | F15: Cloud Backup | Not started | Google Drive backup/restore via Google Sign-In, weekly auto-backup |
 | F16: Home Screen Widget | Not started | Glance widget: today's spend + monthly total |
