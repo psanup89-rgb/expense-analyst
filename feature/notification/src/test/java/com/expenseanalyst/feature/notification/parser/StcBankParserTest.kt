@@ -55,6 +55,15 @@ class StcBankParserTest {
         assertEquals(TransactionDirection.DEBIT, result.type)
     }
 
+    @Test
+    fun `parse extracts STC prepaid services payment as debit`() {
+        val result = parser.parse("STCPay", "stc prepaid services payment\nAmount: 86.25 SAR\nAt: 01/05/26 20:28")
+        assertNotNull(result)
+        assertEquals(86.25, result!!.amount, 0.01)
+        assertEquals(TransactionDirection.DEBIT, result.type)
+        assertEquals("SAR", result.currencyCode)
+    }
+
     @ParameterizedTest
     @CsvSource(
         "STCPay, Your STC Pay OTP is 778899.",

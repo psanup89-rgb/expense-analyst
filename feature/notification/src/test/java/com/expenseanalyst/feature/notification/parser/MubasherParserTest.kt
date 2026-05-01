@@ -82,6 +82,18 @@ class MubasherParserTest {
     }
 
     @Test
+    fun `parse extracts amount when currency code is SR instead of SAR`() {
+        val body = "Bill Payment\nFrom:6805\nAmount:SR 1320\nBiller:125\nService:ENBD PAYMENTS\nBill:01600000025923"
+        val result = parser.parse("74100", body)
+        assertNotNull(result)
+        assertEquals(1320.0, result!!.amount, 0.01)
+        assertEquals(TransactionDirection.PAYMENT, result.type)
+        assertEquals("SAR", result.currencyCode)
+        assertEquals("ENBD PAYMENTS", result.merchant)
+        assertEquals("01600000025923", result.referenceNumber)
+    }
+
+    @Test
     fun `parse returns null when no Amount SAR`() {
         val body = "Reason:Bills Payment - Mubasher App\nFrom:6805\nService:TEST"
         assertNull(parser.parse("Mubasher", body))

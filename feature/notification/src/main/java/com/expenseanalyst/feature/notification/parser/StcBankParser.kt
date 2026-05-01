@@ -10,6 +10,8 @@ package com.expenseanalyst.feature.notification.parser
  *   "SAR 200.00 received in your STC Pay account from Ahmed. Ref: TXN789012"
  * Sample (internal outward transfer):
  *   "Internal outward transfer Amount:100.00SAR To:NUMEER KOORIMMANNIL Acc:5183* At:14/04/26 15:48"
+ * Sample (prepaid services):
+ *   "stc prepaid services payment\nAmount: 86.25 SAR\nAt: 01/05/26 20:28"
  */
 class StcBankParser : TransactionParser {
 
@@ -29,7 +31,9 @@ class StcBankParser : TransactionParser {
 
     override fun parse(sender: String, body: String): ParsedTransaction? {
         val isTransfer = Regex("""(?i)\boutward\s+transfer\b""").containsMatchIn(body)
-        val isDebit = isTransfer || Regex("""(?i)\b(?:paid|debited|sent|deducted)\b""").containsMatchIn(body)
+        val isDebit = isTransfer ||
+            Regex("""(?i)\b(?:paid|debited|sent|deducted)\b""").containsMatchIn(body) ||
+            Regex("""(?i)\b(?:services?\s+payment|prepaid)\b""").containsMatchIn(body)
         val isCredit = Regex("""(?i)\b(?:received|credited)\b""").containsMatchIn(body)
         if (!isDebit && !isCredit) return null
 

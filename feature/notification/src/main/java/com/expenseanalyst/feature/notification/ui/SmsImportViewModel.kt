@@ -109,8 +109,9 @@ class SmsImportViewModel @Inject constructor(
             // Existing expenses used for in-memory duplicate check.
             // Primary key: rawSmsBody hash (exact SMS match).
             // Fallback key: amount + day + merchant (for expenses without rawSmsBody).
+            // Include NOTIFICATION_AUTO so previously live-confirmed expenses block re-import.
             val existingSmsAuto = expenseRepository.getExpensesSnapshot()
-                .filter { it.sourceType == SourceType.SMS_AUTO }
+                .filter { it.sourceType == SourceType.SMS_AUTO || it.sourceType == SourceType.NOTIFICATION_AUTO }
             val existingBodyKeys = existingSmsAuto
                 .filter { !it.rawSmsBody.isNullOrBlank() }
                 .mapTo(mutableSetOf()) { it.rawSmsBody!!.trim().hashCode() }

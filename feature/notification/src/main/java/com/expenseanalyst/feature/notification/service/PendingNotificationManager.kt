@@ -55,9 +55,10 @@ class PendingNotificationManager @Inject constructor(
                 if (recentDup != null) return@launch
 
                 // Check 2: same raw body already saved as an expense (user already confirmed it)
+                // Include NOTIFICATION_AUTO so live-notification-confirmed expenses also block re-detection.
                 val bodyHash = rawBody.hashCode()
                 val alreadySaved = expenseRepository.getExpensesSnapshot()
-                    .any { it.sourceType == SourceType.SMS_AUTO &&
+                    .any { (it.sourceType == SourceType.SMS_AUTO || it.sourceType == SourceType.NOTIFICATION_AUTO) &&
                         it.rawSmsBody?.trim()?.hashCode() == bodyHash }
                 if (alreadySaved) return@launch
             }
