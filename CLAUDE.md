@@ -55,7 +55,7 @@ These rules apply at all times, without exception.
 
 ## Database
 
-- **Room** — entities in `data/local/entity/`. **Current version: 15**. All migrations inline in `ExpenseAnalystDatabase.kt`.
+- **Room** — entities in `data/local/entity/`. **Current version: 16**. All migrations inline in `ExpenseAnalystDatabase.kt`.
 - Dates: **UTC epoch milliseconds** (`Long`). Display converts via `TimeZone.currentSystemDefault()`
 - **Soft delete** — `isDeleted: Boolean` flag. Never hard-delete.
 - Expenses store both `amount` (original currency) and `homeAmount` (converted to home currency)

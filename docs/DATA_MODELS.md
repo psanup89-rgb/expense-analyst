@@ -2,7 +2,7 @@
 
 ## Database: Room (SQLite)
 - Database class: `ExpenseAnalystDatabase`
-- **Current schema version: `15`**
+- **Current schema version: `16`**
 - Room schema export is enabled under `data/schemas/`
 - All migrations are inline in `ExpenseAnalystDatabase.kt` (v1→v2→...→v15)
 - Home currency preference is stored separately in DataStore, not in Room
@@ -382,3 +382,4 @@ Each installment creates an `ExpenseEntity` with:
 - Add a dedicated migration package when the schema moves past version 1
 - Test migrations using Room's `MigrationTestHelper`
 - Never lose user data — always migrate, never recreate
+- **Index naming rule**: When writing `CREATE INDEX` in a migration, the name MUST match Room's auto-generated convention: `index_<tableName>_<col1>_<col2>`. Mismatch causes a fatal `IllegalStateException` on launch. Either use the auto-generated name in the SQL, or specify `name = "..."` in the `@Index` annotation on the entity. See `.claude/skills/room-migration-gotchas.md`.

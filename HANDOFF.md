@@ -1,10 +1,50 @@
 # Expense Analyst — Handoff
 
-**Last updated**: 2026-04-29
-**DB version**: 15
-**Build**: `./gradlew clean assembleDebug` ✅ | Device not connected
+**Last updated**: 2026-05-02
+**DB version**: 16
+**Build**: `./gradlew clean assembleDebug` ✅ | Both devices connected
 **Repo**: `https://github.com/psanup89-rgb/expense-analyst` (public)
-**Release**: v0.1.0-budget (GitHub Release with APK)
+**Release**: v0.1.2-debug (GitHub Release with APK)
+
+---
+
+## Session Summary (2026-05-02) — Bug fixes: GitHub Issues #1 & #2, DB crash
+
+### 1. GitHub Issue #1 — Duplicate expenses from live notifications
+
+**Root cause (two separate gaps):**
+- `PendingNotificationManager` Check 2 (body hash vs saved expenses) only filtered `SMS_AUTO`. Expenses confirmed from live notifications are `NOTIFICATION_AUTO`, so the same SMS arriving again was not blocked → duplicate pending notification → user confirms twice.
+- `SmsImportViewModel` Tier 1 bulk dedup also only scanned `SMS_AUTO`. Running bulk import after confirming a live notification would re-import the same transaction.
+
+**Fixes:**
+- `PendingNotificationManager.kt` line 60: filter now includes `NOTIFICATION_AUTO`.
+- `SmsImportViewModel.kt` (existingBodyKeys filter): now includes `NOTIFICATION_AUTO`.
+
+### 2. GitHub Issue #2 — Two SMS messages not parsed
+
+**SMS A — Mubasher bill payment (`Amount:SR 1320`):**
+- `MubasherParser.amountPattern` only matched `SAR`, not the `SR` abbreviation some Mubasher SMS variants use.
+- Fix: pattern updated to `(?:SAR|SR|ر\.س)`.
+
+**SMS B — STC prepaid services payment:**
+- `StcBankParser` `isDebit` required `paid|debited|sent|deducted`; "stc prepaid services payment" has none of these.
+- Fix: added `services?\s+payment|prepaid` as additional debit indicators.
+
+Both parser fixes covered by new unit tests in `MubasherParserTest.kt` and `StcBankParserTest.kt`.
+
+### 3. Critical crash on launch — DB v16 migration
+
+**Root cause:** `MIGRATION_14_15` created the `salary_entries` unique index as `idx_salary_month_year`. Room auto-generates index names as `index_<tableName>_<columns>`, so it expected `index_salary_entries_month_year`. The mismatch caused `IllegalStateException: Migration didn't properly handle: salary_entries` on launch for all devices that had upgraded from DB v14.
+
+**Fix:** DB bumped to v16. `MIGRATION_15_16` drops the misnamed index and recreates it with the correct name. Migration is safe for all device states — `IF EXISTS`/`IF NOT EXISTS` guards make it a no-op on fresh installs. `MIGRATION_14_15` SQL also corrected for future consistency.
+
+**Files changed:** `ExpenseAnalystDatabase.kt` (v15→v16, new MIGRATION_15_16, corrected MIGRATION_14_15 index name).
+
+### Releases this session
+- `v0.1.1-debug` — parser + dedup fixes
+- `v0.1.2-debug` — DB crash fix (install this one)
+
+Both APKs installed on both connected devices and verified crash-free.
 
 ---
 
@@ -295,7 +335,7 @@ Route: `NavRoutes.EDIT_BILL = "edit_bill/{billId}"` / `NavRoutes.editBill(billId
 
 ## Open Issues
 
-No known bugs. All previous open issues resolved (see session 3 summary above).
+No known bugs. GitHub Issues #1 and #2 resolved this session (2026-05-02).
 
 ---
 
@@ -319,3 +359,5 @@ No critical bugs. Suggested next tasks in priority order:
 - **`rawSmsBody` on pre-2026-04-11 notification-path expenses**: null in DB (bug was fixed). Edit Expense infers auto-import from `sourceType` and shows "Auto-imported from SMS" label for those.
 - **Claude API proxy (api.gameron.me)**: Uses `Authorization: Bearer <key>` header (not `x-api-key`). Model name is `claude-haiku-4.5` (not `claude-haiku-3-5`). Test with `curl` before assuming the model string is correct on a new proxy.
 - **`local.properties` quoted values**: The `localProp()` helper in `data/build.gradle.kts` strips surrounding double-quotes, so `CLAUDE_API_KEY="sk-..."` and `CLAUDE_API_KEY=sk-...` both work.
+- **Room migration index naming**: When writing `CREATE INDEX` in a migration, the name MUST match Room's auto-generated convention `index_<tableName>_<col1>_<col2>`, OR the `@Index` annotation on the entity must specify the same custom name explicitly. Mismatch causes `IllegalStateException: Migration didn't properly handle` crash on launch. See `.claude/skills/room-migration-gotchas.md`.
+- **Dedup sourceType coverage**: Both `PendingNotificationManager` and `SmsImportViewModel` dedup checks must include `NOTIFICATION_AUTO` alongside `SMS_AUTO` — otherwise expenses confirmed from live notifications are invisible to subsequent dedup checks.
