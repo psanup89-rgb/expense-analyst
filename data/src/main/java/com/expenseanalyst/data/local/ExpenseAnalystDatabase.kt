@@ -46,7 +46,7 @@ import com.expenseanalyst.data.local.entity.TagEntity
         SalaryEntryEntity::class,
         PlannedExpenseEntity::class
     ],
-    version = 15,
+    version = 16,
     exportSchema = true
 )
 abstract class ExpenseAnalystDatabase : RoomDatabase() {
@@ -195,7 +195,7 @@ abstract class ExpenseAnalystDatabase : RoomDatabase() {
                         created_at_millis INTEGER NOT NULL
                     )
                 """.trimIndent())
-                db.execSQL("CREATE UNIQUE INDEX IF NOT EXISTS idx_salary_month_year ON salary_entries (month, year)")
+                db.execSQL("CREATE UNIQUE INDEX IF NOT EXISTS index_salary_entries_month_year ON salary_entries (month, year)")
                 db.execSQL("""
                     CREATE TABLE IF NOT EXISTS planned_expenses (
                         id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
@@ -209,6 +209,16 @@ abstract class ExpenseAnalystDatabase : RoomDatabase() {
                         created_at_millis INTEGER NOT NULL
                     )
                 """.trimIndent())
+            }
+        }
+
+        // MIGRATION_14_15 created the salary_entries unique index with the wrong name
+        // (idx_salary_month_year instead of the Room-generated index_salary_entries_month_year).
+        // This migration drops the misnamed index and creates the correct one.
+        private val MIGRATION_15_16 = object : Migration(15, 16) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("DROP INDEX IF EXISTS idx_salary_month_year")
+                db.execSQL("CREATE UNIQUE INDEX IF NOT EXISTS index_salary_entries_month_year ON salary_entries (month, year)")
             }
         }
 
@@ -283,7 +293,7 @@ abstract class ExpenseAnalystDatabase : RoomDatabase() {
                 ExpenseAnalystDatabase::class.java,
                 DATABASE_NAME
             )
-                .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13, MIGRATION_13_14, MIGRATION_14_15)
+                .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13, MIGRATION_13_14, MIGRATION_14_15, MIGRATION_15_16)
                 .addCallback(SeedDatabaseCallback())
                 .build()
         }
