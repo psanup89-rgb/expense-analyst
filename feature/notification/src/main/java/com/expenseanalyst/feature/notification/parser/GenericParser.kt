@@ -28,7 +28,12 @@ class GenericParser : TransactionParser {
 
         // Detect bill/card payment confirmations before generic debit/credit
         val isPayment = Regex("""(?i)\b(?:payment\s+(?:received|successful|confirmed|processed)|received\s+payment|paid\s+(?:your|against|towards)|bill\s+paid|due\s+paid)\b""").containsMatchIn(body)
-        val isDebit = !isPayment && Regex("""(?i)\b(?:debited|deducted|paid|purchase|sent|withdrawn)\b""").containsMatchIn(body)
+        // Strong debit signals are unambiguous ("debited/deducted/withdrawn").
+        // Weak debit signals ("paid/sent/purchase") can appear in non-transactional contexts
+        // (e.g. "email sent to ...") and must not override an explicit CREDIT signal.
+        val isStrongDebit = !isPayment && Regex("""(?i)\b(?:debited|deducted|withdrawn)\b""").containsMatchIn(body)
+        val isWeakDebit = !isPayment && !isStrongDebit && Regex("""(?i)\b(?:paid|purchase|sent)\b""").containsMatchIn(body)
+        val isDebit = isStrongDebit || isWeakDebit
         val isCredit = !isPayment && Regex("""(?i)\b(?:credited|received|refund(?:ed|s)?)\b""").containsMatchIn(body)
         if (!isDebit && !isCredit && !isPayment) return null
 
@@ -58,8 +63,9 @@ class GenericParser : TransactionParser {
 
         val direction = when {
             isPayment -> TransactionDirection.PAYMENT
-            isDebit -> TransactionDirection.DEBIT
-            else -> TransactionDirection.CREDIT
+            isStrongDebit -> TransactionDirection.DEBIT  // "debited/deducted/withdrawn" always wins
+            isCredit -> TransactionDirection.CREDIT       // "credited/refund" beats "paid/sent"
+            else -> TransactionDirection.DEBIT            // "paid/sent/purchase" alone → DEBIT
         }
         return ParsedTransaction(
             amount = amount,
@@ -103,6 +109,7 @@ class GenericParser : TransactionParser {
             "AMEX" in s -> "American Express"
             "PAYTM" in s -> "Paytm"
             "AIRTEL" in s -> "Airtel Payments Bank"
+            "CLRTRP" in s || "CLEARTRIP" in s -> "Cleartrip"
             else -> bankName // "Unknown Bank"
         }
     }

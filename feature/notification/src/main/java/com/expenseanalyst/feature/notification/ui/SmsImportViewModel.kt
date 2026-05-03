@@ -376,6 +376,7 @@ class SmsImportViewModel @Inject constructor(
             "ALINMA" in s -> "Alinma Bank"
             "STCBNK" in s || "STCPAY" in s -> "STC Bank"
             "D360" in s -> "Bank D·360"
+            "CLRTRP" in s || "CLEARTRIP" in s -> "Cleartrip"
             else -> null
         }
     }

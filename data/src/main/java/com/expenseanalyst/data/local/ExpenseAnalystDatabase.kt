@@ -46,7 +46,7 @@ import com.expenseanalyst.data.local.entity.TagEntity
         SalaryEntryEntity::class,
         PlannedExpenseEntity::class
     ],
-    version = 16,
+    version = 17,
     exportSchema = true
 )
 abstract class ExpenseAnalystDatabase : RoomDatabase() {
@@ -212,6 +212,15 @@ abstract class ExpenseAnalystDatabase : RoomDatabase() {
             }
         }
 
+        private val MIGRATION_16_17 = object : Migration(16, 17) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    "INSERT OR IGNORE INTO categories (name, icon_name, color_hex, is_default, sort_order) " +
+                        "VALUES ('Refund', 'currency_exchange', '#26C6DA', 1, 13)"
+                )
+            }
+        }
+
         // MIGRATION_14_15 created the salary_entries unique index with the wrong name
         // (idx_salary_month_year instead of the Room-generated index_salary_entries_month_year).
         // This migration drops the misnamed index and creates the correct one.
@@ -293,7 +302,7 @@ abstract class ExpenseAnalystDatabase : RoomDatabase() {
                 ExpenseAnalystDatabase::class.java,
                 DATABASE_NAME
             )
-                .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13, MIGRATION_13_14, MIGRATION_14_15, MIGRATION_15_16)
+                .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13, MIGRATION_13_14, MIGRATION_14_15, MIGRATION_15_16, MIGRATION_16_17)
                 .addCallback(SeedDatabaseCallback())
                 .build()
         }
@@ -315,7 +324,8 @@ abstract class ExpenseAnalystDatabase : RoomDatabase() {
                 "('Salary', 'payments', '#CCFF00', 1, 9)",
                 "('Transfer', 'swap_horiz', '#607D8B', 1, 10)",
                 "('Other', 'more_horiz', '#9E9E9E', 1, 11)",
-                "('Misc', 'help_outline', '#BDBDBD', 1, 12)"
+                "('Misc', 'help_outline', '#BDBDBD', 1, 12)",
+                "('Refund', 'currency_exchange', '#26C6DA', 1, 13)"
             )
             defaultCategories.forEach { values ->
                 db.execSQL("INSERT INTO categories (name, icon_name, color_hex, is_default, sort_order) VALUES $values")

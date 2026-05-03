@@ -109,6 +109,7 @@ object CategoryInference {
             "edx", "linkedin learning", "testbook", "gradeup", "british council",
             "ielts", "toefl", "training", "workshop", "certification"
         ),
+        "Refund" to listOf("refund", "reversal", "cashback", "cash back", "reimburs"),
         "Salary" to listOf("salary", "payroll", "stipend"),
         "Transfer" to listOf(
             "neft", "rtgs", "imps", "sarie", "loan repayment", "emi payment",
@@ -162,6 +163,10 @@ object CategoryInference {
         // Fallback: check SMS body for payment-type signals
         val bodyLower = smsBody?.lowercase() ?: return null
         return when {
+            bodyLower.contains("refund") || bodyLower.contains("reversal") ||
+                bodyLower.contains("cashback") || bodyLower.contains("cash back") ||
+                bodyLower.contains("reimburs") ->
+                findCategory(categories, "Refund")
             bodyLower.contains("salary") || bodyLower.contains("payroll") ||
                 bodyLower.contains("stipend") ->
                 findCategory(categories, "Salary")
