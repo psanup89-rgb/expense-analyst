@@ -2,7 +2,7 @@
 
 ## Database: Room (SQLite)
 - Database class: `ExpenseAnalystDatabase`
-- **Current schema version: `16`**
+- **Current schema version: `17`**
 - Room schema export is enabled under `data/schemas/`
 - All migrations are inline in `ExpenseAnalystDatabase.kt` (v1→v2→...→v15)
 - Home currency preference is stored separately in DataStore, not in Room
@@ -72,6 +72,7 @@ Pre-seeded and user-created expense categories.
 | Salary | payments | #CCFF00 |
 | Transfer | swap_horiz | #607D8B |
 | Other | more_horiz | #9E9E9E |
+| Refund | currency_exchange | #26C6DA |
 
 ### emi_groups
 Groups of installment payments linked to multiple expense entries.

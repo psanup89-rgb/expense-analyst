@@ -31,6 +31,7 @@ import com.expenseanalyst.domain.usecase.GetAccountsUseCase
 import com.expenseanalyst.domain.usecase.GetCategoriesUseCase
 import com.expenseanalyst.domain.usecase.InferCategoryUseCase
 import com.expenseanalyst.domain.usecase.InferenceSource
+import com.expenseanalyst.domain.util.BillMatcher
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.Job
@@ -159,7 +160,7 @@ class AddExpenseViewModel @Inject constructor(
             viewModelScope.launch { loadBillsForLinking() }
         }
 
-        // Load rawSmsBody and paymentMethod from pending notification (inbox path)
+        // Load rawSmsBody, paymentMethod and pre-matched linkedBillId from pending notification
         val pendingIdArg = savedStateHandle.get<Long>("pendingId")?.takeIf { it > 0 }
         if (pendingIdArg != null) {
             viewModelScope.launch {
@@ -171,8 +172,31 @@ class AddExpenseViewModel @Inject constructor(
                     val pm = PaymentMethod.entries.find { it.name == pending.paymentMethod }
                     if (pm != null) updates.add { copy(paymentMethod = pm) }
                 }
+                // PAYMENT-type inbox items may carry a pre-matched bill (issue #6 + #11).
+                val preMatchedBillId = pending.linkedBillId
+                if (preMatchedBillId != null) {
+                    val matchedBill = billRepository.getBillById(preMatchedBillId).firstOrNull()
+                    if (matchedBill != null && !matchedBill.isDeleted &&
+                        matchedBill.status != BillStatus.SETTLED
+                    ) {
+                        updates.add { copy(linkedBillId = matchedBill.id, linkedBill = matchedBill) }
+                    }
+                }
                 if (updates.isNotEmpty()) {
                     _form.update { state -> updates.fold(state) { acc, fn -> fn(acc) } }
+                }
+            }
+        }
+
+        // Default category to "Bills" for PAYMENT-type expenses (issue #6). The user can still
+        // override; we only apply the default when no category has been chosen yet.
+        if (_form.value.transactionType == TransactionType.PAYMENT) {
+            viewModelScope.launch {
+                if (_form.value.selectedCategory != null) return@launch
+                val billsCategory = getCategoriesUseCase().first()
+                    .firstOrNull { it.name.equals("Bills", ignoreCase = true) }
+                if (billsCategory != null && _form.value.selectedCategory == null) {
+                    _form.update { it.copy(selectedCategory = billsCategory) }
                 }
             }
         }
@@ -443,18 +467,19 @@ class AddExpenseViewModel @Inject constructor(
     private suspend fun loadBillsForLinking() {
         val openBills = billRepository.getBills().first()
             .filter { !it.isDeleted && it.status != BillStatus.SETTLED }
-        val merchant = _form.value.merchantName.ifBlank { null }
-        val autoMatch = if (merchant != null) {
-            openBills.firstOrNull { bill ->
-                bill.billerName.contains(merchant, ignoreCase = true) ||
-                    merchant.contains(bill.billerName, ignoreCase = true)
-            }
+        val state = _form.value
+        val merchant = state.merchantName.ifBlank { null }
+        // Strict matcher: require both merchant similarity AND amount proximity. If the
+        // amount is unknown (form not yet filled), skip auto-link rather than guess.
+        val parsedAmount = state.amountInput.toDoubleOrNull()
+        val autoMatch = if (parsedAmount != null) {
+            BillMatcher.findMatchingOpenBill(parsedAmount, merchant, openBills)
         } else null
-        _form.update { state ->
-            state.copy(
+        _form.update {
+            it.copy(
                 availableBills = openBills,
-                linkedBillId = autoMatch?.id ?: state.linkedBillId,
-                linkedBill = autoMatch ?: state.linkedBill
+                linkedBillId = autoMatch?.id ?: it.linkedBillId,
+                linkedBill = autoMatch ?: it.linkedBill
             )
         }
     }

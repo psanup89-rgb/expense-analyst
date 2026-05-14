@@ -59,18 +59,28 @@ class AnalyticsViewModel @Inject constructor(
 
         val active = expList.filter { !it.isDeleted }
 
-        // Totals
-        val totalExpense = active
+        // Totals — refunds (INCOME with category=Refund) are netted out of Total Spent
+        // and excluded from Total Income so the dashboard reflects real net spend (issue #12).
+        val refundTotal = active
+            .filter { it.transactionType == TransactionType.INCOME && it.category.name == REFUND_CATEGORY }
+            .sumOf { it.homeAmount ?: it.amount }
+
+        val grossExpense = active
             .filter { it.transactionType == TransactionType.EXPENSE }
             .sumOf { it.homeAmount ?: it.amount }
+        val totalExpense = (grossExpense - refundTotal).coerceAtLeast(0.0)
 
         val totalIncome = active
-            .filter { it.transactionType == TransactionType.INCOME }
+            .filter { it.transactionType == TransactionType.INCOME && it.category.name != REFUND_CATEGORY }
             .sumOf { it.homeAmount ?: it.amount }
 
-        val prevMonthExpense = prevList
+        val prevRefundTotal = prevList
+            .filter { !it.isDeleted && it.transactionType == TransactionType.INCOME && it.category.name == REFUND_CATEGORY }
+            .sumOf { it.homeAmount ?: it.amount }
+        val prevGrossExpense = prevList
             .filter { !it.isDeleted && it.transactionType == TransactionType.EXPENSE }
             .sumOf { it.homeAmount ?: it.amount }
+        val prevMonthExpense = (prevGrossExpense - prevRefundTotal).coerceAtLeast(0.0)
 
         // Days in month for avg
         val daysInMonth = selectedMonth.plus(1, DateTimeUnit.MONTH)
@@ -200,5 +210,9 @@ class AnalyticsViewModel @Inject constructor(
 
     fun dismissDrillDown() {
         _drillDownFilter.value = null
+    }
+
+    private companion object {
+        const val REFUND_CATEGORY = "Refund"
     }
 }

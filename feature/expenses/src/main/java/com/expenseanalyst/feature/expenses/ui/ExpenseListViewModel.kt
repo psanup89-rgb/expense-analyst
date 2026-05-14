@@ -81,12 +81,18 @@ class ExpenseListViewModel @Inject constructor(
             active
         }
 
-        // Summary totals for selected period
-        val monthDebit = monthFiltered
+        // Summary totals for selected period.
+        // Refunds are stored as INCOME with category=Refund; per issue #12 they should
+        // reduce the Spent total (true net spend) rather than inflate the Received card.
+        val refundTotal = monthFiltered
+            .filter { it.transactionType == TransactionType.INCOME && it.category.name == REFUND_CATEGORY }
+            .sumOf { it.homeAmount ?: 0.0 }
+        val grossDebit = monthFiltered
             .filter { it.transactionType == TransactionType.EXPENSE }
             .sumOf { it.homeAmount ?: 0.0 }
+        val monthDebit = (grossDebit - refundTotal).coerceAtLeast(0.0)
         val monthCredit = monthFiltered
-            .filter { it.transactionType == TransactionType.INCOME }
+            .filter { it.transactionType == TransactionType.INCOME && it.category.name != REFUND_CATEGORY }
             .sumOf { it.homeAmount ?: 0.0 }
         // PAYMENT type (credit card/bill payments) excluded from both totals — it's settling existing debt
 
@@ -190,6 +196,7 @@ class ExpenseListViewModel @Inject constructor(
 
     companion object {
         private const val UNDO_TIMEOUT_MS = 4_000L
+        private const val REFUND_CATEGORY = "Refund"
     }
 
     private suspend fun repairExpenseConversions() {

@@ -1,10 +1,94 @@
 # Expense Analyst — Handoff
 
-**Last updated**: 2026-05-02
-**DB version**: 16
-**Build**: `./gradlew clean assembleDebug` ✅ | Both devices connected
+**Last updated**: 2026-05-11
+**DB version**: 17
+**Build**: `./gradlew clean assembleDebug` ✅
 **Repo**: `https://github.com/psanup89-rgb/expense-analyst` (public)
 **Release**: v0.1.2-debug (GitHub Release with APK)
+
+---
+
+## Session Summary (2026-05-11) — Bug fixes: GitHub Issues #4–#9, #11, #12
+
+Sweep of every open issue in the tracker. Issue #10 (Loan/Lent tracking with reminders)
+is deferred to a separate plan because it needs greenfield reminder infrastructure
+(WorkManager) and a new Room table.
+
+### 1. Parser gaps (#4 / #5 / #6 / #7 / #8 / #9)
+
+- **AxisBankStatementParser** — `bodyFingerprint` and `totalDuePattern` now also match the
+  newer Axis CC reminder format `"INR 10747.2 is due for payment on 10-05-26 towards
+  Axis Bank CC no. XX4502. INR 215 will be debited from Axis Bank A/c no. XX0426 via auto
+  debit."`. CC last-4 (XX4502) is now preferred over the auto-debit account last-4
+  (XX0426). `dueDatePattern` accepts `due (for payment) on dd-MM-yy`. Issues #4 + #7.
+- **KeetaParser** — refund regex now also catches order-cancellation SMS phrased as
+  `"was canceled … will return"`. `canParse` now also runs when the body contains a
+  `[Keeta]` prefix even if the sender is a generic short-code. Issues #5 + #8.
+- **EmiratesNbdParser** — `bodyFingerprintPattern` extended to include
+  `Credit\s+Card:\s*Credited`, so the SMS in #6 is detected without an ENBD sender ID.
+  The existing `POS Reversal` path was already present but only fired when ENBD was the
+  sender; same fingerprint widening fixes #9 (POS Reversal from generic short-code).
+
+### 2. PAYMENT routing for credit-card payment confirmations (#6)
+
+- `PendingNotificationManager.enqueue()` now (a) sets merchant to `"BillPayments"`
+  whenever the parser returns `TransactionDirection.PAYMENT` with a null/blank merchant,
+  and (b) auto-links the saved `PendingNotification` to an open bill from the same biller
+  using the new strict `BillMatcher` (see #11 below).
+- `AddExpenseViewModel` reads `pending.linkedBillId` from the pending record and
+  pre-populates `linkedBill` / `linkedBillId` in the form state. It also defaults the
+  category to `"Bills"` when transaction type is PAYMENT and no category has been chosen,
+  so the inbox confirm flow ships with the correct defaults.
+- Confirming the PAYMENT expense already runs the existing PENDING → PARTIAL / SETTLED
+  lifecycle transition in `AddExpenseViewModel.saveExpense()` — no change needed there.
+
+### 3. Strict bill auto-linker (#11)
+
+- New `domain/util/BillMatcher.kt` — replaces the old "any biller substring match wins"
+  behaviour that linked May payments to last month's bill. A bill matches only when:
+  - billerName substring matches (either direction, case-insensitive), AND
+  - `|payment − totalDue| ≤ max(5%·totalDue, 1.0)` OR the bill has a minimumDue and the
+    payment covers it.
+  - If totalDue is unknown and minimumDue is unknown → refuses to link.
+- Wired into `AddExpenseViewModel.loadBillsForLinking()` (manual add path) and
+  `PendingNotificationManager.enqueue()` (inbox path). `BillStatementManager` still
+  matches new bill statements by biller alone — that's the correct behaviour for the
+  "is there an open bill for this biller?" use case.
+- 10 unit tests in `domain/src/test/.../BillMatcherTest.kt` cover exact match, ±5%
+  tolerance, minimumDue path, merchant mismatch, blank merchant, no-amount bill, etc.
+
+### 4. Refunds reduce monthly Spent (#12)
+
+- `ExpenseListViewModel`: `monthDebit` now subtracts INCOME-with-category=`Refund` from
+  the gross EXPENSE sum; `monthCredit` excludes refunds. Net spend is clamped at 0.
+- `AnalyticsViewModel`: same subtraction applied to `totalExpense` and
+  `prevMonthExpense`. `totalIncome` excludes refunds. Daily-spend bar chart and
+  per-category breakdown still use raw EXPENSE so drill-downs reconcile.
+
+### 5. Tests + infra
+
+- Added `EmiratesNbdParserTest` cases for #6 and #9, new `AxisBankStatementParserTest`,
+  new `KeetaParserTest`, new `BillMatcherTest`.
+- `domain/build.gradle.kts` now declares `org.junit.platform:junit-platform-launcher`
+  on the test runtime classpath — Gradle 9 requires it explicitly. Without it the
+  whole `:domain:test` task fails to start (this had been silently masking the EMI
+  interest-formula assertion mismatch in `CreateEmiFromExpenseUseCaseTest` — a
+  pre-existing bug in the test's expected value, not in production code; left as-is
+  here because it is out of scope for these issues).
+
+### Files changed
+- `feature/notification/parser/AxisBankStatementParser.kt`
+- `feature/notification/parser/KeetaParser.kt`
+- `feature/notification/parser/EmiratesNbdParser.kt`
+- `feature/notification/service/PendingNotificationManager.kt`
+- `feature/expenses/ui/AddExpenseViewModel.kt`
+- `feature/expenses/ui/ExpenseListViewModel.kt`
+- `feature/analytics/ui/AnalyticsViewModel.kt`
+- `domain/util/BillMatcher.kt` (new)
+- `domain/build.gradle.kts` (junit-platform-launcher)
+- Tests: `AxisBankStatementParserTest`, `KeetaParserTest`,
+  `EmiratesNbdParserTest` (extended), `BillMatcherTest`
+- Docs: `CLAUDE.md`, `docs/DATA_MODELS.md`, `HANDOFF.md`
 
 ---
 
@@ -335,7 +419,12 @@ Route: `NavRoutes.EDIT_BILL = "edit_bill/{billId}"` / `NavRoutes.editBill(billId
 
 ## Open Issues
 
-No known bugs. GitHub Issues #1 and #2 resolved this session (2026-05-02).
+GitHub Issues #4, #5, #6, #7, #8, #9, #11, #12 resolved this session (2026-05-11).
+**Issue #10** (Loan/Lent tracking with reminders) is open — deferred to its own plan
+because it needs new reminder scheduling infrastructure (WorkManager) and a new Room
+table for lent/loaned items. The corresponding plan file is at
+`~/.claude/plans/read-all-the-issues-functional-clock.md` (this session's plan); the
+loan feature itself will be designed separately.
 
 ---
 

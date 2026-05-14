@@ -19,7 +19,7 @@ class EmiratesNbdParser : TransactionParser {
 
     private val senderPattern = Regex("""(?i)(?:emirates\s*nbd|enbd|emiratesnbd)""")
     private val bodyFingerprintPattern = Regex(
-        """(?i)(?:(?:POS|Online)\s+Purchase|POS\s+Reversal).*(?:Card:|Merchant:|Amount:|To:)""",
+        """(?i)(?:(?:POS|Online)\s+Purchase|POS\s+Reversal|Credit\s+Card:\s*Credited).*(?:Card\s*:|Merchant:|Amount:|To:)""",
         RegexOption.DOT_MATCHES_ALL
     )
 

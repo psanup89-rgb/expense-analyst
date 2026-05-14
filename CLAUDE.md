@@ -55,7 +55,7 @@ These rules apply at all times, without exception.
 
 ## Database
 
-- **Room** — entities in `data/local/entity/`. **Current version: 16**. All migrations inline in `ExpenseAnalystDatabase.kt`.
+- **Room** — entities in `data/local/entity/`. **Current version: 17**. All migrations inline in `ExpenseAnalystDatabase.kt`.
 - Dates: **UTC epoch milliseconds** (`Long`). Display converts via `TimeZone.currentSystemDefault()`
 - **Soft delete** — `isDeleted: Boolean` flag. Never hard-delete.
 - Expenses store both `amount` (original currency) and `homeAmount` (converted to home currency)
@@ -63,7 +63,7 @@ These rules apply at all times, without exception.
 - `TransactionType`: `EXPENSE | INCOME | TRANSFER | PAYMENT`
 - `AccountType`: `SAVINGS | CURRENT | CREDIT_CARD | DEBIT_CARD | FOREX_CARD | WALLET | OTHER`
 - 12 entities: Expense, Category, EmiGroup, CurrencyRate, **Account**, **MerchantRule**, **PendingNotification**, **Bill**, **Tag**, **ExpenseTagCrossRef**, **SalaryEntry**, **PlannedExpense**
-- Pre-seeded categories: Food, Transport, Shopping, Bills, Entertainment, Health, Education, Groceries, Rent, Salary, Transfer, Other
+- Pre-seeded categories: Food, Transport, Shopping, Bills, Entertainment, Health, Education, Groceries, Rent, Salary, Transfer, Other, **Refund**
 
 ---
 

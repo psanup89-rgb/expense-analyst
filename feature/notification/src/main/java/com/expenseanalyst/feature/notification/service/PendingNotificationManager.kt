@@ -1,11 +1,15 @@
 package com.expenseanalyst.feature.notification.service
 
 import android.content.Context
+import com.expenseanalyst.domain.model.BillStatus
 import com.expenseanalyst.domain.model.PendingNotification
 import com.expenseanalyst.domain.model.SourceType
+import com.expenseanalyst.domain.repository.BillRepository
 import com.expenseanalyst.domain.repository.ExpenseRepository
 import com.expenseanalyst.domain.repository.PendingNotificationRepository
+import com.expenseanalyst.domain.util.BillMatcher
 import com.expenseanalyst.feature.notification.parser.ParsedTransaction
+import com.expenseanalyst.feature.notification.parser.TransactionDirection
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -13,6 +17,7 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import java.util.Calendar
 import javax.inject.Inject
@@ -32,7 +37,8 @@ import javax.inject.Singleton
 class PendingNotificationManager @Inject constructor(
     @ApplicationContext private val context: Context,
     private val repository: PendingNotificationRepository,
-    private val expenseRepository: ExpenseRepository
+    private val expenseRepository: ExpenseRepository,
+    private val billRepository: BillRepository
 ) {
     private val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
 
@@ -44,10 +50,20 @@ class PendingNotificationManager @Inject constructor(
     val lastPendingId: StateFlow<Long?> = _lastPendingId.asStateFlow()
 
     fun enqueue(transaction: ParsedTransaction) {
-        _pending.value = transaction  // emit immediately; flag updated below after DB check
+        // PAYMENT-type SMS (e.g. "Credit Card: Credited") frequently arrive without a
+        // merchant. Normalize to "BillPayments" so the inbox card and the AddExpense
+        // form both default to the bill-payment flow (issue #6).
+        val normalized = if (transaction.type == TransactionDirection.PAYMENT &&
+            transaction.merchant.isNullOrBlank()
+        ) {
+            transaction.copy(merchant = DEFAULT_PAYMENT_MERCHANT)
+        } else {
+            transaction
+        }
+        _pending.value = normalized  // emit immediately; flag updated below after DB check
         scope.launch {
             // ── Dedup: skip if same SMS already in pending inbox or saved expenses ──
-            val rawBody = transaction.rawBody?.trim()
+            val rawBody = normalized.rawBody?.trim()
             if (!rawBody.isNullOrBlank()) {
                 val sixtySecondsAgo = System.currentTimeMillis() - 60_000L
                 // Check 1: same raw body already in pending_notifications (recent)
@@ -65,36 +81,53 @@ class PendingNotificationManager @Inject constructor(
 
             // ── Soft-dupe check: same amount + same merchant + same calendar day ──
             val now = System.currentTimeMillis()
-            val isPossibleDuplicate = transaction.merchant != null &&
+            val isPossibleDuplicate = normalized.merchant != null &&
                 expenseRepository.getExpensesSnapshot().any { expense ->
                     !expense.isDeleted &&
-                    expense.amount == transaction.amount &&
-                    expense.merchantName?.trim()?.lowercase() == transaction.merchant.trim().lowercase() &&
+                    expense.amount == normalized.amount &&
+                    expense.merchantName?.trim()?.lowercase() == normalized.merchant.trim().lowercase() &&
                     isSameCalendarDay(expense.date.toEpochMilliseconds(), now)
                 }
             // Update the banner with the duplicate flag (banner may still be showing)
-            if (isPossibleDuplicate && _pending.value == transaction) {
-                _pending.value = transaction.copy(isPossibleDuplicate = true)
+            if (isPossibleDuplicate && _pending.value == normalized) {
+                _pending.value = normalized.copy(isPossibleDuplicate = true)
             }
+
+            // For PAYMENT transactions, try to auto-link the open bill from the same biller
+            // using a strict matcher (merchant + amount). See BillMatcher and issue #11.
+            val linkedBillId: Long? = if (normalized.type == TransactionDirection.PAYMENT) {
+                val openBills = billRepository.getBills().first()
+                    .filter { !it.isDeleted && it.status != BillStatus.SETTLED }
+                BillMatcher.findMatchingOpenBill(
+                    payment = normalized.amount,
+                    merchant = normalized.merchant,
+                    openBills = openBills
+                )?.id
+            } else null
 
             val savedId = repository.save(
                 PendingNotification(
-                    amount = transaction.amount,
-                    currencyCode = transaction.currencyCode,
-                    merchantName = transaction.merchant,
-                    bankName = transaction.bankName,
-                    accountLast4 = transaction.accountLast4,
-                    transactionType = transaction.type.name,
+                    amount = normalized.amount,
+                    currencyCode = normalized.currencyCode,
+                    merchantName = normalized.merchant,
+                    bankName = normalized.bankName,
+                    accountLast4 = normalized.accountLast4,
+                    transactionType = normalized.type.name,
                     detectedAtMillis = now,
-                    rawBody = transaction.rawBody,
-                    paymentMethod = transaction.paymentMethodName,
-                    isPossibleDuplicate = isPossibleDuplicate
+                    rawBody = normalized.rawBody,
+                    paymentMethod = normalized.paymentMethodName,
+                    isPossibleDuplicate = isPossibleDuplicate,
+                    linkedBillId = linkedBillId
                 )
             )
             _lastPendingId.value = savedId
             // Post system tray notification after save so pendingId is available in the tap intent
-            TransactionAlertNotification.post(context, transaction, savedId)
+            TransactionAlertNotification.post(context, normalized, savedId)
         }
+    }
+
+    companion object {
+        const val DEFAULT_PAYMENT_MERCHANT = "BillPayments"
     }
 
     fun consume(): ParsedTransaction? {

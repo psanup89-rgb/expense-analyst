@@ -196,4 +196,53 @@ class EmiratesNbdParserTest {
     fun `parse returns null for non-transaction messages`(sender: String, body: String) {
         assertNull(parser.parse(sender, body))
     }
+
+    // ── Issue #6: "Credit Card: Credited" payment confirmation ─────────────────
+    @Test
+    fun `parse Credit Card Credited routes to PAYMENT and is detected without ENBD sender`() {
+        val body = """
+            Credit Card: Credited
+            Card: XX4388;Credit Card Visa
+            Amount: SAR 1,320.00
+            Balance: SAR 17,172.88
+            Date: 03-05-2026
+        """.trimIndent()
+
+        // Should be detected via body fingerprint even when sender doesn't say ENBD.
+        assertTrue(parser.canParse("12345", body))
+
+        val result = parser.parse("12345", body)
+        assertNotNull(result)
+        assertEquals(1320.0, result!!.amount, 0.01)
+        assertEquals("SAR", result.currencyCode)
+        assertEquals(TransactionDirection.PAYMENT, result.type)
+        assertEquals("4388", result.accountLast4)
+        assertEquals("CREDIT_CARD", result.paymentMethodName)
+        assertEquals("Emirates NBD", result.bankName)
+    }
+
+    // ── Issue #9: POS Reversal refund — detected via body fingerprint ──────────
+    @Test
+    fun `parse POS Reversal classifies as CREDIT with merchant from From line`() {
+        val body = """
+            POS Reversal
+            To: XX4388; Visa Credit
+            Amount: SAR 64.96
+            From: UBR* PENDING.UBER.COM
+            In NETHERLANDS
+            Remaining limit SAR: 14,959.53
+            On: 2026-05-08 00:47:44
+        """.trimIndent()
+
+        // Should be detected even when the sender ID lacks "ENBD".
+        assertTrue(parser.canParse("12345", body))
+
+        val result = parser.parse("12345", body)
+        assertNotNull(result)
+        assertEquals(64.96, result!!.amount, 0.01)
+        assertEquals("SAR", result.currencyCode)
+        assertEquals(TransactionDirection.CREDIT, result.type)
+        assertEquals("4388", result.accountLast4)
+        assertEquals("UBR* PENDING.UBER.COM", result.merchant)
+    }
 }

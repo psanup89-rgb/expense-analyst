@@ -24,6 +24,7 @@ dependencies {
     // Testing
     testImplementation(libs.junit5.api)
     testRuntimeOnly(libs.junit5.engine)
+    testRuntimeOnly("org.junit.platform:junit-platform-launcher:1.11.4")
     testImplementation(libs.junit5.params)
     testImplementation(libs.mockk)
     testImplementation(libs.turbine)
