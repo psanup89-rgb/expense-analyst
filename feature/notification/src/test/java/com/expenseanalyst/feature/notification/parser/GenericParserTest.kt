@@ -94,4 +94,21 @@ class GenericParserTest {
     fun `parse returns null for no transaction keyword`() {
         assertNull(parser.parse("UNKNOWN", "Rs.500.00 is the balance in your account."))
     }
+
+    // ── Issue #13: Amazon Pay / Pine Labs wallet spend ────────────────────────
+    @Test
+    fun `parse detects Amazon Pay balance spend via is successful pattern`() {
+        val body = "Payment of Rs 619.00 using Apay balance is successful at A.in. Updated balance is Rs 3520.01. If not u? call 18001200163 - SMS via Pine Labs"
+        val result = parser.parse("PINELBS", body)
+        assertNotNull(result)
+        assertEquals(619.0, result!!.amount, 0.01)
+        assertEquals("INR", result.currencyCode)
+        assertEquals(TransactionDirection.DEBIT, result.type)
+        assertEquals("A.in", result.merchant)
+    }
+
+    @Test
+    fun `parse does not treat is successful without payment keyword as debit`() {
+        assertNull(parser.parse("UNKNOWN", "Your request is successful. No amount involved."))
+    }
 }

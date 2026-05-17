@@ -32,7 +32,11 @@ class GenericParser : TransactionParser {
         // Weak debit signals ("paid/sent/purchase") can appear in non-transactional contexts
         // (e.g. "email sent to ...") and must not override an explicit CREDIT signal.
         val isStrongDebit = !isPayment && Regex("""(?i)\b(?:debited|deducted|withdrawn)\b""").containsMatchIn(body)
-        val isWeakDebit = !isPayment && !isStrongDebit && Regex("""(?i)\b(?:paid|purchase|sent)\b""").containsMatchIn(body)
+        // "Payment of Rs X using [wallet] is successful at [merchant]" — wallet/POS spend format
+        val isSuccessfulSpend = !isPayment && !isStrongDebit &&
+            Regex("""(?i)\bpayment\b.{0,200}\bis\s+successful\b""", RegexOption.DOT_MATCHES_ALL).containsMatchIn(body)
+        val isWeakDebit = !isPayment && !isStrongDebit && (isSuccessfulSpend ||
+            Regex("""(?i)\b(?:paid|purchase|sent)\b""").containsMatchIn(body))
         val isDebit = isStrongDebit || isWeakDebit
         val isCredit = !isPayment && Regex("""(?i)\b(?:credited|received|refund(?:ed|s)?)\b""").containsMatchIn(body)
         if (!isDebit && !isCredit && !isPayment) return null
@@ -53,8 +57,10 @@ class GenericParser : TransactionParser {
             else -> "INR" // default for Indian context
         }
 
-        // Try to extract merchant from "At: Merchant" or "at Merchant" pattern
-        val merchant = Regex("""(?i)\bat[:\s]\s*([A-Za-z0-9][A-Za-z0-9 _\-&./]*?)(?=\s*\n|\s+(?:Amount|Fee|Balance|Ref|Exchange|Country|Total|Available)|\s*$)""")
+        // Try to extract merchant from "At: Merchant" or "at Merchant" pattern.
+        // Also stops at sentence boundaries ("at A.in. Updated..." → "A.in") to avoid
+        // capturing the rest of the message (e.g. wallet/POS success SMS format).
+        val merchant = Regex("""(?i)\bat[:\s]\s*([A-Za-z0-9][A-Za-z0-9 _\-&./]*?)(?=\.\s+[A-Z]|\s*\n|\s+(?:Amount|Fee|Balance|Ref|Exchange|Country|Total|Available)|\s*$)""")
             .find(body)?.groupValues?.get(1)?.trim()?.takeIf { it.isNotBlank() && it.length < 60 }
 
         // Try to extract last-4 from "Card:7573" or "card ending 1234"
