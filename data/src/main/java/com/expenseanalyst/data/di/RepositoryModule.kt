@@ -12,6 +12,7 @@ import com.expenseanalyst.data.repository.CurrencyRepositoryImpl
 import com.expenseanalyst.data.repository.EmiRepositoryImpl
 import com.expenseanalyst.data.repository.ExpenseRepositoryImpl
 import com.expenseanalyst.data.repository.OnboardingRepositoryImpl
+import com.expenseanalyst.data.repository.LentRepositoryImpl
 import com.expenseanalyst.data.repository.TagRepositoryImpl
 import com.expenseanalyst.domain.repository.AccountRepository
 import com.expenseanalyst.domain.repository.BillRepository
@@ -25,6 +26,7 @@ import com.expenseanalyst.domain.repository.CurrencyRepository
 import com.expenseanalyst.domain.repository.EmiRepository
 import com.expenseanalyst.domain.repository.ExpenseRepository
 import com.expenseanalyst.domain.repository.OnboardingRepository
+import com.expenseanalyst.domain.repository.LentRepository
 import com.expenseanalyst.domain.repository.TagRepository
 import dagger.Binds
 import dagger.Module
@@ -87,4 +89,8 @@ abstract class RepositoryModule {
     @Binds
     @Singleton
     abstract fun bindBudgetRepository(impl: BudgetRepositoryImpl): BudgetRepository
+
+    @Binds
+    @Singleton
+    abstract fun bindLentRepository(impl: LentRepositoryImpl): LentRepository
 }

@@ -61,6 +61,7 @@ fun SettingsScreen(
     onNavigateToCategoryManagement: () -> Unit = {},
     onNavigateToAccountManagement: () -> Unit = {},
     onNavigateToBudget: () -> Unit = {},
+    onNavigateToLoans: () -> Unit = {},
     onTestNotification: () -> Unit = {},
     onGrantNotificationAccess: () -> Unit = {},
     viewModel: SettingsViewModel = hiltViewModel()
@@ -91,6 +92,7 @@ fun SettingsScreen(
         onNavigateToCategoryManagement = onNavigateToCategoryManagement,
         onNavigateToAccountManagement = onNavigateToAccountManagement,
         onNavigateToBudget = onNavigateToBudget,
+        onNavigateToLoans = onNavigateToLoans,
         onTestNotification = onTestNotification,
         onGrantNotificationAccess = onGrantNotificationAccess
     )
@@ -113,6 +115,7 @@ private fun SettingsContent(
     onNavigateToCategoryManagement: () -> Unit,
     onNavigateToAccountManagement: () -> Unit,
     onNavigateToBudget: () -> Unit,
+    onNavigateToLoans: () -> Unit,
     onTestNotification: () -> Unit,
     onGrantNotificationAccess: () -> Unit
 ) {
@@ -579,6 +582,36 @@ private fun SettingsContent(
                             shape = androidx.compose.foundation.shape.RoundedCornerShape(10.dp)
                         ) {
                             Text("Open Budget")
+                        }
+                    }
+                }
+            }
+
+            // Loans & Lending section
+            item {
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer)
+                ) {
+                    Column(modifier = Modifier.padding(20.dp)) {
+                        Text(
+                            text = "Loans & Lending",
+                            style = MaterialTheme.typography.titleMedium,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                        Spacer(Modifier.height(12.dp))
+                        Text(
+                            text = "Track money you lend to others. Get reminded until they pay back, then settle to remove from your expense totals.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Spacer(Modifier.height(12.dp))
+                        FilledTonalButton(
+                            onClick = onNavigateToLoans,
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = androidx.compose.foundation.shape.RoundedCornerShape(10.dp)
+                        ) {
+                            Text("Manage Loans")
                         }
                     }
                 }

@@ -14,6 +14,7 @@ import com.expenseanalyst.data.local.dao.ExpenseDao
 import com.expenseanalyst.data.local.dao.BillDao
 import com.expenseanalyst.data.local.dao.MerchantRuleDao
 import com.expenseanalyst.data.local.dao.PendingNotificationDao
+import com.expenseanalyst.data.local.dao.LentItemDao
 import com.expenseanalyst.data.local.dao.PlannedExpenseDao
 import com.expenseanalyst.data.local.dao.SalaryDao
 import com.expenseanalyst.data.local.dao.TagDao
@@ -24,6 +25,7 @@ import com.expenseanalyst.data.local.entity.CurrencyRateEntity
 import com.expenseanalyst.data.local.entity.EmiGroupEntity
 import com.expenseanalyst.data.local.entity.ExpenseEntity
 import com.expenseanalyst.data.local.entity.ExpenseTagCrossRef
+import com.expenseanalyst.data.local.entity.LentItemEntity
 import com.expenseanalyst.data.local.entity.MerchantRuleEntity
 import com.expenseanalyst.data.local.entity.PendingNotificationEntity
 import com.expenseanalyst.data.local.entity.PlannedExpenseEntity
@@ -44,9 +46,10 @@ import com.expenseanalyst.data.local.entity.TagEntity
         TagEntity::class,
         ExpenseTagCrossRef::class,
         SalaryEntryEntity::class,
-        PlannedExpenseEntity::class
+        PlannedExpenseEntity::class,
+        LentItemEntity::class
     ],
-    version = 17,
+    version = 18,
     exportSchema = true
 )
 abstract class ExpenseAnalystDatabase : RoomDatabase() {
@@ -61,6 +64,7 @@ abstract class ExpenseAnalystDatabase : RoomDatabase() {
     abstract fun tagDao(): TagDao
     abstract fun salaryDao(): SalaryDao
     abstract fun plannedExpenseDao(): PlannedExpenseDao
+    abstract fun lentItemDao(): LentItemDao
 
     companion object {
         const val DATABASE_NAME = "expense_analyst.db"
@@ -221,6 +225,33 @@ abstract class ExpenseAnalystDatabase : RoomDatabase() {
             }
         }
 
+        private val MIGRATION_17_18 = object : Migration(17, 18) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("""
+                    CREATE TABLE IF NOT EXISTS lent_items (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                        person_name TEXT NOT NULL,
+                        amount REAL NOT NULL,
+                        currency_code TEXT NOT NULL,
+                        home_amount REAL,
+                        description TEXT NOT NULL,
+                        lent_date_millis INTEGER NOT NULL,
+                        status TEXT NOT NULL DEFAULT 'PENDING',
+                        settled_amount REAL,
+                        settled_date_millis INTEGER,
+                        linked_expense_id INTEGER,
+                        settlement_expense_id INTEGER,
+                        reminder_datetime_millis INTEGER,
+                        is_deleted INTEGER NOT NULL DEFAULT 0,
+                        created_at_millis INTEGER NOT NULL,
+                        updated_at_millis INTEGER NOT NULL
+                    )
+                """.trimIndent())
+                db.execSQL("CREATE INDEX IF NOT EXISTS index_lent_items_status ON lent_items (status)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS index_lent_items_is_deleted ON lent_items (is_deleted)")
+            }
+        }
+
         // MIGRATION_14_15 created the salary_entries unique index with the wrong name
         // (idx_salary_month_year instead of the Room-generated index_salary_entries_month_year).
         // This migration drops the misnamed index and creates the correct one.
@@ -302,7 +333,7 @@ abstract class ExpenseAnalystDatabase : RoomDatabase() {
                 ExpenseAnalystDatabase::class.java,
                 DATABASE_NAME
             )
-                .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13, MIGRATION_13_14, MIGRATION_14_15, MIGRATION_15_16, MIGRATION_16_17)
+                .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13, MIGRATION_13_14, MIGRATION_14_15, MIGRATION_15_16, MIGRATION_16_17, MIGRATION_17_18)
                 .addCallback(SeedDatabaseCallback())
                 .build()
         }

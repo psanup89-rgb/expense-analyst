@@ -36,7 +36,7 @@ class GenericParser : TransactionParser {
         val isSuccessfulSpend = !isPayment && !isStrongDebit &&
             Regex("""(?i)\bpayment\b.{0,200}\bis\s+successful\b""", RegexOption.DOT_MATCHES_ALL).containsMatchIn(body)
         val isWeakDebit = !isPayment && !isStrongDebit && (isSuccessfulSpend ||
-            Regex("""(?i)\b(?:paid|purchase|sent)\b""").containsMatchIn(body))
+            Regex("""(?i)\b(?:paid|purchase|sent|authorized)\b""").containsMatchIn(body))
         val isDebit = isStrongDebit || isWeakDebit
         val isCredit = !isPayment && Regex("""(?i)\b(?:credited|received|refund(?:ed|s)?)\b""").containsMatchIn(body)
         if (!isDebit && !isCredit && !isPayment) return null
@@ -47,20 +47,30 @@ class GenericParser : TransactionParser {
             .replace(",", "").toDoubleOrNull() ?: return null
 
         val text = body.uppercase()
+        // Prefer the currency symbol/code embedded in the amount match itself (e.g. "USD 23.00")
+        // to avoid misdetecting a balance/limit disclosure in a different currency (e.g. "SAR 26,517.65").
+        val amountMatchText = amountMatch.value.uppercase()
         val currencyCode = when {
+            "INR" in amountMatchText || "₹" in amountMatchText || "RS." in amountMatchText || "RS " in amountMatchText -> "INR"
+            "USD" in amountMatchText -> "USD"
+            "AED" in amountMatchText -> "AED"
+            "EUR" in amountMatchText -> "EUR"
+            "GBP" in amountMatchText -> "GBP"
+            "SAR" in amountMatchText || "ر.س" in amountMatchText || "SR." in amountMatchText || "SR " in amountMatchText -> "SAR"
+            // Fallback: whole-body scan
             text.contains("₹") || text.contains("INR") || text.contains("RS.") || text.contains("RS ") -> "INR"
             text.contains("SAR") || text.contains("ر.س") || text.contains("SR") -> "SAR"
             text.contains("AED") -> "AED"
             text.contains("EUR") -> "EUR"
             text.contains("GBP") -> "GBP"
             text.contains("USD") -> "USD"
-            else -> "INR" // default for Indian context
+            else -> "INR"
         }
 
         // Try to extract merchant from "At: Merchant" or "at Merchant" pattern.
         // Also stops at sentence boundaries ("at A.in. Updated..." → "A.in") to avoid
         // capturing the rest of the message (e.g. wallet/POS success SMS format).
-        val merchant = Regex("""(?i)\bat[:\s]\s*([A-Za-z0-9][A-Za-z0-9 _\-&./]*?)(?=\.\s+[A-Z]|\s*\n|\s+(?:Amount|Fee|Balance|Ref|Exchange|Country|Total|Available)|\s*$)""")
+        val merchant = Regex("""(?i)\bat[:\s]\s*([A-Za-z0-9][A-Za-z0-9 _\-&./*]*?)(?=\s+on\s+\d|\.\s+[A-Z]|\s*\n|\s+(?:Amount|Fee|Balance|Ref|Exchange|Country|Total|Available)|\s*$)""")
             .find(body)?.groupValues?.get(1)?.trim()?.takeIf { it.isNotBlank() && it.length < 60 }
 
         // Try to extract last-4 from "Card:7573" or "card ending 1234"

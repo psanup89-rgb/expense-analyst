@@ -34,6 +34,9 @@ import com.expenseanalyst.feature.budget.ui.BudgetScreen
 import com.expenseanalyst.feature.settings.ui.AccountManagementScreen
 import com.expenseanalyst.feature.settings.ui.CategoryManagementScreen
 import com.expenseanalyst.feature.settings.ui.SettingsScreen
+import com.expenseanalyst.feature.loans.ui.LoanListScreen
+import com.expenseanalyst.feature.loans.ui.AddLoanScreen
+import com.expenseanalyst.feature.loans.ui.LoanDetailScreen
 
 @Composable
 fun AppNavGraph(
@@ -236,7 +239,8 @@ fun AppNavGraph(
                 },
                 onNavigateToCategoryManagement = { navController.navigate(NavRoutes.CATEGORY_MANAGEMENT) },
                 onNavigateToAccountManagement = { navController.navigate(NavRoutes.ACCOUNT_MANAGEMENT) },
-                onNavigateToBudget = { navController.navigate(NavRoutes.BUDGET) }
+                onNavigateToBudget = { navController.navigate(NavRoutes.BUDGET) },
+                onNavigateToLoans = { navController.navigate(NavRoutes.LOANS) }
             )
         }
 
@@ -262,6 +266,46 @@ fun AppNavGraph(
 
         composable(NavRoutes.BUDGET) {
             BudgetScreen(onBack = { navController.popBackStack() })
+        }
+
+        composable(NavRoutes.LOANS) {
+            LoanListScreen(
+                onAddLoan = { navController.navigate(NavRoutes.ADD_LOAN) },
+                onLoanClick = { id -> navController.navigate(NavRoutes.loanDetail(id)) },
+                onBack = { navController.popBackStack() }
+            )
+        }
+
+        composable(NavRoutes.ADD_LOAN) {
+            AddLoanScreen(
+                loanId = null,
+                onBack = { navController.popBackStack() },
+                onSaved = { navController.popBackStack() }
+            )
+        }
+
+        composable(
+            route = NavRoutes.EDIT_LOAN,
+            arguments = listOf(navArgument("loanId") { type = NavType.LongType })
+        ) { backStack ->
+            val loanId = backStack.arguments?.getLong("loanId") ?: return@composable
+            AddLoanScreen(
+                loanId = loanId,
+                onBack = { navController.popBackStack() },
+                onSaved = { navController.popBackStack() }
+            )
+        }
+
+        composable(
+            route = NavRoutes.LOAN_DETAIL,
+            arguments = listOf(navArgument("loanId") { type = NavType.LongType })
+        ) { backStack ->
+            val loanId = backStack.arguments?.getLong("loanId") ?: return@composable
+            LoanDetailScreen(
+                loanId = loanId,
+                onBack = { navController.popBackStack() },
+                onEdit = { id -> navController.navigate(NavRoutes.editLoan(id)) }
+            )
         }
 
         composable(

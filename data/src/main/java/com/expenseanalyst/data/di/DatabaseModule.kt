@@ -10,6 +10,7 @@ import com.expenseanalyst.data.local.dao.ExpenseDao
 import com.expenseanalyst.data.local.dao.BillDao
 import com.expenseanalyst.data.local.dao.MerchantRuleDao
 import com.expenseanalyst.data.local.dao.PendingNotificationDao
+import com.expenseanalyst.data.local.dao.LentItemDao
 import com.expenseanalyst.data.local.dao.PlannedExpenseDao
 import com.expenseanalyst.data.local.dao.SalaryDao
 import com.expenseanalyst.data.local.dao.TagDao
@@ -88,6 +89,11 @@ object DatabaseModule {
     @Provides
     fun providePlannedExpenseDao(database: ExpenseAnalystDatabase): PlannedExpenseDao {
         return database.plannedExpenseDao()
+    }
+
+    @Provides
+    fun provideLentItemDao(database: ExpenseAnalystDatabase): LentItemDao {
+        return database.lentItemDao()
     }
 
     @Provides

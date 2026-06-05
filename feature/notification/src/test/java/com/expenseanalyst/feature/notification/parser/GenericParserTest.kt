@@ -111,4 +111,17 @@ class GenericParserTest {
     fun `parse does not treat is successful without payment keyword as debit`() {
         assertNull(parser.parse("UNKNOWN", "Your request is successful. No amount involved."))
     }
+
+    // ── Issue #14: CC authorization SMS with mixed USD/SAR currencies ────────
+    @Test
+    fun `parse detects credit-card authorization with USD amount and SAR balance`() {
+        val body = "Your credit card XX9731 was authorized for use at ANTHROPIC* CLAUDE SUB on 2026-06-05 23:39:01 for the amount of USD 23.00. Your new available credit limit is SAR 26,517.65"
+        val result = parser.parse("UNKNOWN", body)
+        assertNotNull(result)
+        assertEquals(23.0, result!!.amount, 0.01)
+        assertEquals("USD", result.currencyCode)
+        assertEquals(TransactionDirection.DEBIT, result.type)
+        assertEquals("ANTHROPIC* CLAUDE SUB", result.merchant)
+        assertEquals("9731", result.accountLast4)
+    }
 }

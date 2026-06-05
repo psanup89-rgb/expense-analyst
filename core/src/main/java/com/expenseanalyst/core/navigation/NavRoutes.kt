@@ -23,6 +23,10 @@ object NavRoutes {
     const val BUDGET = "budget"
     const val SMS_IMPORT = "sms_import"
     const val SMS_IMPORT_ROUTE = "sms_import?autoStart={autoStart}"
+    const val LOANS = "loans"
+    const val LOAN_DETAIL = "loan_detail/{loanId}"
+    const val ADD_LOAN = "add_loan"
+    const val EDIT_LOAN = "edit_loan/{loanId}"
 
     fun smsImport(autoStart: String? = null) =
         if (autoStart != null) "sms_import?autoStart=$autoStart" else "sms_import"
@@ -33,6 +37,8 @@ object NavRoutes {
     fun expenseDetail(expenseId: Long) = "expense_detail/$expenseId"
     fun emiDetail(emiGroupId: Long) = "emi_detail/$emiGroupId"
     fun emiCreate(expenseId: Long) = "emi_create/$expenseId"
+    fun loanDetail(loanId: Long) = "loan_detail/$loanId"
+    fun editLoan(loanId: Long) = "edit_loan/$loanId"
     fun addExpenseFromNotification(
         amount: Double,
         currency: String,

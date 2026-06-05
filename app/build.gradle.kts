@@ -55,6 +55,7 @@ dependencies {
     implementation(project(":feature:onboarding"))
     implementation(project(":feature:analytics"))
     implementation(project(":feature:budget"))
+    implementation(project(":feature:loans"))
 
     // Compose
     implementation(platform(libs.compose.bom))
@@ -83,6 +84,11 @@ dependencies {
 
     // DataStore
     implementation(libs.datastore.preferences)
+
+    // WorkManager (for HiltWorkerFactory wiring in Application class)
+    implementation(libs.work.runtime)
+    implementation(libs.hilt.work)
+    ksp(libs.hilt.androidx.compiler)
 
     // Testing
     testImplementation(libs.junit5.api)
