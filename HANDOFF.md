@@ -1,10 +1,88 @@
 # Expense Analyst — Handoff
 
-**Last updated**: 2026-05-11
-**DB version**: 17
+**Last updated**: 2026-06-06
+**DB version**: 18
 **Build**: `./gradlew clean assembleDebug` ✅
 **Repo**: `https://github.com/psanup89-rgb/expense-analyst` (public)
-**Release**: v0.1.2-debug (GitHub Release with APK)
+**Release**: v0.1.3-debug (GitHub Release with APK)
+
+---
+
+## Session Summary (2026-06-06) — Loan/Lent tracking (issue #10) + GenericParser fix (issue #14)
+
+### 1. GenericParser — "authorized for use" CC SMS not detected (#14)
+
+Three compounding bugs in `GenericParser` caused the SMS `"Your credit card XX9731 was authorized for use at ANTHROPIC* CLAUDE SUB on 2026-06-05 for the amount of USD 23.00. Your new available credit limit is SAR 26,517.65"` to fall through all parsers silently.
+
+| Bug | Fix |
+|-----|-----|
+| "authorized" not in weak-debit keyword set | Added `authorized` to the `paid\|purchase\|sent` regex |
+| `*` not in merchant character class → "ANTHROPIC" truncated | Added `*` to `[A-Za-z0-9 _\-&./]` char class; added `\s+on\s+\d` date boundary stop |
+| Currency detection scanned whole body → picked SAR from credit-limit disclosure over USD from amount | Fixed: scan the amount-match text first, fall back to whole-body scan only if no match |
+
+New `GenericParserTest` case covers the exact SMS (verifies amount=23.0, currency=USD, type=DEBIT, merchant="ANTHROPIC* CLAUDE SUB", accountLast4="9731"). All 14 tests pass.
+
+**Files changed**: `GenericParser.kt`, `GenericParserTest.kt`
+
+---
+
+### 2. Loans/Lent tracking feature (#10)
+
+New `:feature:loans` module. Tracks money lent to others — shows up as an outgoing amount, schedules WorkManager reminders, and on settlement auto-creates an INCOME+Refund expense that nets out of monthly totals (reuses existing refund netting in `ExpenseListViewModel`).
+
+#### DB v18 — new `lent_items` table (MIGRATION_17_18)
+
+16 columns: `id`, `person_name`, `amount`, `currency_code`, `home_amount`, `description`, `lent_date_millis`, `status` (PENDING/SETTLED), `settled_amount`, `settled_date_millis`, `linked_expense_id`, `settlement_expense_id`, `reminder_datetime_millis`, `is_deleted`, `created_at_millis`, `updated_at_millis`. Two indexes on `status` and `is_deleted`.
+
+#### Domain / Data
+
+- `domain/model/LentItem.kt` — data class + `LentStatus` enum (`PENDING`, `SETTLED`)
+- `domain/repository/LentRepository.kt` — interface (6 methods)
+- `data/local/entity/LentItemEntity.kt`, `LentItemDao.kt`, `LentItemMapper.kt`, `LentRepositoryImpl.kt`
+- Wired into `DatabaseModule.kt`, `RepositoryModule.kt`
+
+#### WorkManager reminders
+
+- `LentReminderWorker` (`@HiltWorker`) — fires notification; guards against settled/deleted items
+- `LentReminderScheduler` — `schedule(lentId, millis)` / `cancel(lentId)` via `OneTimeWorkRequest` with `initialDelay`
+- `LentReminderNotification` — channel `"lent_reminders"`, `IMPORTANCE_DEFAULT`
+- `ExpenseAnalystApp` now implements `Configuration.Provider` for `HiltWorkerFactory`; WorkManager auto-init disabled in `AndroidManifest.xml`
+
+#### UI (3 screens)
+
+- **LoanListScreen** — PENDING / SETTLED tab layout; FAB to add; taps to detail
+- **AddLoanScreen** (also edit via `loanId`) — person name, amount + currency, description, lent date, optional reminder datetime
+- **LoanDetailScreen** — amount/status display; "Mark Settled" dialog (creates INCOME+Refund); Set/Clear Reminder; Edit; Delete (soft-delete + cancel WorkManager)
+
+#### Navigation + entry point
+
+- `NavRoutes.kt`: `LOANS`, `LOAN_DETAIL`, `ADD_LOAN`, `EDIT_LOAN` constants + helper fns
+- `AppNavGraph.kt`: 4 new composables registered
+- `SettingsScreen.kt`: "Loans & Lending" card added (between Budget and Import sections)
+
+#### Files added / changed
+
+New: `feature/loans/` (11 files), `domain/model/LentItem.kt`, `domain/repository/LentRepository.kt`, `data/local/entity/LentItemEntity.kt`, `data/local/dao/LentItemDao.kt`, `data/mapper/LentItemMapper.kt`, `data/repository/LentRepositoryImpl.kt`, `data/schemas/.../18.json`
+
+Modified: `ExpenseAnalystDatabase.kt` (v18, MIGRATION_17_18), `DatabaseModule.kt`, `RepositoryModule.kt`, `ExpenseAnalystApp.kt`, `AndroidManifest.xml`, `AppNavGraph.kt`, `NavRoutes.kt`, `SettingsScreen.kt`, `app/build.gradle.kts`, `gradle/libs.versions.toml`, `settings.gradle.kts`
+
+---
+
+## Open Issues
+
+All previously open issues (#4–#9, #11, #12, #13, #14, #10) are now resolved. No open issues.
+
+---
+
+## First Action for Next Agent
+
+Suggested tasks in priority order:
+
+1. **Device install** — connect Samsung Galaxy S26 Ultra, run `./gradlew installDebug`, verify Loans feature end-to-end: add a lent item with reminder, set reminder to 1 min ahead, confirm notification fires, mark as settled and check that monthly Spent decreases.
+
+2. **Phase 2 remaining features** — CSV/PDF export (F14), home screen widget (F16).
+
+3. **ProGuard release smoke-test** — `./gradlew assembleRelease` requires a signing config. Set up `keystore.properties` + signing block in `app/build.gradle.kts`.
 
 ---
 
@@ -420,11 +498,9 @@ Route: `NavRoutes.EDIT_BILL = "edit_bill/{billId}"` / `NavRoutes.editBill(billId
 ## Open Issues
 
 GitHub Issues #4, #5, #6, #7, #8, #9, #11, #12 resolved this session (2026-05-11).
-**Issue #10** (Loan/Lent tracking with reminders) is open — deferred to its own plan
-because it needs new reminder scheduling infrastructure (WorkManager) and a new Room
-table for lent/loaned items. The corresponding plan file is at
-`~/.claude/plans/read-all-the-issues-functional-clock.md` (this session's plan); the
-loan feature itself will be designed separately.
+All issues (#4–#9, #11, #12) resolved this session. **Issue #10** (Loan/Lent tracking)
+resolved in the 2026-06-06 session. **Issue #13** (wallet/POS pattern) resolved in a
+prior session. **Issue #14** (GenericParser CC auth) resolved in the 2026-06-06 session.
 
 ---
 
