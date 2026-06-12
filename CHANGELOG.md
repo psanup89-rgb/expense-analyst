@@ -4,6 +4,70 @@ Format: `[Date] — Summary`
 
 ---
 
+## 2026-06-13 — Issue #15 fix + build environment + APK deployed
+
+- **SaudiEnergyStatementParser**: fingerprint made `issued` optional; account pattern handles `No.` prefix
+- **GenericParser**: added `bill…has not been paid` guard to `billReminderPattern`
+- **New**: `SaudiEnergyStatementParserTest` (7 tests); new test in `GenericParserTest`
+- GitHub issues #10, #14, #15 closed
+- Build environment: JDK 21 (`temurin@21`), `local.properties` with SDK path
+- Debug APK deployed to device via wireless ADB
+
+---
+
+## 2026-06-06 — Loans/Lent tracking (#10) + GenericParser CC auth fix (#14)
+
+- **New `:feature:loans` module**: `LoanListScreen`, `AddLoanScreen`, `LoanDetailScreen`; WorkManager reminders; settlement → INCOME+Refund expense
+- **DB v18**: `lent_items` table (MIGRATION_17_18)
+- **GenericParser**: `authorized` keyword, `*` in merchant char class, amount-first currency detection
+- `ExpenseAnalystApp` implements `Configuration.Provider` for `HiltWorkerFactory`
+
+---
+
+## 2026-05-11 — Bug sweep: Issues #4–#9, #11, #12
+
+- **AxisBankStatementParser**: fingerprint + due-date pattern for newer CC reminder format (#4, #7)
+- **KeetaParser**: cancellation refund regex + `[Keeta]` prefix in canParse (#5, #8)
+- **EmiratesNbdParser**: fingerprint widened for generic short-code SMS (#6, #9)
+- **PendingNotificationManager**: PAYMENT merchant defaults to "BillPayments"; strict `BillMatcher` (±5% tolerance) replaces fuzzy match (#6, #11)
+- **ExpenseListViewModel + AnalyticsViewModel**: Refunds subtracted from monthly Spent/totalExpense (#12)
+- New tests: `AxisBankStatementParserTest`, `KeetaParserTest`, `BillMatcherTest`, extended `EmiratesNbdParserTest`
+
+---
+
+## 2026-05-02 — Bug fixes: dedup + parser gaps + DB crash (v16)
+
+- **Dedup**: `PendingNotificationManager` + `SmsImportViewModel` now include `NOTIFICATION_AUTO` in body-hash checks (#1)
+- **MubasherParser**: amount pattern extended to match `SR` abbreviation (#2)
+- **StcBankParser**: added `services?\s+payment|prepaid` debit indicators (#2)
+- **DB v16**: `MIGRATION_15_16` fixes misnamed salary_entries index (`idx_salary_month_year` → `index_salary_entries_month_year`)
+- Releases: v0.1.1-debug, v0.1.2-debug
+
+---
+
+## 2026-04-29 — Budget feature (F13) + DB v15
+
+- New `:feature:budget` module with biometric gate, salary tracking, planned expenses, planned-vs-actual
+- **DB v15**: `salary_entries` + `planned_expenses` tables (MIGRATION_14_15)
+
+---
+
+## 2026-04-28 — Data security rules + bulk import bill fix + repo migration
+
+- `CLAUDE.md`: Data Security Rules section added
+- `SmsImportViewModel`: removed `billStatementManager.process()` call — bulk import no longer enqueues bill SMS to pending inbox
+- Repo migrated to `psanup89-rgb/expense-analyst`; made public
+
+---
+
+## 2026-04-13 — Claude AI Tier 3 + Airtel bill generation + merchant auto-save
+
+- **`ClaudeApiService`**: replaced Google Places API with `claude-haiku-4.5` for Tier 3 category inference
+- **`AirtelStatementParser`**: handles "bill has been generated" format
+- **Auto-save MerchantRule** on manual category selection in Add/Edit Expense
+
+---
+
 ## 2026-04-12 (session 2) — Bills section polish + expense↔bill navigation
 
 **Agent role**: FeatureAgent

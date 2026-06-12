@@ -112,6 +112,13 @@ class GenericParserTest {
         assertNull(parser.parse("UNKNOWN", "Your request is successful. No amount involved."))
     }
 
+    // ── Issue #15: Saudi Energy "has not been paid" reminder ─────────────────
+    @Test
+    fun `parse returns null for Saudi Energy unpaid bill reminder`() {
+        val body = "We would like to remind you that your issued bill for account No. 30166041401 in the amount of 82.92 SAR has not been paid."
+        assertNull(parser.parse("SE", body))
+    }
+
     // ── Issue #14: CC authorization SMS with mixed USD/SAR currencies ────────
     @Test
     fun `parse detects credit-card authorization with USD amount and SAR balance`() {

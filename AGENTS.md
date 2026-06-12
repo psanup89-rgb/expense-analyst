@@ -30,7 +30,7 @@ Defines agent domains, responsibilities, and boundaries.
 
 ## Agent 2 — FeatureAgent
 
-**Domain**: `feature/expenses/`, `feature/emi/`, `feature/settings/`, `feature/analytics/`, `feature/onboarding/`, `app/`
+**Domain**: `feature/expenses/`, `feature/emi/`, `feature/settings/`, `feature/analytics/`, `feature/budget/`, `feature/loans/`, `feature/onboarding/`, `app/`
 
 **Responsibilities**
 - Build/modify screens (`*Screen.kt`, `*ViewModel.kt`, `*UiState.kt`)
@@ -64,7 +64,7 @@ Defines agent domains, responsibilities, and boundaries.
 **Never touch**: Any `*Screen.kt` or `*ViewModel.kt`; parser files
 
 **Critical rules**
-- DB is currently at **version 13**. Next migration must be `MIGRATION_13_14`
+- DB is currently at **version 18**. Next migration must be `MIGRATION_18_19`
 - Always add the new migration to `addMigrations(...)` in `ExpenseAnalystDatabase`
 - Never hard-delete — always soft delete (`isDeleted = true`)
 - All timestamps are UTC epoch milliseconds (`Long`) — never `LocalDate`, `Date`, or `ZonedDateTime` in entities

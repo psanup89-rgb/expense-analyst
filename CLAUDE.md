@@ -33,7 +33,7 @@ These rules apply at all times, without exception.
 
 ## Architecture
 
-- **Multi-module**: `app` · `core` · `domain` · `data` · `feature/expenses` · `feature/emi` · `feature/notification` · `feature/settings` · `feature/onboarding` · `feature/analytics` · `feature/budget`
+- **Multi-module**: `app` · `core` · `domain` · `data` · `feature/expenses` · `feature/emi` · `feature/notification` · `feature/settings` · `feature/onboarding` · `feature/analytics` · `feature/budget` · `feature/loans`
 - **Dependency rule**: Feature → Domain. Feature → Core. Data → Domain. Data → Core. App → all. **Features never import from `:data`.**
 - **Domain is pure Kotlin** — zero Android dependencies
 - **MVVM**: Every screen has `*Screen.kt` + `*ViewModel.kt` + `*UiState.kt`
@@ -145,6 +145,7 @@ feature/notification/      → NotificationListenerService, parsers, banner UI
 feature/settings/          → Settings, Account Management screens + ViewModels
 feature/analytics/         → Analytics dashboard screen + ViewModel
 feature/budget/            → Budget screen (biometric gate, salary, planned expenses, comparison) + ViewModel
+feature/loans/             → Loans/Lent tracking screens + WorkManager reminders + ViewModels
 feature/onboarding/        → 3-step onboarding screen + ViewModel
 docs/                      → ARCHITECTURE.md, DATA_MODELS.md, NOTIFICATION_PARSING.md, FEATURES.md, TESTING.md, SETUP.md
 ```

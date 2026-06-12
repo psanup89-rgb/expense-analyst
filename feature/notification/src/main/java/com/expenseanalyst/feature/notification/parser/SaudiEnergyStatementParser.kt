@@ -15,9 +15,9 @@ class SaudiEnergyStatementParser : BillStatementParser {
 
     override val bankName = "Saudi Energy"
 
-    private val bodyFingerprint = Regex("""(?i)se\.com\.sa|your\s+bill\s+for\s+account\b""")
+    private val bodyFingerprint = Regex("""(?i)se\.com\.sa|your\s+(?:issued\s+)?bill\s+for\s+account\b""")
     private val amountPattern = Regex("""(?i)amount\s+of\s+([\d,]+\.?\d*)\s*SAR""")
-    private val accountPattern = Regex("""(?i)(?:for\s+)?account\s+(\d+)""")
+    private val accountPattern = Regex("""(?i)(?:for\s+)?account\s+(?:[Nn]o\.?\s+)?(\d+)""")
 
     override fun canParse(sender: String, body: String): Boolean =
         bodyFingerprint.containsMatchIn(body)

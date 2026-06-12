@@ -21,7 +21,7 @@ Read in this order — you can start coding after the first two:
 
 - **Stack**: Kotlin · Jetpack Compose · Room · Hilt · Ktor · Clean Architecture (MVVM)
 - **Min SDK**: 26 · **Target SDK**: 35
-- **DB version**: 9
+- **DB version**: 18
 - **Build**: `./gradlew clean assembleDebug` (always use `clean`)
 - **Install**: `./gradlew installDebug`
 

@@ -10,56 +10,40 @@ Items requiring human input or that are ambiguous in the code.
 ```kotlin
 if (expense.currencyCode != "SAR") { // should be uiState.homeCurrency
 ```
-Users who set INR or USD as home currency see incorrect behaviour on the detail screen.
-
-**Fix is straightforward** — see `HANDOFF.md` "First Action for Next Agent".
-
----
-
-## 2. Release build / ProGuard
-
-No ProGuard/R8 rules file exists. `assembleRelease` is unverified (Hilt, Room, and Ktor all require keep rules).
-
-**Question**: Is a signed release build needed soon?
+Users with INR or USD as home currency see incorrect behaviour on the detail screen.
+**Fix is straightforward** — pass `homeCurrency` from ViewModel state.
 
 ---
 
-## 3. "Unknown Bank" auto-detected accounts
+## 2. "Unknown Bank" auto-detected accounts
 
-SMS-inferred accounts are created with `displayName = "Unknown Bank *XXXX · Savings"` when the bank name can't be parsed. There's no cleanup UX (user can edit account names in Manage Accounts, but they need to know to do it).
+SMS-inferred accounts are created with `displayName = "Unknown Bank *XXXX · Savings"` when the bank name can't be parsed. User can rename via Manage Accounts but there's no prompt to do so.
 
-**Question**: Should account matching try harder to infer bank name from SMS sender? Or add a "Review Accounts" prompt after bulk SMS import?
-
----
-
-## 4. Parser registry — Mubasher sender overlap
-
-`MubasherParser` was added to `ParserRegistry` but its sender pattern hasn't been formally verified against the other Saudi bank parsers (AlRajhi, StcBank, Alinma, D360).
-
-**Question**: Has the Mubasher `canParse()` been tested against the full SMS corpus?
+**Question**: Add a "Review Accounts" prompt after bulk SMS import?
 
 ---
 
-## 5. Exchange rate — offline manual entry
+## 3. Parser registry — Mubasher sender overlap
 
-When `refreshRates()` fails and the stored rate is stale, the app falls back to `SeedCurrencyRates`. No UI to enter an exchange rate manually.
+`MubasherParser` sender pattern hasn't been formally tested against the full Saudi bank parser corpus (AlRajhi, StcBank, Alinma, D360).
+
+**Question**: Has `MubasherParser.canParse()` been tested against the full SMS corpus?
+
+---
+
+## 4. Exchange rate — offline manual entry
+
+When `refreshRates()` fails and stored rate is stale, app falls back to `SeedCurrencyRates`. No UI to enter a rate manually.
 
 **Question**: Is seed-rate fallback acceptable for all intended use cases?
 
 ---
 
-## 6. `DuckDuckGoApiService.kt` dead code
-
-`data/` module contains `DuckDuckGoApiService.kt` — unused since Google Places replaced it.
-
-**Action**: Safe to delete. No callers.
-
----
-
 ## ✅ RESOLVED
 
-- **Bill detail screen** (item 2, 2026-03-29): `BillDetailScreen` exists and is wired.
-- **Duplicate detection for live notifications** (item 3): Soft-duplicate system shipped in DB v12.
-- **JAVA_HOME not in shell profile** (item 11): Build works without manual workaround in current sessions.
-- **APK signing mismatch** (item 12): No longer blocking — `installDebug` works on SM-S948B.
-- **Category management** (item 5): Category management screen shipped (add/edit/delete/icon picker).
+- **Bill detail screen**: `BillDetailScreen` exists and is wired.
+- **Duplicate detection for live notifications**: Shipped in DB v12.
+- **Category management**: Add/edit/delete/icon picker screen shipped.
+- **ProGuard rules**: `app/proguard-rules.pro` created with full rules for Kotlin/Hilt/Room/Ktor.
+- **`DuckDuckGoApiService.kt` dead code**: Already absent from codebase — never committed or deleted in prior session.
+- **APK signing mismatch**: Resolved — debug APK installed on device via `adb install -r`.
