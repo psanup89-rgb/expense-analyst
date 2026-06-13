@@ -23,5 +23,6 @@ data class Expense(
     val accountDisplayName: String? = null,
     val rawSmsBody: String? = null,
     val billId: Long? = null,
-    val isDeleted: Boolean = false
+    val isDeleted: Boolean = false,
+    val needsReview: Boolean = false
 )

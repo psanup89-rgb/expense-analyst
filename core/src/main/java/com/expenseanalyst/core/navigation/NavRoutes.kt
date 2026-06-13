@@ -23,6 +23,7 @@ object NavRoutes {
     const val BUDGET = "budget"
     const val SMS_IMPORT = "sms_import"
     const val SMS_IMPORT_ROUTE = "sms_import?autoStart={autoStart}"
+    const val NEEDS_REVIEW = "needs_review"
     const val LOANS = "loans"
     const val LOAN_DETAIL = "loan_detail/{loanId}"
     const val ADD_LOAN = "add_loan"

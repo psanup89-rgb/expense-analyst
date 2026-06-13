@@ -325,7 +325,8 @@ class EditExpenseViewModel @Inject constructor(
                     date = state.date,
                     merchantName = state.merchantName.trim().ifEmpty { null },
                     tags = state.selectedTags,
-                    accountId = state.selectedAccountId
+                    accountId = state.selectedAccountId,
+                    needsReview = false
                 )
                 updateExpenseUseCase(updated)
                 _form.update { it.copy(isSaving = false, savedExpenseId = original.id) }

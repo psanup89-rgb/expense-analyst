@@ -28,7 +28,7 @@ class PendingInboxViewModel @Inject constructor(
     private val _ui = MutableStateFlow(PendingInboxUiState())
 
     val uiState = combine(repository.getAll(), _ui) { items, ui ->
-        ui.copy(items = items, isLoading = false)
+        ui.copy(items = items.filter { it.pendingType == "BILL" }, isLoading = false)
     }.stateIn(
         scope = viewModelScope,
         started = SharingStarted.WhileSubscribed(5_000),

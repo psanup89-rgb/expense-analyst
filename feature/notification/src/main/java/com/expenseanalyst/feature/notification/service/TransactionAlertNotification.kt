@@ -22,6 +22,7 @@ object TransactionAlertNotification {
 
     const val CHANNEL_ID = "expense_analyst_alerts"
     const val ACTION_OPEN_ADD_EXPENSE = "com.expenseanalyst.ACTION_OPEN_ADD_EXPENSE"
+    const val ACTION_OPEN_EXPENSE_DETAIL = "com.expenseanalyst.ACTION_OPEN_EXPENSE_DETAIL"
     const val EXTRA_AMOUNT = "notif_amount"
     const val EXTRA_CURRENCY = "notif_currency"
     const val EXTRA_MERCHANT = "notif_merchant"
@@ -29,23 +30,48 @@ object TransactionAlertNotification {
     const val EXTRA_ACCOUNT = "notif_account"
     const val EXTRA_PAYMENT_METHOD = "notif_payment_method"
     const val EXTRA_PENDING_ID = "notif_pending_id"
+    const val EXTRA_EXPENSE_ID = "notif_expense_id"
 
     private var nextNotifId = 2000
 
+    /** Posts a notification for an auto-saved expense. Tapping opens the expense detail screen. */
+    fun postForExpense(context: Context, parsed: ParsedTransaction, expenseId: Long) {
+        val manager = context.getSystemService(NotificationManager::class.java) ?: return
+        ensureChannel(manager)
+
+        val launchIntent = context.packageManager
+            .getLaunchIntentForPackage(context.packageName)
+            ?.apply {
+                action = ACTION_OPEN_EXPENSE_DETAIL
+                putExtra(EXTRA_EXPENSE_ID, expenseId)
+                flags = Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP
+            } ?: return
+
+        val notifId = expenseId.toInt().coerceAtLeast(1)
+        val pendingIntent = PendingIntent.getActivity(
+            context, notifId, launchIntent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+
+        val direction = when (parsed.type) {
+            TransactionDirection.DEBIT -> "Saved"
+            TransactionDirection.TRANSFER -> "Transfer saved"
+            else -> "Income saved"
+        }
+        val amountStr = "%.2f %s".format(parsed.amount, parsed.currencyCode)
+        val title = "$direction · $amountStr"
+        val bodyText = parsed.merchant?.takeIf { it.isNotBlank() }
+            ?: parsed.bankName.takeIf { it != "Unknown Bank" }
+            ?: "Tap to review"
+
+        postNotification(context, notifId, title, bodyText, pendingIntent)
+    }
+
+    /** Legacy method kept for backward compat (old notifications still in tray). */
     fun post(context: Context, parsed: ParsedTransaction, pendingId: Long? = null) {
         val manager = context.getSystemService(NotificationManager::class.java) ?: return
+        ensureChannel(manager)
 
-        // Create channel (no-op if already exists)
-        val channel = NotificationChannel(
-            CHANNEL_ID,
-            "Transaction Alerts",
-            NotificationManager.IMPORTANCE_HIGH
-        ).apply {
-            description = "Alerts when a bank transaction is detected"
-        }
-        manager.createNotificationChannel(channel)
-
-        // Build tap intent — launches the app's launcher activity without importing it directly
         val launchIntent = context.packageManager
             .getLaunchIntentForPackage(context.packageName)
             ?.apply {
@@ -64,14 +90,9 @@ object TransactionAlertNotification {
                 flags = Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP
             } ?: return
 
-        // Use pendingId as the notification ID so it can be cancelled later by the same ID.
-        // Fall back to incrementing counter only when there is no DB-backed pending record.
         val notifId = pendingId?.toInt() ?: nextNotifId++
-
         val pendingIntent = PendingIntent.getActivity(
-            context,
-            notifId,
-            launchIntent,
+            context, notifId, launchIntent,
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
 
@@ -86,10 +107,27 @@ object TransactionAlertNotification {
             ?: parsed.bankName.takeIf { it != "Unknown Bank" }
             ?: "Tap to add expense"
 
+        postNotification(context, notifId, title, bodyText, pendingIntent)
+    }
+
+    private fun ensureChannel(manager: NotificationManager) {
+        val channel = NotificationChannel(
+            CHANNEL_ID, "Transaction Alerts", NotificationManager.IMPORTANCE_HIGH
+        ).apply { description = "Alerts when a bank transaction is detected" }
+        manager.createNotificationChannel(channel)
+    }
+
+    private fun postNotification(
+        context: Context,
+        notifId: Int,
+        title: String,
+        body: String,
+        pendingIntent: PendingIntent
+    ) {
         val notification = NotificationCompat.Builder(context, CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_notification)
             .setContentTitle(title)
-            .setContentText(bodyText)
+            .setContentText(body)
             .setContentIntent(pendingIntent)
             .setAutoCancel(true)
             .setPriority(NotificationCompat.PRIORITY_HIGH)
@@ -99,7 +137,7 @@ object TransactionAlertNotification {
             try {
                 NotificationManagerCompat.from(context).notify(notifId, notification)
             } catch (_: SecurityException) {
-                // POST_NOTIFICATIONS permission not granted — notification silently skipped
+                // POST_NOTIFICATIONS permission not granted — silently skipped
             }
         }
     }

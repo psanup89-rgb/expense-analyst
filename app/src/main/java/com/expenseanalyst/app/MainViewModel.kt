@@ -3,12 +3,11 @@ package com.expenseanalyst.app
 import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.expenseanalyst.domain.repository.ExpenseRepository
 import com.expenseanalyst.domain.repository.OnboardingRepository
-import com.expenseanalyst.domain.repository.PendingNotificationRepository
 import com.expenseanalyst.feature.notification.parser.ParsedTransaction
 import com.expenseanalyst.feature.notification.parser.TransactionDirection
 import com.expenseanalyst.feature.notification.service.PendingNotificationManager
-import com.expenseanalyst.feature.notification.service.TransactionAlertNotification
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -21,13 +20,10 @@ import javax.inject.Inject
 class MainViewModel @Inject constructor(
     onboardingRepository: OnboardingRepository,
     private val pendingManager: PendingNotificationManager,
-    pendingNotificationRepository: PendingNotificationRepository
+    expenseRepository: ExpenseRepository
 ) : ViewModel() {
 
-    /**
-     * null = still loading, true = onboarding done, false = needs onboarding
-     */
-    val pendingInboxCount: StateFlow<Int> = pendingNotificationRepository.getCount()
+    val needsReviewCount: StateFlow<Int> = expenseRepository.getNeedsReviewCount()
         .stateIn(scope = viewModelScope, started = SharingStarted.Eagerly, initialValue = 0)
 
     val isOnboardingCompleted: StateFlow<Boolean?> = onboardingRepository
@@ -76,6 +72,5 @@ class MainViewModel @Inject constructor(
             bankName = "Test Bank"
         )
         pendingManager.enqueue(fake)
-        TransactionAlertNotification.post(context.applicationContext, fake)
     }
 }

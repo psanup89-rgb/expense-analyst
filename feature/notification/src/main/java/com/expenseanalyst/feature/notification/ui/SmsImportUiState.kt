@@ -34,4 +34,4 @@ sealed interface SmsImportUiState {
     ) : SmsImportUiState
 }
 
-enum class ImportAction { BULK_LAST_MONTH, BULK_ALL, BROWSE }
+enum class ImportAction { BULK_LAST_MONTH, BULK_THIS_YEAR, BULK_ALL, BROWSE }

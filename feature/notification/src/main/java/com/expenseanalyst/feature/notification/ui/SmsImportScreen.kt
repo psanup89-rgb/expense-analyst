@@ -105,8 +105,9 @@ fun SmsImportScreen(
         val autoStart = viewModel.autoStart ?: return@LaunchedEffect
         val action = when (autoStart) {
             "lastMonth" -> ImportAction.BULK_LAST_MONTH
-            "all" -> ImportAction.BULK_ALL
-            else -> return@LaunchedEffect
+            "thisYear"  -> ImportAction.BULK_THIS_YEAR
+            "all"       -> ImportAction.BULK_ALL
+            else        -> return@LaunchedEffect
         }
         handleAction(action)
     }
@@ -155,8 +156,9 @@ fun SmsImportScreen(
                 is SmsImportUiState.ChooseMode -> {
                     ChooseModeContent(
                         onBulkLastMonth = { handleAction(ImportAction.BULK_LAST_MONTH) },
-                        onBulkAll = { handleAction(ImportAction.BULK_ALL) },
-                        onBrowse = { handleAction(ImportAction.BROWSE) }
+                        onBulkThisYear  = { handleAction(ImportAction.BULK_THIS_YEAR) },
+                        onBulkAll       = { handleAction(ImportAction.BULK_ALL) },
+                        onBrowse        = { handleAction(ImportAction.BROWSE) }
                     )
                 }
 
@@ -244,6 +246,7 @@ fun SmsImportScreen(
 @Composable
 private fun ChooseModeContent(
     onBulkLastMonth: () -> Unit,
+    onBulkThisYear: () -> Unit,
     onBulkAll: () -> Unit,
     onBrowse: () -> Unit
 ) {
@@ -288,6 +291,13 @@ private fun ChooseModeContent(
                     colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
                 ) {
                     Text("Import last 1 month", fontWeight = FontWeight.SemiBold)
+                }
+                OutlinedButton(
+                    onClick = onBulkThisYear,
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(12.dp)
+                ) {
+                    Text("Import SMS from this year")
                 }
                 OutlinedButton(
                     onClick = onBulkAll,

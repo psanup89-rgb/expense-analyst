@@ -79,12 +79,12 @@ class MainActivity : ComponentActivity() {
 
                 val showBottomNav = currentRoute in listOf(
                     NavRoutes.EXPENSE_LIST,
-                    NavRoutes.PENDING_INBOX,
+                    NavRoutes.NEEDS_REVIEW,
                     NavRoutes.BILLS,
                     NavRoutes.EMI_LIST,
                     NavRoutes.SETTINGS
                 )
-                val pendingInboxCount by viewModel.pendingInboxCount.collectAsStateWithLifecycle()
+                val needsReviewCount by viewModel.needsReviewCount.collectAsStateWithLifecycle()
 
                 Scaffold(
                     modifier = Modifier.fillMaxSize(),
@@ -92,7 +92,7 @@ class MainActivity : ComponentActivity() {
                         if (showBottomNav) {
                             MainBottomNav(
                                 currentRoute = currentRoute,
-                                pendingInboxCount = pendingInboxCount,
+                                needsReviewCount = needsReviewCount,
                                 onNavigate = { route ->
                                     navController.navigate(route) {
                                         popUpTo(NavRoutes.EXPENSE_LIST) { saveState = true }
@@ -122,25 +122,34 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun handleIntent(intent: Intent?) {
-        if (intent?.action == TransactionAlertNotification.ACTION_OPEN_ADD_EXPENSE) {
-            val amount = intent.getDoubleExtra(TransactionAlertNotification.EXTRA_AMOUNT, 0.0)
-            val currency = intent.getStringExtra(TransactionAlertNotification.EXTRA_CURRENCY) ?: "SAR"
-            val merchant = intent.getStringExtra(TransactionAlertNotification.EXTRA_MERCHANT)
-            val type = intent.getStringExtra(TransactionAlertNotification.EXTRA_TYPE) ?: "DEBIT"
-            val account = intent.getStringExtra(TransactionAlertNotification.EXTRA_ACCOUNT)
-            val paymentMethod = intent.getStringExtra(TransactionAlertNotification.EXTRA_PAYMENT_METHOD)
-            val pendingId = intent.getLongExtra(TransactionAlertNotification.EXTRA_PENDING_ID, -1L)
-                .takeIf { it > 0 }
-            val route = NavRoutes.addExpenseFromNotification(
-                amount = amount,
-                currency = currency,
-                merchant = merchant,
-                type = type,
-                account = account,
-                paymentMethod = paymentMethod,
-                pendingId = pendingId
-            )
-            viewModel.setPendingRoute(route)
+        when (intent?.action) {
+            TransactionAlertNotification.ACTION_OPEN_EXPENSE_DETAIL -> {
+                val expenseId = intent.getLongExtra(TransactionAlertNotification.EXTRA_EXPENSE_ID, -1L)
+                    .takeIf { it > 0 } ?: return
+                viewModel.setPendingRoute(NavRoutes.expenseDetail(expenseId))
+            }
+            TransactionAlertNotification.ACTION_OPEN_ADD_EXPENSE -> {
+                // Legacy: old notifications still in the tray before this release
+                val amount = intent.getDoubleExtra(TransactionAlertNotification.EXTRA_AMOUNT, 0.0)
+                val currency = intent.getStringExtra(TransactionAlertNotification.EXTRA_CURRENCY) ?: "SAR"
+                val merchant = intent.getStringExtra(TransactionAlertNotification.EXTRA_MERCHANT)
+                val type = intent.getStringExtra(TransactionAlertNotification.EXTRA_TYPE) ?: "DEBIT"
+                val account = intent.getStringExtra(TransactionAlertNotification.EXTRA_ACCOUNT)
+                val paymentMethod = intent.getStringExtra(TransactionAlertNotification.EXTRA_PAYMENT_METHOD)
+                val pendingId = intent.getLongExtra(TransactionAlertNotification.EXTRA_PENDING_ID, -1L)
+                    .takeIf { it > 0 }
+                viewModel.setPendingRoute(
+                    NavRoutes.addExpenseFromNotification(
+                        amount = amount,
+                        currency = currency,
+                        merchant = merchant,
+                        type = type,
+                        account = account,
+                        paymentMethod = paymentMethod,
+                        pendingId = pendingId
+                    )
+                )
+            }
         }
     }
 

@@ -76,15 +76,16 @@ class SmsImportViewModel @Inject constructor(
     /** Called by the screen to execute an action when permission is already granted. */
     fun execute(action: ImportAction) {
         when (action) {
-            ImportAction.BULK_LAST_MONTH -> startBulkImport(lastMonthOnly = true)
-            ImportAction.BULK_ALL -> startBulkImport(lastMonthOnly = false)
-            ImportAction.BROWSE -> loadSmsInbox()
+            ImportAction.BULK_LAST_MONTH -> startBulkImport(sinceMillis = System.currentTimeMillis() - 30L * 24 * 60 * 60 * 1000)
+            ImportAction.BULK_THIS_YEAR  -> startBulkImport(sinceMillis = startOfCurrentYearMillis())
+            ImportAction.BULK_ALL        -> startBulkImport(sinceMillis = null)
+            ImportAction.BROWSE          -> loadSmsInbox()
         }
     }
 
     // ── Bulk import ───────────────────────────────────────────────────────────
 
-    fun startBulkImport(lastMonthOnly: Boolean) {
+    fun startBulkImport(sinceMillis: Long?) {
         viewModelScope.launch {
             _uiState.value = SmsImportUiState.BulkImporting(processed = 0, total = 0)
 
@@ -118,11 +119,6 @@ class SmsImportViewModel @Inject constructor(
             val existingFallbackKeys = existingSmsAuto
                 .filter { it.rawSmsBody.isNullOrBlank() }
                 .mapTo(mutableSetOf()) { dedupeKeyFallback(it.amount, it.date.toEpochMilliseconds(), it.merchantName) }
-
-            // Read SMS
-            val sinceMillis = if (lastMonthOnly) {
-                System.currentTimeMillis() - 30L * 24 * 60 * 60 * 1000
-            } else null
 
             val smsList = withContext(Dispatchers.IO) { querySmsInbox(sinceMillis = sinceMillis) }
             _uiState.value = SmsImportUiState.BulkImporting(processed = 0, total = smsList.size)
@@ -390,5 +386,12 @@ class SmsImportViewModel @Inject constructor(
         val dayBucket = epochMillis / 86_400_000
         val merchantKey = merchant?.trim()?.lowercase() ?: ""
         return "$roundedAmount:$dayBucket:$merchantKey"
+    }
+
+    private fun startOfCurrentYearMillis(): Long {
+        val cal = java.util.Calendar.getInstance(java.util.TimeZone.getTimeZone("UTC"))
+        cal.set(cal.get(java.util.Calendar.YEAR), 0, 1, 0, 0, 0)
+        cal.set(java.util.Calendar.MILLISECOND, 0)
+        return cal.timeInMillis
     }
 }

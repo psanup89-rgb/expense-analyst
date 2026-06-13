@@ -36,6 +36,7 @@ import com.expenseanalyst.feature.settings.ui.CategoryManagementScreen
 import com.expenseanalyst.feature.settings.ui.SettingsScreen
 import com.expenseanalyst.feature.loans.ui.LoanListScreen
 import com.expenseanalyst.feature.loans.ui.AddLoanScreen
+import com.expenseanalyst.feature.expenses.ui.NeedsReviewScreen
 import com.expenseanalyst.feature.loans.ui.LoanDetailScreen
 
 @Composable
@@ -85,22 +86,8 @@ fun AppNavGraph(
                     onViewAnalytics = { navController.navigate(NavRoutes.ANALYTICS) }
                 )
                 NotificationBanner(
-                    onSave = { parsed, pendingId ->
-                        val accountStr = parsed.accountLast4?.let { last4 ->
-                            val bank = parsed.bankName.takeIf { it != "Unknown Bank" } ?: ""
-                            if (bank.isNotBlank()) "$bank *$last4" else "*$last4"
-                        }
-                        navController.navigate(
-                            NavRoutes.addExpenseFromNotification(
-                                amount = parsed.amount,
-                                currency = parsed.currencyCode,
-                                merchant = parsed.merchant,
-                                type = parsed.type.name,
-                                account = accountStr,
-                                pendingId = pendingId,
-                                paymentMethod = parsed.paymentMethodName
-                            )
-                        )
+                    onEdit = { expenseId ->
+                        navController.navigate(NavRoutes.expenseDetail(expenseId))
                     },
                     modifier = Modifier.align(Alignment.TopCenter)
                 )
@@ -164,28 +151,22 @@ fun AppNavGraph(
             )
         }
 
+        composable(NavRoutes.NEEDS_REVIEW) {
+            NeedsReviewScreen(
+                onExpenseClick = { id -> navController.navigate(NavRoutes.expenseDetail(id)) }
+            )
+        }
+
         composable(NavRoutes.PENDING_INBOX) {
             PendingInboxScreen(
-                onBack = { navController.popBackStack() },
-                onAddExpense = { amount, currency, merchant, type, account, pendingId, paymentMethod ->
-                    navController.navigate(
-                        NavRoutes.addExpenseFromNotification(
-                            amount = amount,
-                            currency = currency,
-                            merchant = merchant,
-                            type = type,
-                            account = account,
-                            pendingId = pendingId,
-                            paymentMethod = paymentMethod
-                        )
-                    )
-                }
+                onBack = { navController.popBackStack() }
             )
         }
 
         composable(NavRoutes.BILLS) {
             BillsScreen(
-                onBillClick = { billId -> navController.navigate(NavRoutes.billDetail(billId)) }
+                onBillClick = { billId -> navController.navigate(NavRoutes.billDetail(billId)) },
+                onPendingBillStatements = { navController.navigate(NavRoutes.PENDING_INBOX) }
             )
         }
 

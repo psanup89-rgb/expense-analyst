@@ -78,6 +78,16 @@ interface ExpenseDao {
     @Query("UPDATE expenses SET account_id = :toAccountId WHERE account_id = :fromAccountId AND is_deleted = 0")
     suspend fun remapAccount(fromAccountId: Long, toAccountId: Long?)
 
+    @Query("SELECT COUNT(*) FROM expenses WHERE needs_review = 1 AND is_deleted = 0")
+    fun getNeedsReviewCount(): Flow<Int>
+
+    @Transaction
+    @Query("SELECT * FROM expenses WHERE needs_review = 1 AND is_deleted = 0 ORDER BY date_utc_millis DESC")
+    fun getNeedsReviewExpenses(): Flow<List<ExpenseWithCategory>>
+
+    @Query("UPDATE expenses SET needs_review = 0, updated_at_utc_millis = :updatedAt WHERE needs_review = 1 AND is_deleted = 0")
+    suspend fun clearAllNeedsReview(updatedAt: Long)
+
     @Transaction
     @Query("""
         SELECT * FROM expenses

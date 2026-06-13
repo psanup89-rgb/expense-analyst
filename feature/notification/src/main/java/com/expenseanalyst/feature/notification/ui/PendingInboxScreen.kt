@@ -17,10 +17,6 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.ArrowDownward
-import androidx.compose.material.icons.filled.ArrowUpward
-import androidx.compose.material.icons.filled.Inbox
-import androidx.compose.material.icons.filled.Payment
 import androidx.compose.material.icons.filled.ReceiptLong
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
@@ -66,7 +62,6 @@ import java.util.Locale
 @Composable
 fun PendingInboxScreen(
     onBack: () -> Unit,
-    onAddExpense: (amount: Double, currency: String, merchant: String?, type: String, account: String?, pendingId: Long, paymentMethod: String?) -> Unit,
     viewModel: PendingInboxViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
@@ -74,8 +69,8 @@ fun PendingInboxScreen(
     if (uiState.pendingDismissId != null) {
         AlertDialog(
             onDismissRequest = viewModel::cancelDismiss,
-            title = { Text("Dismiss transaction?") },
-            text = { Text("This transaction has not been added to your expenses yet. Are you sure you want to dismiss it?") },
+            title = { Text("Dismiss bill statement?") },
+            text = { Text("This bill statement will be removed from the pending list.") },
             confirmButton = {
                 TextButton(
                     onClick = viewModel::confirmDismiss,
@@ -93,8 +88,8 @@ fun PendingInboxScreen(
     if (uiState.showDismissAllConfirm) {
         AlertDialog(
             onDismissRequest = viewModel::cancelDismissAll,
-            title = { Text("Clear all transactions?") },
-            text = { Text("None of these transactions have been added to your expenses yet. Clearing will permanently remove all ${uiState.items.size} pending items.") },
+            title = { Text("Clear all bill statements?") },
+            text = { Text("This will permanently remove all ${uiState.items.size} pending bill statements.") },
             confirmButton = {
                 TextButton(
                     onClick = viewModel::confirmDismissAll,
@@ -145,7 +140,7 @@ fun PendingInboxScreen(
         containerColor = MaterialTheme.colorScheme.background,
         topBar = {
             TopAppBar(
-                title = { Text("Pending Inbox", style = MaterialTheme.typography.titleLarge) },
+                title = { Text("Pending Bill Statements", style = MaterialTheme.typography.titleLarge) },
                 windowInsets = WindowInsets(0, 0, 0, 0),
                 navigationIcon = {
                     IconButton(onClick = onBack) {
@@ -174,19 +169,19 @@ fun PendingInboxScreen(
             ) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     Icon(
-                        Icons.Default.Inbox,
+                        Icons.Default.ReceiptLong,
                         contentDescription = null,
                         modifier = Modifier.size(64.dp),
                         tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f)
                     )
                     Spacer(Modifier.height(12.dp))
                     Text(
-                        "No pending transactions",
+                        "No pending bill statements",
                         style = MaterialTheme.typography.bodyLarge,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                     Text(
-                        "Detected bank transactions appear here until you add or dismiss them",
+                        "Detected credit card statements appear here",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
                     )
@@ -199,34 +194,12 @@ fun PendingInboxScreen(
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
                 items(uiState.items, key = { it.id }) { item ->
-                    if (item.pendingType == "BILL") {
-                        PendingBillItem(
-                            item = item,
-                            onSaveAsNew = { viewModel.requestSaveBill(item.id) },
-                            onUpdate = { viewModel.requestUpdateBill(item.id) },
-                            onDismiss = { viewModel.requestDismiss(item.id) }
-                        )
-                    } else {
-                        PendingInboxItem(
-                            item = item,
-                            onAdd = {
-                                val accountStr = item.accountLast4?.let { last4 ->
-                                    val bank = item.bankName.takeIf { it != "Unknown Bank" } ?: ""
-                                    if (bank.isNotBlank()) "$bank *$last4" else "*$last4"
-                                }
-                                onAddExpense(
-                                    item.amount,
-                                    item.currencyCode,
-                                    item.merchantName,
-                                    item.transactionType,
-                                    accountStr,
-                                    item.id,
-                                    item.paymentMethod
-                                )
-                            },
-                            onDismiss = { viewModel.requestDismiss(item.id) }
-                        )
-                    }
+                    PendingBillItem(
+                        item = item,
+                        onSaveAsNew = { viewModel.requestSaveBill(item.id) },
+                        onUpdate = { viewModel.requestUpdateBill(item.id) },
+                        onDismiss = { viewModel.requestDismiss(item.id) }
+                    )
                 }
             }
         }
@@ -401,122 +374,3 @@ private fun PendingBillItem(
     }
 }
 
-@Composable
-private fun PendingInboxItem(
-    item: PendingNotification,
-    onAdd: () -> Unit,
-    onDismiss: () -> Unit
-) {
-    val isDebit = item.transactionType == "DEBIT"
-    val isPayment = item.transactionType == "PAYMENT"
-    val amountColor = when {
-        isPayment -> Color(0xFF7C5CBF)
-        isDebit -> MaterialTheme.colorScheme.error
-        else -> Color(0xFF4CAF50)
-    }
-    val directionIcon = when {
-        isPayment -> Icons.Default.Payment
-        isDebit -> Icons.Default.ArrowUpward
-        else -> Icons.Default.ArrowDownward
-    }
-
-    val timeStr = remember(item.detectedAtMillis) {
-        SimpleDateFormat("dd MMM, hh:mm a", Locale.getDefault())
-            .format(Date(item.detectedAtMillis))
-    }
-
-    val accountStr = remember(item.bankName, item.accountLast4) {
-        val bank = item.bankName.takeIf { it != "Unknown Bank" } ?: ""
-        val last4 = item.accountLast4
-        when {
-            bank.isNotBlank() && last4 != null -> "$bank *$last4"
-            bank.isNotBlank() -> bank
-            last4 != null -> "*$last4"
-            else -> null
-        }
-    }
-
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer)
-    ) {
-        Column(modifier = Modifier.padding(16.dp)) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.Top
-            ) {
-                Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
-                    Icon(
-                        imageVector = directionIcon,
-                        contentDescription = null,
-                        modifier = Modifier.size(20.dp),
-                        tint = amountColor
-                    )
-                    Spacer(Modifier.width(8.dp))
-                    Column {
-                        Text(
-                            text = "%.2f %s".format(item.amount, item.currencyCode),
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.Bold,
-                            color = amountColor
-                        )
-                        val merchant = item.merchantName
-                        if (!merchant.isNullOrBlank()) {
-                            Text(
-                                text = merchant,
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = MaterialTheme.colorScheme.onSurface
-                            )
-                        }
-                        if (accountStr != null) {
-                            Text(
-                                text = accountStr,
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
-                        if (item.isPossibleDuplicate) {
-                            Spacer(Modifier.height(4.dp))
-                            Surface(
-                                color = Color(0xFFFFF3E0),
-                                shape = RoundedCornerShape(4.dp)
-                            ) {
-                                Text(
-                                    text = "⚠ Possible duplicate",
-                                    fontSize = 11.sp,
-                                    color = Color(0xFFF57C00),
-                                    fontWeight = FontWeight.Medium,
-                                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
-                                )
-                            }
-                        }
-                    }
-                }
-                Text(
-                    text = timeStr,
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
-            Spacer(Modifier.height(12.dp))
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                OutlinedButton(
-                    onClick = onDismiss,
-                    modifier = Modifier.weight(1f),
-                    colors = ButtonDefaults.outlinedButtonColors(
-                        contentColor = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                ) {
-                    Text("Dismiss")
-                }
-                Button(
-                    onClick = onAdd,
-                    modifier = Modifier.weight(1f)
-                ) {
-                    Text(if (item.isPossibleDuplicate) "Add Anyway" else "Add Expense")
-                }
-            }
-        }
-    }
-}

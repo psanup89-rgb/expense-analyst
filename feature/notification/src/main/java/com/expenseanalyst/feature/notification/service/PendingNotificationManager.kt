@@ -1,13 +1,23 @@
 package com.expenseanalyst.feature.notification.service
 
 import android.content.Context
+import com.expenseanalyst.domain.model.AccountType
 import com.expenseanalyst.domain.model.BillStatus
-import com.expenseanalyst.domain.model.PendingNotification
+import com.expenseanalyst.domain.model.Expense
+import com.expenseanalyst.domain.model.PaymentMethod
 import com.expenseanalyst.domain.model.SourceType
+import com.expenseanalyst.domain.model.TransactionType
+import com.expenseanalyst.domain.repository.AccountRepository
+import com.expenseanalyst.domain.repository.AppPreferencesRepository
 import com.expenseanalyst.domain.repository.BillRepository
+import com.expenseanalyst.domain.repository.CategoryRepository
+import com.expenseanalyst.domain.repository.CurrencyRepository
 import com.expenseanalyst.domain.repository.ExpenseRepository
+import com.expenseanalyst.domain.repository.MerchantRuleRepository
 import com.expenseanalyst.domain.repository.PendingNotificationRepository
 import com.expenseanalyst.domain.util.BillMatcher
+import com.expenseanalyst.domain.util.CategoryInference
+import com.expenseanalyst.domain.util.CurrencyConversion
 import com.expenseanalyst.feature.notification.parser.ParsedTransaction
 import com.expenseanalyst.feature.notification.parser.TransactionDirection
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -19,40 +29,43 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
+import kotlinx.datetime.Instant
 import java.util.Calendar
 import javax.inject.Inject
 import javax.inject.Singleton
 
+data class AutoSavedEvent(
+    val expenseId: Long,
+    val amount: Double,
+    val currencyCode: String,
+    val merchant: String?,
+    val needsReview: Boolean
+)
+
 /**
- * Holds parsed transactions that are awaiting user confirmation.
- * The UI observes [pending] for the in-app banner.
- * Each enqueued transaction is also persisted to the DB so the user
- * can review it later from the Pending Inbox screen.
- *
- * The system tray notification is posted here (after DB save) so the
- * [pendingId] can be embedded in the notification tap intent, ensuring
- * the Add Expense screen can always load the raw SMS body.
+ * Handles detected transactions by auto-saving them directly as expenses.
+ * The UI observes [lastAutoSaved] for the in-app confirmation banner.
+ * BILL type pending notifications still go through the old pending inbox path.
  */
 @Singleton
 class PendingNotificationManager @Inject constructor(
     @ApplicationContext private val context: Context,
-    private val repository: PendingNotificationRepository,
+    private val pendingNotificationRepository: PendingNotificationRepository,
     private val expenseRepository: ExpenseRepository,
-    private val billRepository: BillRepository
+    private val billRepository: BillRepository,
+    private val categoryRepository: CategoryRepository,
+    private val merchantRuleRepository: MerchantRuleRepository,
+    private val accountRepository: AccountRepository,
+    private val currencyRepository: CurrencyRepository,
+    private val appPreferencesRepository: AppPreferencesRepository
 ) {
     private val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
 
-    private val _pending = MutableStateFlow<ParsedTransaction?>(null)
-    val pending: StateFlow<ParsedTransaction?> = _pending.asStateFlow()
-
-    /** ID of the most recently saved pending notification. Used by the in-app banner. */
-    private val _lastPendingId = MutableStateFlow<Long?>(null)
-    val lastPendingId: StateFlow<Long?> = _lastPendingId.asStateFlow()
+    private val _lastAutoSaved = MutableStateFlow<AutoSavedEvent?>(null)
+    val lastAutoSaved: StateFlow<AutoSavedEvent?> = _lastAutoSaved.asStateFlow()
 
     fun enqueue(transaction: ParsedTransaction) {
-        // PAYMENT-type SMS (e.g. "Credit Card: Credited") frequently arrive without a
-        // merchant. Normalize to "BillPayments" so the inbox card and the AddExpense
-        // form both default to the bill-payment flow (issue #6).
+        // Normalize: PAYMENT-type SMS without merchant defaults to "BillPayments"
         val normalized = if (transaction.type == TransactionDirection.PAYMENT &&
             transaction.merchant.isNullOrBlank()
         ) {
@@ -60,41 +73,32 @@ class PendingNotificationManager @Inject constructor(
         } else {
             transaction
         }
-        _pending.value = normalized  // emit immediately; flag updated below after DB check
+
         scope.launch {
-            // ── Dedup: skip if same SMS already in pending inbox or saved expenses ──
+            // ── Dedup: skip if same SMS body already saved as an expense ──
             val rawBody = normalized.rawBody?.trim()
             if (!rawBody.isNullOrBlank()) {
-                val sixtySecondsAgo = System.currentTimeMillis() - 60_000L
-                // Check 1: same raw body already in pending_notifications (recent)
-                val recentDup = repository.findRecentByRawBody(rawBody, sixtySecondsAgo)
-                if (recentDup != null) return@launch
-
-                // Check 2: same raw body already saved as an expense (user already confirmed it)
-                // Include NOTIFICATION_AUTO so live-notification-confirmed expenses also block re-detection.
                 val bodyHash = rawBody.hashCode()
                 val alreadySaved = expenseRepository.getExpensesSnapshot()
-                    .any { (it.sourceType == SourceType.SMS_AUTO || it.sourceType == SourceType.NOTIFICATION_AUTO) &&
-                        it.rawSmsBody?.trim()?.hashCode() == bodyHash }
+                    .any {
+                        (it.sourceType == SourceType.SMS_AUTO || it.sourceType == SourceType.NOTIFICATION_AUTO) &&
+                            it.rawSmsBody?.trim()?.hashCode() == bodyHash
+                    }
                 if (alreadySaved) return@launch
             }
 
-            // ── Soft-dupe check: same amount + same merchant + same calendar day ──
+            // ── Soft-dupe check: same amount + merchant + calendar day ──
             val now = System.currentTimeMillis()
-            val isPossibleDuplicate = normalized.merchant != null &&
+            val isDuplicate = normalized.merchant != null &&
                 expenseRepository.getExpensesSnapshot().any { expense ->
                     !expense.isDeleted &&
-                    expense.amount == normalized.amount &&
-                    expense.merchantName?.trim()?.lowercase() == normalized.merchant.trim().lowercase() &&
-                    isSameCalendarDay(expense.date.toEpochMilliseconds(), now)
+                        expense.amount == normalized.amount &&
+                        expense.merchantName?.trim()?.lowercase() == normalized.merchant.trim().lowercase() &&
+                        isSameCalendarDay(expense.date.toEpochMilliseconds(), now)
                 }
-            // Update the banner with the duplicate flag (banner may still be showing)
-            if (isPossibleDuplicate && _pending.value == normalized) {
-                _pending.value = normalized.copy(isPossibleDuplicate = true)
-            }
+            if (isDuplicate) return@launch
 
-            // For PAYMENT transactions, try to auto-link the open bill from the same biller
-            // using a strict matcher (merchant + amount). See BillMatcher and issue #11.
+            // ── Auto-link bills for PAYMENT type ──
             val linkedBillId: Long? = if (normalized.type == TransactionDirection.PAYMENT) {
                 val openBills = billRepository.getBills().first()
                     .filter { !it.isDeleted && it.status != BillStatus.SETTLED }
@@ -105,39 +109,109 @@ class PendingNotificationManager @Inject constructor(
                 )?.id
             } else null
 
-            val savedId = repository.save(
-                PendingNotification(
-                    amount = normalized.amount,
-                    currencyCode = normalized.currencyCode,
-                    merchantName = normalized.merchant,
+            // ── Resolve category ──
+            val categories = categoryRepository.getCategories().first()
+            val fallbackCategory = categories.find { it.name == "Misc" }
+                ?: categories.find { it.name == "Other" }
+                ?: categories.last()
+            val merchantRules = merchantRuleRepository.getRules().first()
+            val merchantName = normalized.merchant?.takeIf { it.isNotBlank() }
+                ?: normalized.bankName.takeIf { it != "Unknown Bank" }
+                ?: normalized.bankName
+            val category = CategoryInference.infer(
+                merchantName, normalized.bankName, categories,
+                smsBody = normalized.rawBody, merchantRules = merchantRules
+            ) ?: fallbackCategory
+
+            // ── Resolve payment method ──
+            val paymentMethod = normalized.paymentMethodName?.let { name ->
+                runCatching { PaymentMethod.valueOf(name) }.getOrNull()
+            } ?: PaymentMethod.OTHER
+
+            // ── Resolve account ──
+            val inferredAccountType = when {
+                normalized.rawBody?.contains("credit card", ignoreCase = true) == true ||
+                    normalized.rawBody?.contains(" CC ", ignoreCase = true) == true -> AccountType.CREDIT_CARD
+                normalized.rawBody?.contains("debit card", ignoreCase = true) == true ||
+                    normalized.rawBody?.contains(" DC ", ignoreCase = true) == true -> AccountType.DEBIT_CARD
+                normalized.rawBody?.contains("wallet", ignoreCase = true) == true ||
+                    normalized.rawBody?.contains("stc pay", ignoreCase = true) == true -> AccountType.WALLET
+                else -> AccountType.SAVINGS
+            }
+            val resolvedAccountId = runCatching {
+                accountRepository.findOrCreate(
                     bankName = normalized.bankName,
-                    accountLast4 = normalized.accountLast4,
-                    transactionType = normalized.type.name,
-                    detectedAtMillis = now,
-                    rawBody = normalized.rawBody,
-                    paymentMethod = normalized.paymentMethodName,
-                    isPossibleDuplicate = isPossibleDuplicate,
-                    linkedBillId = linkedBillId
+                    lastFour = normalized.accountLast4,
+                    accountType = inferredAccountType
                 )
+            }.getOrNull()
+
+            // ── Map transaction type ──
+            val transactionType = when (normalized.type) {
+                TransactionDirection.CREDIT -> TransactionType.INCOME
+                TransactionDirection.DEBIT -> TransactionType.EXPENSE
+                TransactionDirection.PAYMENT -> TransactionType.PAYMENT
+                TransactionDirection.TRANSFER -> TransactionType.TRANSFER
+            }
+
+            // ── Currency conversion ──
+            val homeCurrencyCode = currencyRepository.getHomeCurrency().first()
+            val ratesByCode = runCatching {
+                currencyRepository.getRates().first().associateBy { it.currencyCode }
+            }.getOrElse { emptyMap() }
+
+            // ── Compute needsReview ──
+            val needsReview = normalized.merchant.isNullOrBlank()
+                || category.name in setOf("Other", "Misc")
+                || paymentMethod == PaymentMethod.OTHER
+                || normalized.accountLast4 == null
+
+            val stubExpense = Expense(
+                amount = normalized.amount,
+                currencyCode = normalized.currencyCode,
+                homeAmount = null,
+                exchangeRate = null,
+                description = "",
+                category = category,
+                paymentMethod = paymentMethod,
+                transactionType = transactionType,
+                date = Instant.fromEpochMilliseconds(now),
+                merchantName = merchantName,
+                sourceType = SourceType.NOTIFICATION_AUTO,
+                sourceSender = null,
+                accountId = resolvedAccountId,
+                rawSmsBody = normalized.rawBody,
+                billId = linkedBillId,
+                needsReview = needsReview
             )
-            _lastPendingId.value = savedId
-            // Post system tray notification after save so pendingId is available in the tap intent
-            TransactionAlertNotification.post(context, normalized, savedId)
+            val conversion = CurrencyConversion.resolve(stubExpense, homeCurrencyCode, ratesByCode)
+            val savedExpense = stubExpense.copy(
+                homeAmount = conversion.homeAmount,
+                exchangeRate = conversion.exchangeRate
+            )
+            val savedId = expenseRepository.addExpense(savedExpense)
+
+            _lastAutoSaved.value = AutoSavedEvent(
+                expenseId = savedId,
+                amount = normalized.amount,
+                currencyCode = normalized.currencyCode,
+                merchant = merchantName,
+                needsReview = needsReview
+            )
+            TransactionAlertNotification.postForExpense(context, normalized, savedId)
         }
+    }
+
+    fun consume() {
+        _lastAutoSaved.value = null
+    }
+
+    fun dismiss() {
+        _lastAutoSaved.value = null
     }
 
     companion object {
         const val DEFAULT_PAYMENT_MERCHANT = "BillPayments"
-    }
-
-    fun consume(): ParsedTransaction? {
-        val tx = _pending.value
-        _pending.value = null
-        return tx
-    }
-
-    fun dismiss() {
-        _pending.value = null
     }
 
     private fun isSameCalendarDay(millis1: Long, millis2: Long): Boolean {

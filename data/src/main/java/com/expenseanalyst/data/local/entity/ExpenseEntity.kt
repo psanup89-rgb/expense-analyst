@@ -51,5 +51,6 @@ data class ExpenseEntity(
     @ColumnInfo(name = "bill_id") val billId: Long? = null,
     @ColumnInfo(name = "is_deleted", defaultValue = "0") val isDeleted: Boolean = false,
     @ColumnInfo(name = "created_at_utc_millis") val createdAtUtcMillis: Long,
-    @ColumnInfo(name = "updated_at_utc_millis") val updatedAtUtcMillis: Long
+    @ColumnInfo(name = "updated_at_utc_millis") val updatedAtUtcMillis: Long,
+    @ColumnInfo(name = "needs_review", defaultValue = "0") val needsReview: Boolean = false
 )

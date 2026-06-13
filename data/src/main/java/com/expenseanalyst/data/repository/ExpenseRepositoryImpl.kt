@@ -87,4 +87,12 @@ class ExpenseRepositoryImpl @Inject constructor(
 
     override suspend fun remapAccount(fromAccountId: Long, toAccountId: Long?) =
         expenseDao.remapAccount(fromAccountId, toAccountId)
+
+    override fun getNeedsReviewCount(): Flow<Int> = expenseDao.getNeedsReviewCount()
+
+    override fun getNeedsReviewExpenses(): Flow<List<Expense>> =
+        expenseDao.getNeedsReviewExpenses().map { list -> list.map { it.toDomain() } }
+
+    override suspend fun clearAllNeedsReview() =
+        expenseDao.clearAllNeedsReview(DateTimeUtil.nowMillis())
 }

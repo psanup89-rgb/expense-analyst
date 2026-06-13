@@ -79,9 +79,10 @@ fun OnboardingScreen(
                 )
                 3 -> SmsImportStep(
                     onImportLastMonth = { viewModel.completeOnboarding(onComplete, "lastMonth") },
-                    onImportAll = { viewModel.completeOnboarding(onComplete, "all") },
-                    onSkip = { viewModel.completeOnboarding(onComplete, null) },
-                    onBack = viewModel::prevStep
+                    onImportThisYear  = { viewModel.completeOnboarding(onComplete, "thisYear") },
+                    onImportAll       = { viewModel.completeOnboarding(onComplete, "all") },
+                    onSkip            = { viewModel.completeOnboarding(onComplete, null) },
+                    onBack            = viewModel::prevStep
                 )
             }
         }
@@ -370,6 +371,7 @@ private fun NotificationStep(
 @Composable
 private fun SmsImportStep(
     onImportLastMonth: () -> Unit,
+    onImportThisYear: () -> Unit,
     onImportAll: () -> Unit,
     onSkip: () -> Unit,
     onBack: () -> Unit
@@ -403,6 +405,14 @@ private fun SmsImportStep(
             colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
         ) {
             Text("Import last 1 month", fontWeight = FontWeight.Bold)
+        }
+        Spacer(Modifier.height(8.dp))
+        OutlinedButton(
+            onClick = onImportThisYear,
+            modifier = Modifier.fillMaxWidth().height(52.dp),
+            shape = RoundedCornerShape(14.dp)
+        ) {
+            Text("Import SMS from this year")
         }
         Spacer(Modifier.height(8.dp))
         OutlinedButton(

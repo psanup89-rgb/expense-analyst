@@ -20,4 +20,7 @@ interface ExpenseRepository {
     suspend fun countByAccount(accountId: Long): Int
     suspend fun getExpensesByAccount(accountId: Long): List<Expense>
     suspend fun remapAccount(fromAccountId: Long, toAccountId: Long?)
+    fun getNeedsReviewCount(): Flow<Int>
+    fun getNeedsReviewExpenses(): Flow<List<Expense>>
+    suspend fun clearAllNeedsReview()
 }
