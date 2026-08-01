@@ -1,5 +1,6 @@
 package com.expenseanalyst.domain.model
 
+import com.expenseanalyst.domain.util.ReviewReason
 import kotlinx.datetime.Instant
 
 data class Expense(
@@ -21,8 +22,10 @@ data class Expense(
     val tags: List<Tag> = emptyList(),
     val accountId: Long? = null,
     val accountDisplayName: String? = null,
+    val accountLastFour: String? = null,
     val rawSmsBody: String? = null,
     val billId: Long? = null,
     val isDeleted: Boolean = false,
-    val needsReview: Boolean = false
+    val needsReview: Boolean = false,
+    val reviewReasons: List<ReviewReason> = emptyList()
 )

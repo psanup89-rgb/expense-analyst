@@ -2,9 +2,9 @@
 
 ## Database: Room (SQLite)
 - Database class: `ExpenseAnalystDatabase`
-- **Current schema version: `19`**
+- **Current schema version: `20`**
 - Room schema export is enabled under `data/schemas/`
-- All migrations are inline in `ExpenseAnalystDatabase.kt` (v1→v2→...→v19)
+- All migrations are inline in `ExpenseAnalystDatabase.kt` (v1→v2→...→v20)
 - Home currency preference is stored separately in DataStore, not in Room
 
 ---
@@ -36,6 +36,7 @@ Primary table for all transactions (manual and auto-parsed).
 | bill_id | INTEGER | FK → bills.id, NULLABLE | Linked bill (PAYMENT-type expenses only) |
 | is_deleted | INTEGER | NOT NULL, DEFAULT 0 | Soft delete flag (0=active, 1=deleted) |
 | needs_review | INTEGER | NOT NULL, DEFAULT 0 | Added in v18→v19. Set when an auto-saved expense is missing merchant, fell back to a generic category, or lacks payment method/account. Cleared when the expense is edited and saved. Surfaced in the Needs Review bottom-nav tab. |
+| needs_review_reasons | TEXT | NULLABLE | Added in v19→v20. Comma-separated `ReviewReason` enum names (see `domain/util/NeedsReviewEvaluator.kt`) recording *which* condition(s) triggered `needs_review`, computed once at capture time. Not recomputed from other columns — a blank merchant is backfilled with the bank name before `merchant_name` is persisted, so the reason can't be reconstructed later from the row alone. |
 | created_at_utc_millis | INTEGER | NOT NULL | Record creation timestamp |
 | updated_at_utc_millis | INTEGER | NOT NULL | Last update timestamp |
 

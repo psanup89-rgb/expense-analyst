@@ -6,6 +6,7 @@ import com.expenseanalyst.domain.model.Expense
 import com.expenseanalyst.domain.model.PaymentMethod
 import com.expenseanalyst.domain.model.SourceType
 import com.expenseanalyst.domain.model.TransactionType
+import com.expenseanalyst.domain.util.NeedsReviewEvaluator
 import kotlinx.datetime.Instant
 
 fun ExpenseWithCategory.toDomain() = Expense(
@@ -27,10 +28,12 @@ fun ExpenseWithCategory.toDomain() = Expense(
     tags = tags.map { it.toDomain() },
     accountId = expense.accountId,
     accountDisplayName = account?.displayName,
+    accountLastFour = account?.lastFour,
     rawSmsBody = expense.rawSmsBody,
     billId = expense.billId,
     isDeleted = expense.isDeleted,
-    needsReview = expense.needsReview
+    needsReview = expense.needsReview,
+    reviewReasons = NeedsReviewEvaluator.decode(expense.needsReviewReasons)
 )
 
 fun Expense.toEntity(createdAt: Long, updatedAt: Long) = ExpenseEntity(
@@ -56,5 +59,6 @@ fun Expense.toEntity(createdAt: Long, updatedAt: Long) = ExpenseEntity(
     isDeleted = isDeleted,
     createdAtUtcMillis = createdAt,
     updatedAtUtcMillis = updatedAt,
-    needsReview = needsReview
+    needsReview = needsReview,
+    needsReviewReasons = NeedsReviewEvaluator.encode(reviewReasons)
 )

@@ -42,7 +42,7 @@ Expense Analyst is an Android application that automatically detects and categor
 | UI | Jetpack Compose + Material 3 (dark neon theme) |
 | Architecture | Clean Architecture — MVVM, multi-module |
 | DI | Hilt (KSP) |
-| Database | Room v19 (SQLite), 13 entities, inline migrations |
+| Database | Room v20 (SQLite), 13 entities, inline migrations |
 | Async | Kotlin Coroutines + Flow |
 | HTTP | Ktor client (ExchangeRate-API for live rates) |
 | Navigation | Jetpack Navigation Compose |

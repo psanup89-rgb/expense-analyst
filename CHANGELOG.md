@@ -4,6 +4,15 @@ Format: `[Date] — Summary`
 
 ---
 
+## 2026-08-01 — Needs Review reasons (DB v20)
+
+- Needs Review cards now show which field(s) triggered the flag, e.g. "Missing: Merchant, Account"
+- **DB v20**: `needs_review_reasons` TEXT column on `expenses` (comma-separated reason codes), `MIGRATION_19_20`
+- **New**: `domain/util/NeedsReviewEvaluator.kt` (`ReviewReason` enum + `evaluate`/`encode`/`decode`) — single source of truth, computed once at capture time in `PendingNotificationManager` and persisted (not recomputed at display time, since a blank merchant is always backfilled with the bank name before saving)
+- New test: `NeedsReviewEvaluatorTest`
+
+---
+
 ## 2026-06-14 — Docs sync (DB v19) + Gradle/AGP/Kotlin/Room bump
 
 - Docs (`STATUS.md`, `HANDOFF.md`, `PROJECT.md`, `CONSTRAINTS.md`, `AGENTS.md`, `CLAUDE.md`, `docs/FEATURES.md`, `docs/DATA_MODELS.md`) synced to DB v19 / auto-save + Needs Review flow (previously stale at v18 / old Pending Inbox)

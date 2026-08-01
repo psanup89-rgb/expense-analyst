@@ -55,7 +55,7 @@ These rules apply at all times, without exception.
 
 ## Database
 
-- **Room** — entities in `data/local/entity/`. **Current version: 19**. All migrations inline in `ExpenseAnalystDatabase.kt`.
+- **Room** — entities in `data/local/entity/`. **Current version: 20**. All migrations inline in `ExpenseAnalystDatabase.kt`.
 - Dates: **UTC epoch milliseconds** (`Long`). Display converts via `TimeZone.currentSystemDefault()`
 - **Soft delete** — `isDeleted: Boolean` flag. Never hard-delete.
 - Expenses store both `amount` (original currency) and `homeAmount` (converted to home currency)
@@ -118,6 +118,7 @@ These rules apply at all times, without exception.
 - Parsed TRANSACTION results are **auto-saved directly as `Expense`** by `PendingNotificationManager` (dedup, category inference, account resolve, `needsReview` flag set if merchant/category/payment method/account couldn't be resolved) → `NotificationBanner` shows "Saved · tap to edit" **and** Android system tray notification (`TransactionAlertNotification.postForExpense()`, tap → `ACTION_OPEN_EXPENSE_DETAIL`)
 - Parsed BILL results still go to the confirm-before-save "Pending Bill Statements" queue (`PendingInboxScreen`, reached via Bills screen) — unchanged tap-to-save flow
 - Expenses flagged `needsReview=true` surface in the **Needs Review** bottom-nav tab (`NeedsReviewScreen`); editing and saving the expense clears the flag
+- `domain/util/NeedsReviewEvaluator.kt` is the single source of truth for *why* an expense is flagged (`ReviewReason` enum: missing merchant, generic category, unknown payment method, unresolved account). Computed once at capture time in `PendingNotificationManager` and persisted (`needs_review_reasons` column, DB v20) — do not recompute it from the saved `Expense` fields at display time, since a blank merchant is always backfilled with the bank name before persisting and can no longer be detected after the fact. `NeedsReviewCard` just displays the already-decoded `Expense.reviewReasons`.
 - `MainViewModel.pendingRoute` receives tray notification taps; `AppNavGraph` navigates once
 - **SMS Import dedup**: Primary = raw SMS body hash; fallback = amount + day + merchant (for old records without rawSmsBody)
 - **Parser bug to avoid**: two-group amount regex — `groupValues[1]` is `""` not `null` when only group 2 matches. Always use `.takeIf { it.isNotBlank() }` when extracting from either group.

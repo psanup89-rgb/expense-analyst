@@ -1,10 +1,23 @@
 # Expense Analyst — Handoff
 
-**Last updated**: 2026-06-14
-**DB version**: 19
+**Last updated**: 2026-08-01
+**DB version**: 20
 **Build**: `./gradlew clean assembleDebug` ✅
 **Repo**: `https://github.com/psanup89-rgb/expense-analyst` (public)
 **Release**: v0.6.1-debug (GitHub Release with APK)
+
+---
+
+## Session Summary (2026-08-01) — Needs Review reasons (DB v20)
+
+Needs Review cards now show *which* field(s) caused the flag, e.g. "Missing: Merchant, Account", instead of just being an unexplained flagged item.
+
+- **Root cause investigated first**: the boolean `needsReview` flag was computed once at capture time (`PendingNotificationManager.kt`) from 4 conditions (blank merchant / generic category / unresolved payment method / no account last-4), but only the boolean was persisted — the reasons were discarded, so the list couldn't say why.
+- **Correctness finding**: 3 of the 4 reasons (category, payment method, account) can be recomputed later from persisted fields, but the merchant reason cannot — `PendingNotificationManager` always backfills a blank merchant with the bank name before saving, so `expense.merchantName` is never blank in practice. Recomputing live would have silently hidden the most common trigger. Persisting the actual reasons at capture time was the only accurate option.
+- **DB v20**: `needs_review_reasons` TEXT column on `expenses` (comma-separated `ReviewReason` enum names), `MIGRATION_19_20`.
+- **New**: `domain/util/NeedsReviewEvaluator.kt` — `ReviewReason` enum + `evaluate()`/`encode()`/`decode()`, single source of truth used by both `PendingNotificationManager` (write) and `NeedsReviewScreen` (display, via `Expense.reviewReasons`, which is only ever decoded from what was persisted, never re-evaluated).
+- Added `Expense.accountLastFour` (from the already-joined `AccountEntity` relation) and `Expense.reviewReasons: List<ReviewReason>`.
+- New test: `domain/src/test/.../util/NeedsReviewEvaluatorTest.kt`.
 
 ---
 

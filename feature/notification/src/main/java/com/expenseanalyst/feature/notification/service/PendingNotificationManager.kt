@@ -18,6 +18,7 @@ import com.expenseanalyst.domain.repository.PendingNotificationRepository
 import com.expenseanalyst.domain.util.BillMatcher
 import com.expenseanalyst.domain.util.CategoryInference
 import com.expenseanalyst.domain.util.CurrencyConversion
+import com.expenseanalyst.domain.util.NeedsReviewEvaluator
 import com.expenseanalyst.feature.notification.parser.ParsedTransaction
 import com.expenseanalyst.feature.notification.parser.TransactionDirection
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -161,10 +162,13 @@ class PendingNotificationManager @Inject constructor(
             }.getOrElse { emptyMap() }
 
             // ── Compute needsReview ──
-            val needsReview = normalized.merchant.isNullOrBlank()
-                || category.name in setOf("Other", "Misc")
-                || paymentMethod == PaymentMethod.OTHER
-                || normalized.accountLast4 == null
+            val reviewReasons = NeedsReviewEvaluator.evaluate(
+                merchantName = normalized.merchant,
+                categoryName = category.name,
+                paymentMethod = paymentMethod,
+                accountLastFour = normalized.accountLast4
+            )
+            val needsReview = reviewReasons.isNotEmpty()
 
             val stubExpense = Expense(
                 amount = normalized.amount,
@@ -182,7 +186,8 @@ class PendingNotificationManager @Inject constructor(
                 accountId = resolvedAccountId,
                 rawSmsBody = normalized.rawBody,
                 billId = linkedBillId,
-                needsReview = needsReview
+                needsReview = needsReview,
+                reviewReasons = reviewReasons
             )
             val conversion = CurrencyConversion.resolve(stubExpense, homeCurrencyCode, ratesByCode)
             val savedExpense = stubExpense.copy(

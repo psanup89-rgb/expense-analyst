@@ -182,6 +182,16 @@ private fun NeedsReviewCard(
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
+                if (expense.reviewReasons.isNotEmpty()) {
+                    Spacer(Modifier.height(2.dp))
+                    Text(
+                        text = "Missing: ${expense.reviewReasons.joinToString(", ") { it.label }}",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = Color(0xFFF57C00),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
             }
             Column(horizontalAlignment = Alignment.End) {
                 Text(
