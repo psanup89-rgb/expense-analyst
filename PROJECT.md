@@ -20,6 +20,8 @@ Expense Analyst is an Android application that automatically detects and categor
 - Account tracking (bank accounts and credit cards, matched from SMS sender + last-4 digits)
 - 18 bank-specific SMS parsers covering Indian and Saudi banks
 - 10 bill statement parsers (HDFC, EmiratesNBD, AlRajhi, IdfcFirstBank, AxisBank, Tamara, SaudiEnergy, Ejar, Airtel, Generic)
+- Auto-save: detected bank SMS/notifications save directly as expenses; a "Needs Review" tab flags ones missing merchant, category, payment method, or account
+- Loans/Lent tracking (money lent to others, WorkManager reminders, settlement nets out of monthly totals)
 - Onboarding flow (currency selection, notification permission)
 - Settings (home currency, notification access toggle, SMS import trigger)
 
@@ -40,7 +42,7 @@ Expense Analyst is an Android application that automatically detects and categor
 | UI | Jetpack Compose + Material 3 (dark neon theme) |
 | Architecture | Clean Architecture — MVVM, multi-module |
 | DI | Hilt (KSP) |
-| Database | Room v18 (SQLite), 13 entities, inline migrations |
+| Database | Room v19 (SQLite), 13 entities, inline migrations |
 | Async | Kotlin Coroutines + Flow |
 | HTTP | Ktor client (ExchangeRate-API for live rates) |
 | Navigation | Jetpack Navigation Compose |

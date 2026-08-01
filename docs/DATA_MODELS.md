@@ -2,9 +2,9 @@
 
 ## Database: Room (SQLite)
 - Database class: `ExpenseAnalystDatabase`
-- **Current schema version: `17`**
+- **Current schema version: `19`**
 - Room schema export is enabled under `data/schemas/`
-- All migrations are inline in `ExpenseAnalystDatabase.kt` (v1→v2→...→v15)
+- All migrations are inline in `ExpenseAnalystDatabase.kt` (v1→v2→...→v19)
 - Home currency preference is stored separately in DataStore, not in Room
 
 ---
@@ -35,6 +35,7 @@ Primary table for all transactions (manual and auto-parsed).
 | emi_installment_number | INTEGER | NULLABLE | 1, 2, 3... for EMI entries |
 | bill_id | INTEGER | FK → bills.id, NULLABLE | Linked bill (PAYMENT-type expenses only) |
 | is_deleted | INTEGER | NOT NULL, DEFAULT 0 | Soft delete flag (0=active, 1=deleted) |
+| needs_review | INTEGER | NOT NULL, DEFAULT 0 | Added in v18→v19. Set when an auto-saved expense is missing merchant, fell back to a generic category, or lacks payment method/account. Cleared when the expense is edited and saved. Surfaced in the Needs Review bottom-nav tab. |
 | created_at_utc_millis | INTEGER | NOT NULL | Record creation timestamp |
 | updated_at_utc_millis | INTEGER | NOT NULL | Last update timestamp |
 
@@ -206,6 +207,30 @@ Planned expense items per month for budget comparison. Added in DB migration v14
 | year | INTEGER | NOT NULL | e.g. 2026 |
 | is_deleted | INTEGER | NOT NULL, DEFAULT 0 | Soft delete flag |
 | created_at_millis | INTEGER | NOT NULL | Record creation timestamp |
+
+### lent_items
+Money lent to others (Loans/Lent tracking). Added in DB migration v17→v18.
+
+| Column | Type | Constraints | Description |
+|--------|------|-------------|-------------|
+| id | INTEGER | PK, autoGenerate | |
+| person_name | TEXT | NOT NULL | Who the money was lent to |
+| amount | REAL | NOT NULL | Original amount lent |
+| currency_code | TEXT | NOT NULL | ISO 4217 code |
+| home_amount | REAL | NULLABLE | Converted amount in home currency |
+| description | TEXT | NOT NULL | Notes on the loan |
+| lent_date_millis | INTEGER | NOT NULL | Date the money was lent |
+| status | TEXT | NOT NULL | `PENDING` or `SETTLED` |
+| settled_amount | REAL | NULLABLE | Amount actually settled (may differ from `amount`) |
+| settled_date_millis | INTEGER | NULLABLE | Date settled |
+| linked_expense_id | INTEGER | FK → expenses.id, NULLABLE | Original expense the loan was created from, if any |
+| settlement_expense_id | INTEGER | FK → expenses.id, NULLABLE | INCOME+Refund expense created on settlement (nets out of monthly totals) |
+| reminder_datetime_millis | INTEGER | NULLABLE | WorkManager reminder trigger time |
+| is_deleted | INTEGER | NOT NULL, DEFAULT 0 | Soft delete flag |
+| created_at_millis | INTEGER | NOT NULL | Record creation timestamp |
+| updated_at_millis | INTEGER | NOT NULL | Last update timestamp |
+
+**Indices:** `status`, `is_deleted`
 
 ### currency_rates
 Cached exchange rates for offline support.

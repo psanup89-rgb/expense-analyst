@@ -1,10 +1,30 @@
 # Expense Analyst — Handoff
 
-**Last updated**: 2026-06-13
-**DB version**: 18
+**Last updated**: 2026-06-14
+**DB version**: 19
 **Build**: `./gradlew clean assembleDebug` ✅
 **Repo**: `https://github.com/psanup89-rgb/expense-analyst` (public)
-**Release**: v0.1.3-debug (GitHub Release with APK)
+**Release**: v0.6.1-debug (GitHub Release with APK)
+
+---
+
+## Session Summary (2026-06-14) — Docs sync (DB v19) + Gradle/AGP/Kotlin/Room bump + release v0.6.1
+
+### 1. Docs brought up to date with DB v19 (auto-save + Needs Review, commit `8be2fa3`)
+
+`STATUS.md`, `HANDOFF.md`, `PROJECT.md`, `CONSTRAINTS.md`, `AGENTS.md`, `CLAUDE.md`, `docs/FEATURES.md`, `docs/DATA_MODELS.md` were all still describing DB v18 and the old tap-to-save Pending Inbox flow. Updated to reflect:
+- DB v19 (`needs_review` column on `expenses`), next migration is `MIGRATION_19_20`
+- Bottom nav is now **Home · Review · Bills · EMI · Settings** (5 destinations, not 3 — `CLAUDE.md` was wrong)
+- Old Pending Inbox is repurposed as "Pending Bill Statements" (BILL type only, reached via Bills screen)
+- `lent_items` table (DB v18, previously undocumented) added to `docs/DATA_MODELS.md`
+
+### 2. Build tooling bump (no app-facing change)
+
+`gradle/libs.versions.toml`: AGP 9.1.0 → 9.2.1, Kotlin 2.1.0 → 2.2.10, KSP 2.1.0-1.0.29 → 2.3.2, Room 2.7.0 → 2.7.2. `gradle/wrapper/gradle-wrapper.properties`: Gradle 9.3.1 → 9.4.1. New `gradle/gradle-daemon-jvm.properties` (Gradle's daemon toolchain pin, auto-generated).
+
+### 3. Release v0.6.1 published
+
+Debug APK (`app-debug.apk`) built via `./gradlew clean assembleDebug` and attached to GitHub Release `v0.6.1-debug`, following the established convention (no release-signing keystore exists yet — see Open Question in `NEXT_STEPS.md`).
 
 ---
 

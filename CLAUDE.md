@@ -55,7 +55,7 @@ These rules apply at all times, without exception.
 
 ## Database
 
-- **Room** — entities in `data/local/entity/`. **Current version: 18**. All migrations inline in `ExpenseAnalystDatabase.kt`.
+- **Room** — entities in `data/local/entity/`. **Current version: 19**. All migrations inline in `ExpenseAnalystDatabase.kt`.
 - Dates: **UTC epoch milliseconds** (`Long`). Display converts via `TimeZone.currentSystemDefault()`
 - **Soft delete** — `isDeleted: Boolean` flag. Never hard-delete.
 - Expenses store both `amount` (original currency) and `homeAmount` (converted to home currency)
@@ -80,9 +80,9 @@ These rules apply at all times, without exception.
 
 - Routes defined in `core/navigation/NavRoutes.kt`
 - All routes registered in `app/navigation/AppNavGraph.kt`
-- Bottom nav: **Home · EMI · Settings** (shown only on those three destinations)
+- Bottom nav: **Home · Review · Bills · EMI · Settings** (shown only on those five destinations). "Review" is `NavRoutes.NEEDS_REVIEW`, badged with the needs-review count.
 - Onboarding gate: `MainActivity` reads `OnboardingRepository.isOnboardingCompleted()` before rendering nav
-- Notification pre-fill: `ADD_EXPENSE_ROUTE` has optional args `?amount=&currency=&merchant=&type=`
+- Notification pre-fill: `ADD_EXPENSE_ROUTE` has optional args `?amount=&currency=&merchant=&type=` (still used for manual add-from-banner paths). Auto-saved transaction notifications now tap through to `ACTION_OPEN_EXPENSE_DETAIL` (expense detail screen) instead, since the expense is already saved.
 
 ---
 
@@ -115,7 +115,9 @@ These rules apply at all times, without exception.
 - 18 parsers: HDFC, SBI, ICICI, Axis, Kotak, YesBank, IdfcFirstBank, OneCard, AlRajhi, StcBank, Alinma, D360, EmiratesNBD, FASTag, Wallet, UPI, Mubasher, Generic
 - `TransactionDirection`: `DEBIT | CREDIT | PAYMENT` (PAYMENT = bill/card payment confirmation)
 - `PaymentMethodDetector` — shared utility that infers payment method (Credit Card, UPI, Net Banking, Apple Pay, etc.) from SMS body text. Used by all parsers.
-- Parsed result flows via `PendingNotificationManager` → `NotificationBanner` UI **and** Android system tray notification (`TransactionAlertNotification.post()`)
+- Parsed TRANSACTION results are **auto-saved directly as `Expense`** by `PendingNotificationManager` (dedup, category inference, account resolve, `needsReview` flag set if merchant/category/payment method/account couldn't be resolved) → `NotificationBanner` shows "Saved · tap to edit" **and** Android system tray notification (`TransactionAlertNotification.postForExpense()`, tap → `ACTION_OPEN_EXPENSE_DETAIL`)
+- Parsed BILL results still go to the confirm-before-save "Pending Bill Statements" queue (`PendingInboxScreen`, reached via Bills screen) — unchanged tap-to-save flow
+- Expenses flagged `needsReview=true` surface in the **Needs Review** bottom-nav tab (`NeedsReviewScreen`); editing and saving the expense clears the flag
 - `MainViewModel.pendingRoute` receives tray notification taps; `AppNavGraph` navigates once
 - **SMS Import dedup**: Primary = raw SMS body hash; fallback = amount + day + merchant (for old records without rawSmsBody)
 - **Parser bug to avoid**: two-group amount regex — `groupValues[1]` is `""` not `null` when only group 2 matches. Always use `.takeIf { it.isNotBlank() }` when extracting from either group.

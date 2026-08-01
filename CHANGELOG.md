@@ -4,6 +4,26 @@ Format: `[Date] — Summary`
 
 ---
 
+## 2026-06-14 — Docs sync (DB v19) + Gradle/AGP/Kotlin/Room bump
+
+- Docs (`STATUS.md`, `HANDOFF.md`, `PROJECT.md`, `CONSTRAINTS.md`, `AGENTS.md`, `CLAUDE.md`, `docs/FEATURES.md`, `docs/DATA_MODELS.md`) synced to DB v19 / auto-save + Needs Review flow (previously stale at v18 / old Pending Inbox)
+- **Gradle bump**: AGP 9.1.0 → 9.2.1, Kotlin 2.1.0 → 2.2.10, KSP 2.1.0-1.0.29 → 2.3.2, Room 2.7.0 → 2.7.2, Gradle wrapper 9.3.1 → 9.4.1
+- Release `v0.6.1-debug` published
+
+---
+
+## 2026-06-14 — Auto-save transactions + Needs Review tab (DB v19)
+
+- Detected bank SMS/notifications are now saved directly as expenses — no tap required. In-app banner changes from "tap to save" to "Saved · tap to edit"
+- **DB v19**: `needs_review` column on `expenses`; flags records missing merchant, falling back to a generic category, or lacking payment method/account
+- New **Needs Review** bottom-nav tab (replaces Inbox): per-card checkmark, "Mark all done" action, badge count; editing an expense clears the flag
+- `TransactionAlertNotification` tap → expense detail (`ACTION_OPEN_EXPENSE_DETAIL`) instead of Add Expense
+- Old Pending Inbox repurposed as "Pending Bill Statements" (BILL type only), moved under Bills screen
+- Onboarding: added "Import SMS from this year" option
+- Released as `v0.6.0`
+
+---
+
 ## 2026-06-13 — Issue #15 fix + build environment + APK deployed
 
 - **SaudiEnergyStatementParser**: fingerprint made `issued` optional; account pattern handles `No.` prefix

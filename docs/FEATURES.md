@@ -1,8 +1,8 @@
 # Feature Specifications & Acceptance Criteria
 
-**Last updated**: 2026-04-29
+**Last updated**: 2026-06-14
 **Phase 1 + 1.5**: Complete
-**Phase 2**: Partially started (F11 mostly complete, F12 complete, F13 complete)
+**Phase 2**: Partially started (F11 mostly complete, F12 complete, F13 complete, Loans/Lent complete, Auto-save + Needs Review complete)
 
 ---
 
@@ -57,15 +57,15 @@
 - [x] Onboarding requests notification access with explanation
 - [x] `ParserRegistry` dispatches to bank-specific parser by sender ID
 - [x] Parsers extract: amount, type (debit/credit), merchant, currency
-- [x] In-app banner: "₹450 at Swiggy detected. Tap to save."
-- [x] Tapping banner opens Add Expense pre-filled with parsed data
+- [x] **Auto-save (DB v19)**: detected transactions save directly as `Expense`, no tap required. In-app banner shows "Saved · tap to edit" instead of a confirm prompt
+- [x] **Needs Review tab**: expenses missing merchant, falling back to a generic category, or lacking payment method/account are flagged `needsReview=true` and surfaced in the Review bottom-nav tab with a badge; editing and saving clears the flag
 - [x] "Dismiss" option on banner
 - [x] Supported banks: HDFC, SBI, ICICI, Axis (incl. Forex cards), Kotak, Yes Bank, IDFC First Bank, OneCard (Federal Bank), Al Rajhi, STC Bank, Alinma, D360, Emirates NBD, FASTag (LivQuik), Google Wallet/Pay, Apple Pay, Samsung Pay, UPI apps, Mubasher (bill payment), generic fallback
 - [x] Settings toggle to enable/disable auto-capture
-- [x] Android system tray notification when transaction detected (tapping pre-fills AddExpense)
-- [x] Bulk SMS import from device inbox (all-time or last 30 days) with smart dedup (primary: SMS body hash; fallback: amount+day+merchant)
+- [x] Android system tray notification when transaction detected (tapping opens the saved expense's detail screen)
+- [x] Bulk SMS import from device inbox (last 1 month / this year / all-time) with smart dedup (primary: SMS body hash; fallback: amount+day+merchant)
 - [x] Merchant rules ("Teach App") — user-defined pattern→category, applied before keyword matching
-- [x] PAYMENT transaction type for credit card / bill payments (purple, excluded from expense totals)
+- [x] PAYMENT transaction type for credit card / bill payments — still routed to the confirm-before-save "Pending Bill Statements" queue (unchanged), not auto-saved
 - [ ] Duplicate detection for live notification capture (bulk import has it; live notifications do not)
 
 ---
@@ -141,6 +141,8 @@
 | F13: Budgets | ✅ Complete | Biometric-gated budget section (Settings → Budget). Salary tracking (manual + auto-detect from INCOME transactions + history). Planned expenses (add/edit/soft-delete with category, carry-forward from previous month). Planned vs Actual comparison (category progress bars, unplanned expense flagging, summary card). Month navigation. DB v15: salary_entries + planned_expenses tables. |
 | F14: Export | Not started | CSV + PDF with date range filter, Android share sheet |
 | F15: Cloud Backup | Not started | Google Drive backup/restore via Google Sign-In, weekly auto-backup |
+| Loans/Lent Tracking | ✅ Complete | New `:feature:loans` module. Track money lent to others (PENDING/SETTLED), WorkManager reminders with custom datetime, settlement creates INCOME+Refund expense (nets out of monthly totals). Entry: Settings → "Loans & Lending". DB v18: `lent_items` table. (Note: referred to as "F15" in `STATUS.md`/`HANDOFF.md`, overlapping the Cloud Backup number above — this table's F-numbers have never been fully reconciled between docs.) |
+| Auto-save + Needs Review | ✅ Complete | Detected bank SMS/notifications auto-save as expenses (no tap). Expenses missing merchant/category/payment method/account are flagged and surfaced in a new Review bottom-nav tab. DB v19: `needs_review` column. See F4 above for full detail. |
 | F16: Home Screen Widget | Not started | Glance widget: today's spend + monthly total |
 | F17: Dynamic Colors | Not started | Material 3 dynamic color (opt-out of neon theme) |
 | F18: Bulk Operations | Not started | Multi-select, bulk delete, bulk re-categorize |
