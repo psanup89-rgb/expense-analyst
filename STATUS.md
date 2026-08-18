@@ -1,9 +1,9 @@
 # Expense Analyst — Current Status
 
-**Date**: 2026-08-01
+**Date**: 2026-08-19
 **DB version**: 20
 **Build**: `./gradlew clean assembleDebug` ✅ (requires JDK 21)
-**Version**: v0.6.1-debug
+**Version**: v0.7.0-debug
 **Repo**: `https://github.com/psanup89-rgb/expense-analyst` (public)
 **Open issues**: None
 
@@ -41,6 +41,7 @@
 - [x] Needs Review tab (bottom nav): expenses missing merchant, falling back to a generic category, or lacking payment method/account are flagged `needsReview=true` and surfaced here with a badge count; each card shows *which* field(s) triggered the flag ("Missing: Merchant, Account", DB v20); tap → edit clears the flag, checkmark → mark reviewed without opening
 - [x] Pending Bill Statements queue (repurposed old Pending Inbox, BILL type only) — accessible via Bills screen, unchanged confirm-before-save flow
 - [x] In-app banner ("Saved · tap to edit") + system tray notification (tap → expense detail)
+- [x] **"Add note" inline reply** on the tray notification: type a description straight into the shade (`RemoteInput`), written to `Expense.description` without opening the app; notification then shows the saved note and self-dismisses (~4s). Blank replies re-post the original untouched; a soft-deleted expense reports failure. Handled by `NoteReplyReceiver`
 - [x] Bulk SMS import with two-tier dedup (body hash + amount/day/merchant fallback); onboarding offers last-1-month / this-year / all-time
 - [x] Live notification dedup (60s window + body hash vs saved expenses)
 

@@ -33,6 +33,18 @@
                 <action android:name="com.expenseanalyst.TEST_SMS" />
             </intent-filter>
         </receiver>
+
+        <!--
+            Handles the inline "Add note" RemoteInput reply on a transaction notification,
+            writing the typed text to the expense description.
+
+            Not exported and no intent-filter: it is only ever reached through an explicit
+            PendingIntent this app created, which is what makes that PendingIntent safe to
+            declare mutable (RemoteInput requires mutability to fill in the reply).
+        -->
+        <receiver
+            android:name=".service.NoteReplyReceiver"
+            android:exported="false" />
     </application>
 
 </manifest>

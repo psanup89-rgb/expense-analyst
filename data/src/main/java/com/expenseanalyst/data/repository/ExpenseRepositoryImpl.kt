@@ -95,4 +95,11 @@ class ExpenseRepositoryImpl @Inject constructor(
 
     override suspend fun clearAllNeedsReview() =
         expenseDao.clearAllNeedsReview(DateTimeUtil.nowMillis())
+
+    override suspend fun updateDescription(id: Long, description: String): Int =
+        expenseDao.updateDescription(
+            id = id,
+            description = description,
+            updatedAt = DateTimeUtil.nowMillis()
+        )
 }

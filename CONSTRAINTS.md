@@ -101,6 +101,15 @@ New domain concept checklist:
 
 ---
 
+## Notification Conventions
+
+- The reply `PendingIntent` for a `RemoteInput` action must be **mutable**; the content (tap-body) intent stays `FLAG_IMMUTABLE`. Use `androidx.core.app.PendingIntentCompat`, never a bare `PendingIntent.FLAG_MUTABLE` (API 31 constant, minSdk is 26).
+- After a `RemoteInput` reply the system leaves a progress spinner until the app re-notifies the same id or cancels it. Every code path in a reply receiver must terminate in a notify or a cancel.
+- A `BroadcastReceiver` that writes to the DB must use `goAsync()` and `finish()` in a `finally` — without it the process can be killed mid-write.
+- Never capture the receiver's `Context` into a coroutine that outlives `onReceive`; unwrap `context.applicationContext` first.
+
+---
+
 ## Things Agents Must Never Do
 
 1. Hard-delete records — always `isDeleted = true`

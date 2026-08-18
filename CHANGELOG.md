@@ -4,6 +4,18 @@ Format: `[Date] — Summary`
 
 ---
 
+## 2026-08-19 — Add a note from the notification shade
+
+- Auto-save transaction notifications now carry an **"Add note"** inline-reply action (`RemoteInput`). The typed text is written to the expense `description` without opening the app; the notification then shows the saved note and self-dismisses after 4s.
+- **New**: `NoteReplyReceiver` (`@AndroidEntryPoint` BroadcastReceiver, `goAsync()` for the DB write, unexported) and `NoteReplySanitizer` (whitespace collapse, 200-char cap, surrogate-pair safe)
+- **New**: `ExpenseDao.updateDescription` / `ExpenseRepository.updateDescription` — targeted single-column UPDATE with an `is_deleted = 0` guard, returning rows-affected. Deliberately not routed through `updateExpense`, which would null `account_number` via the entity mapper and race an open Edit Expense screen.
+- `needsReview` is intentionally **not** cleared by adding a note — `ReviewReason` covers merchant/category/payment method/account, none of which a note resolves
+- **No DB migration** — `description` already existed. DB stays at v20.
+- New tests: `NoteReplySanitizerTest` (7), `ReplyRequestCodeTest` (4)
+- Version bumped to 0.7.0 (`versionCode` 2) — had been stuck at 0.1.0/1 across every prior release
+
+---
+
 ## 2026-08-01 — Needs Review reasons (DB v20)
 
 - Needs Review cards now show which field(s) triggered the flag, e.g. "Missing: Merchant, Account"

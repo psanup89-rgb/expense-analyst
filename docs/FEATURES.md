@@ -63,6 +63,7 @@
 - [x] Supported banks: HDFC, SBI, ICICI, Axis (incl. Forex cards), Kotak, Yes Bank, IDFC First Bank, OneCard (Federal Bank), Al Rajhi, STC Bank, Alinma, D360, Emirates NBD, FASTag (LivQuik), Google Wallet/Pay, Apple Pay, Samsung Pay, UPI apps, Mubasher (bill payment), generic fallback
 - [x] Settings toggle to enable/disable auto-capture
 - [x] Android system tray notification when transaction detected (tapping opens the saved expense's detail screen)
+- [x] **"Add note" inline reply** on the tray notification (`RemoteInput`): typed text is saved to `Expense.description` without opening the app. Notification then shows the saved note and self-dismisses after ~4s. Blank reply re-posts the original unchanged; soft-deleted expense reports failure. Note is whitespace-collapsed and capped at 200 chars. Does **not** clear `needsReview` (a note resolves none of the four review reasons)
 - [x] Bulk SMS import from device inbox (last 1 month / this year / all-time) with smart dedup (primary: SMS body hash; fallback: amount+day+merchant)
 - [x] Merchant rules ("Teach App") — user-defined pattern→category, applied before keyword matching
 - [x] PAYMENT transaction type for credit card / bill payments — still routed to the confirm-before-save "Pending Bill Statements" queue (unchanged), not auto-saved
@@ -143,6 +144,7 @@
 | F15: Cloud Backup | Not started | Google Drive backup/restore via Google Sign-In, weekly auto-backup |
 | Loans/Lent Tracking | ✅ Complete | New `:feature:loans` module. Track money lent to others (PENDING/SETTLED), WorkManager reminders with custom datetime, settlement creates INCOME+Refund expense (nets out of monthly totals). Entry: Settings → "Loans & Lending". DB v18: `lent_items` table. (Note: referred to as "F15" in `STATUS.md`/`HANDOFF.md`, overlapping the Cloud Backup number above — this table's F-numbers have never been fully reconciled between docs.) |
 | Auto-save + Needs Review | ✅ Complete | Detected bank SMS/notifications auto-save as expenses (no tap). Expenses missing merchant/category/payment method/account are flagged and surfaced in a new Review bottom-nav tab. DB v19: `needs_review` column. See F4 above for full detail. |
+| Notification "Add note" | ✅ Complete | Inline `RemoteInput` reply on the transaction notification writes `Expense.description` from the shade — no app launch. `NoteReplyReceiver` + `NoteReplySanitizer`; targeted `ExpenseDao.updateDescription`. No DB migration. See F4 above. |
 | F16: Home Screen Widget | Not started | Glance widget: today's spend + monthly total |
 | F17: Dynamic Colors | Not started | Material 3 dynamic color (opt-out of neon theme) |
 | F18: Bulk Operations | Not started | Multi-select, bulk delete, bulk re-categorize |

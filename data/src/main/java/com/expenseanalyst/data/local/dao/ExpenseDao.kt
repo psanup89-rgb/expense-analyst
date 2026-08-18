@@ -88,6 +88,20 @@ interface ExpenseDao {
     @Query("UPDATE expenses SET needs_review = 0, updated_at_utc_millis = :updatedAt WHERE needs_review = 1 AND is_deleted = 0")
     suspend fun clearAllNeedsReview(updatedAt: Long)
 
+    /**
+     * Targeted single-column update used by the notification inline-reply ("Add note") path.
+     * Deliberately avoids a full-row round-trip: the entity mapper would null out
+     * account_number, and a read-modify-write would race an open Edit Expense screen.
+     * Returns rows affected — 0 means the expense is missing or soft-deleted.
+     */
+    @Query(
+        """
+        UPDATE expenses SET description = :description, updated_at_utc_millis = :updatedAt
+        WHERE id = :id AND is_deleted = 0
+        """
+    )
+    suspend fun updateDescription(id: Long, description: String, updatedAt: Long): Int
+
     @Transaction
     @Query("""
         SELECT * FROM expenses

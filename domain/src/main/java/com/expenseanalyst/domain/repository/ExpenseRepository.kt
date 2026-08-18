@@ -23,4 +23,7 @@ interface ExpenseRepository {
     fun getNeedsReviewCount(): Flow<Int>
     fun getNeedsReviewExpenses(): Flow<List<Expense>>
     suspend fun clearAllNeedsReview()
+
+    /** Targeted single-column update. Returns rows affected (0 if missing or soft-deleted). */
+    suspend fun updateDescription(id: Long, description: String): Int
 }

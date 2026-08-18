@@ -65,6 +65,7 @@ Defines agent domains, responsibilities, and boundaries.
 
 **Critical rules**
 - DB is currently at **version 20**. Next migration must be `MIGRATION_20_21`
+- Prefer a **targeted `@Query` UPDATE** over `updateExpense(expense)` when writing one field from a non-UI context. `updateExpense` round-trips the whole row through `ExpenseMapper.toEntity`, which nulls `account_number`, and it rewrites the tag join table. See `ExpenseDao.updateDescription` for the pattern.
 - Always add the new migration to `addMigrations(...)` in `ExpenseAnalystDatabase`
 - Never hard-delete — always soft delete (`isDeleted = true`)
 - All timestamps are UTC epoch milliseconds (`Long`) — never `LocalDate`, `Date`, or `ZonedDateTime` in entities
