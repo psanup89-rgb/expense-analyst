@@ -44,6 +44,9 @@ class NoteReplyReceiver : BroadcastReceiver() {
             ?.takeIf { it.isNotBlank() } ?: FALLBACK_TITLE
         val body = intent.getStringExtra(TransactionAlertNotification.EXTRA_NOTIF_BODY)
             ?.takeIf { it.isNotBlank() } ?: FALLBACK_BODY
+        val categoryColor = intent.getStringExtra(TransactionAlertNotification.EXTRA_CATEGORY_COLOR)
+        val categoryIcon = intent.getStringExtra(TransactionAlertNotification.EXTRA_CATEGORY_ICON)
+        val categoryName = intent.getStringExtra(TransactionAlertNotification.EXTRA_CATEGORY_NAME)
 
         val note = NoteReplySanitizer.sanitize(
             RemoteInput.getResultsFromIntent(intent)
@@ -59,7 +62,7 @@ class NoteReplyReceiver : BroadcastReceiver() {
             try {
                 if (note == null) {
                     TransactionAlertNotification.repostForNoteRetry(
-                        appContext, notifId, expenseId, title, body
+                        appContext, notifId, expenseId, title, body, categoryColor, categoryIcon, categoryName
                     )
                     return@launch
                 }
@@ -70,10 +73,12 @@ class NoteReplyReceiver : BroadcastReceiver() {
 
                 if (rows > 0) {
                     TransactionAlertNotification.postNoteSaved(
-                        appContext, notifId, expenseId, title, note
+                        appContext, notifId, expenseId, title, note, categoryColor, categoryIcon, categoryName
                     )
                 } else {
-                    TransactionAlertNotification.postNoteFailed(appContext, notifId, title)
+                    TransactionAlertNotification.postNoteFailed(
+                        appContext, notifId, title, categoryColor, categoryIcon, categoryName
+                    )
                 }
             } finally {
                 pendingResult.finish()

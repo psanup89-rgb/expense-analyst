@@ -1,10 +1,50 @@
 # Expense Analyst — Handoff
 
-**Last updated**: 2026-08-19
+**Last updated**: 2026-08-22
 **DB version**: 20
 **Build**: `./gradlew clean assembleDebug` ✅
 **Repo**: `https://github.com/psanup89-rgb/expense-analyst` (public)
-**Release**: v0.7.0-debug (GitHub Release with APK)
+**Release**: v0.7.1-debug (GitHub Release with APK)
+
+---
+
+## Session Summary (2026-08-22) — Colored category icon on the transaction notification
+
+User feedback on the "Add note" notification (shipped 2026-08-19): compared to a Google Wallet
+tap-to-pay confirmation on the same phone, the notification looked plain — text only, no icon.
+Asked for a colored icon on the right, "like a different expense app."
+
+### What shipped
+- `TransactionAlertNotification.categoryLargeIcon()`: rasterizes a circular badge via `Canvas` —
+  the resolved `Category.colorHex` as fill, plus either its glyph or an initial-letter fallback —
+  and sets it via `setLargeIcon()`. Threaded through every posting path (initial notification,
+  blank-reply retry, saved-note confirmation, failed-note confirmation) via new `EXTRA_CATEGORY_*`
+  intent extras, so the icon never disappears mid-flow.
+- **New `CategoryNotificationIcon.kt`**: maps `Category.iconName` → a notification-module drawable
+  resource ID, covering the 14 built-in seeded categories. Explicitly documented as a subset of
+  `core/util/CategoryIconMapper.kt` (which maps the same ~100-name vocabulary to Compose
+  `ImageVector`s) rather than a silent duplicate — `ImageVector` can't be used outside a
+  Composition, so this is a second, smaller table by necessity, not an accident.
+- **14 new vector drawables**, hand-authored from primitive shapes (rects, circles, triangles,
+  simple arcs) rather than reproductions of the in-app Material icons — chosen deliberately to
+  minimize the risk of malformed path data written blind, with no device available to preview
+  against until late in the session. `ic_cat_refund.xml` intentionally reuses the transfer-arrows
+  glyph rather than risk a more elaborate curved variant; the two categories are differentiated by
+  color and label, not icon shape.
+- **Bonus fix, same root cause**: `CategoryIconMapper` had no branch for `"currency_exchange"` —
+  the seeded Refund category's icon was silently falling back to the generic "more" icon
+  everywhere in the app (category picker, expense list), not just notifications. Added
+  `Icons.Filled.CurrencyExchange`.
+- Version 0.7.0/2 → **0.7.1/3**.
+
+### Not yet verified on device
+Same caveat as the 2026-08-19 session, compounded: the phone dropped off wireless ADB
+(`device not found`) partway through, so **none of the 14 icons have been seen rendered**. The
+build compiled clean and AAPT2 validated every drawable's path syntax, which rules out crashes,
+but geometric correctness (does the fork actually look like a fork at 34dp) is unverified. Next
+agent/session: reconnect the device, fire a test transaction per category to eyeball all 14, and
+fix any that look wrong — use the `SmsTestReceiver` adb broadcast recipe in the 2026-08-19 section
+below (vary the sender/merchant to land in different categories via `CategoryInference`).
 
 ---
 

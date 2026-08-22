@@ -4,6 +4,16 @@ Format: `[Date] — Summary`
 
 ---
 
+## 2026-08-22 — Colored category icon on the transaction notification
+
+- The transaction notification's large icon is now a colored circular badge matching the resolved expense category — the category's `colorHex` as the fill, with a glyph on top for the 14 built-in categories, or the category name's first letter for a custom one. Persists across the "Add note" reply, the saved-note confirmation, and the blank-reply retry.
+- **New**: 14 vector drawables (`ic_cat_food.xml`, `ic_cat_transport.xml`, etc.) in `feature/notification/res/drawable/` — a deliberate, documented subset of the ~100-icon Compose-only `CategoryIconMapper`, since notifications are built outside any Composition and can't use `ImageVector`s directly. `CategoryNotificationIcon.kt` maps icon name → drawable; anything outside the 14 falls back to the initial-letter badge.
+- **Fix**: `CategoryIconMapper` was missing a `"currency_exchange"` branch — the seeded Refund category's icon silently fell back to the generic "more" icon everywhere in the app (category picker, expense list), not just in notifications. Added `Icons.Filled.CurrencyExchange`.
+- Version bumped to 0.7.1 (`versionCode` 3).
+- **Not yet visually verified on device** — built and unit-tested only; the phone dropped off wireless ADB before the icons could be checked on real hardware.
+
+---
+
 ## 2026-08-19 — Add a note from the notification shade
 
 - Auto-save transaction notifications now carry an **"Add note"** inline-reply action (`RemoteInput`). The typed text is written to the expense `description` without opening the app; the notification then shows the saved note and self-dismisses after 4s.

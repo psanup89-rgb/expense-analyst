@@ -22,6 +22,7 @@ import androidx.compose.material.icons.filled.CleaningServices
 import androidx.compose.material.icons.filled.Commute
 import androidx.compose.material.icons.filled.ContentCut
 import androidx.compose.material.icons.filled.CreditCard
+import androidx.compose.material.icons.filled.CurrencyExchange
 import androidx.compose.material.icons.filled.DinnerDining
 import androidx.compose.material.icons.filled.DirectionsBike
 import androidx.compose.material.icons.filled.DirectionsBus
@@ -161,6 +162,7 @@ fun categoryIconVector(iconName: String): ImageVector = when (iconName) {
     "account_balance"        -> Icons.Filled.AccountBalance
     "receipt"                -> Icons.Filled.Receipt
     "attach_money"           -> Icons.Filled.AttachMoney
+    "currency_exchange"      -> Icons.Filled.CurrencyExchange
     // Home & Utilities
     "home"                   -> Icons.Filled.Home
     "weekend"                -> Icons.Filled.Weekend

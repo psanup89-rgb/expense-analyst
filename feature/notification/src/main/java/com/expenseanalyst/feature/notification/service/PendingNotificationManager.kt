@@ -203,7 +203,7 @@ class PendingNotificationManager @Inject constructor(
                 merchant = merchantName,
                 needsReview = needsReview
             )
-            TransactionAlertNotification.postForExpense(context, normalized, savedId)
+            TransactionAlertNotification.postForExpense(context, normalized, savedId, category)
         }
     }
 

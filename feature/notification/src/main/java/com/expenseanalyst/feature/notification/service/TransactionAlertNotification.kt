@@ -6,10 +6,17 @@ import android.app.NotificationManager
 import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
+import android.graphics.Bitmap
+import android.graphics.Canvas
+import android.graphics.Color
+import android.graphics.Paint
+import android.graphics.Typeface
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import androidx.core.app.PendingIntentCompat
 import androidx.core.app.RemoteInput
+import androidx.core.content.ContextCompat
+import com.expenseanalyst.domain.model.Category
 import com.expenseanalyst.feature.notification.R
 import com.expenseanalyst.feature.notification.parser.ParsedTransaction
 import com.expenseanalyst.feature.notification.parser.TransactionDirection
@@ -44,8 +51,16 @@ object TransactionAlertNotification {
     const val EXTRA_NOTIF_TITLE = "notif_title"
     const val EXTRA_NOTIF_BODY = "notif_body"
 
+    /** Category fields threaded through so the reply/confirmation notifications keep the icon. */
+    const val EXTRA_CATEGORY_COLOR = "notif_category_color"
+    const val EXTRA_CATEGORY_ICON = "notif_category_icon"
+    const val EXTRA_CATEGORY_NAME = "notif_category_name"
+
     /** How long the post-reply confirmation stays in the shade before the system removes it. */
     private const val NOTE_CONFIRM_TIMEOUT_MS = 4_000L
+
+    /** Pixel size of the rasterized category badge passed to [NotificationCompat.Builder.setLargeIcon]. */
+    private const val LARGE_ICON_SIZE_PX = 192
 
     private var nextNotifId = 2000
 
@@ -53,7 +68,7 @@ object TransactionAlertNotification {
      * Posts a notification for an auto-saved expense. Tapping opens the expense detail screen;
      * the "Add note" action accepts an inline reply that is written to the expense description.
      */
-    fun postForExpense(context: Context, parsed: ParsedTransaction, expenseId: Long) {
+    fun postForExpense(context: Context, parsed: ParsedTransaction, expenseId: Long, category: Category) {
         val manager = context.getSystemService(NotificationManager::class.java) ?: return
         ensureChannel(manager)
 
@@ -70,7 +85,10 @@ object TransactionAlertNotification {
             ?: parsed.bankName.takeIf { it != "Unknown Bank" }
             ?: "Tap to review"
 
-        postWithNoteAction(context, notifId, expenseId, title, bodyText)
+        postWithNoteAction(
+            context, notifId, expenseId, title, bodyText,
+            category.colorHex, category.iconName, category.name
+        )
     }
 
     /**
@@ -83,11 +101,14 @@ object TransactionAlertNotification {
         notifId: Int,
         expenseId: Long,
         title: String,
-        body: String
+        body: String,
+        categoryColorHex: String?,
+        categoryIconName: String?,
+        categoryName: String?
     ) {
         val manager = context.getSystemService(NotificationManager::class.java) ?: return
         ensureChannel(manager)
-        postWithNoteAction(context, notifId, expenseId, title, body)
+        postWithNoteAction(context, notifId, expenseId, title, body, categoryColorHex, categoryIconName, categoryName)
     }
 
     /**
@@ -100,12 +121,16 @@ object TransactionAlertNotification {
         notifId: Int,
         expenseId: Long,
         title: String,
-        note: String
+        note: String,
+        categoryColorHex: String?,
+        categoryIconName: String?,
+        categoryName: String?
     ) {
         val manager = context.getSystemService(NotificationManager::class.java) ?: return
         ensureChannel(manager)
 
-        val notification = baseBuilder(context, title, note, contentIntentFor(context, expenseId, notifId))
+        val icon = categoryLargeIcon(context, categoryColorHex, categoryIconName, categoryName)
+        val notification = baseBuilder(context, title, note, contentIntentFor(context, expenseId, notifId), icon)
             .setRemoteInputHistory(arrayOf(note))
             .setTimeoutAfter(NOTE_CONFIRM_TIMEOUT_MS)
             .setOnlyAlertOnce(true)
@@ -115,15 +140,24 @@ object TransactionAlertNotification {
     }
 
     /** Reports that the note could not be saved, then self-dismisses. */
-    fun postNoteFailed(context: Context, notifId: Int, title: String) {
+    fun postNoteFailed(
+        context: Context,
+        notifId: Int,
+        title: String,
+        categoryColorHex: String?,
+        categoryIconName: String?,
+        categoryName: String?
+    ) {
         val manager = context.getSystemService(NotificationManager::class.java) ?: return
         ensureChannel(manager)
 
+        val icon = categoryLargeIcon(context, categoryColorHex, categoryIconName, categoryName)
         val notification = baseBuilder(
             context,
             title,
             "Couldn't save note — this expense no longer exists",
-            contentIntent = null
+            contentIntent = null,
+            largeIcon = icon
         )
             .setTimeoutAfter(NOTE_CONFIRM_TIMEOUT_MS)
             .setOnlyAlertOnce(true)
@@ -188,10 +222,15 @@ object TransactionAlertNotification {
         notifId: Int,
         expenseId: Long,
         title: String,
-        body: String
+        body: String,
+        categoryColorHex: String?,
+        categoryIconName: String?,
+        categoryName: String?
     ) {
-        val builder = baseBuilder(context, title, body, contentIntentFor(context, expenseId, notifId))
-        buildNoteAction(context, notifId, expenseId, title, body)?.let(builder::addAction)
+        val icon = categoryLargeIcon(context, categoryColorHex, categoryIconName, categoryName)
+        val builder = baseBuilder(context, title, body, contentIntentFor(context, expenseId, notifId), icon)
+        buildNoteAction(context, notifId, expenseId, title, body, categoryColorHex, categoryIconName, categoryName)
+            ?.let(builder::addAction)
         notify(context, notifId, builder.build())
     }
 
@@ -240,7 +279,10 @@ object TransactionAlertNotification {
         notifId: Int,
         expenseId: Long,
         title: String,
-        body: String
+        body: String,
+        categoryColorHex: String?,
+        categoryIconName: String?,
+        categoryName: String?
     ): NotificationCompat.Action? {
         val replyIntent = Intent(context, NoteReplyReceiver::class.java).apply {
             action = ACTION_ADD_NOTE
@@ -248,6 +290,9 @@ object TransactionAlertNotification {
             putExtra(EXTRA_NOTIF_ID, notifId)
             putExtra(EXTRA_NOTIF_TITLE, title)
             putExtra(EXTRA_NOTIF_BODY, body)
+            putExtra(EXTRA_CATEGORY_COLOR, categoryColorHex)
+            putExtra(EXTRA_CATEGORY_ICON, categoryIconName)
+            putExtra(EXTRA_CATEGORY_NAME, categoryName)
         }
 
         val replyPendingIntent = PendingIntentCompat.getBroadcast(
@@ -274,14 +319,61 @@ object TransactionAlertNotification {
         context: Context,
         title: String,
         body: String,
-        contentIntent: PendingIntent?
+        contentIntent: PendingIntent?,
+        largeIcon: Bitmap? = null
     ): NotificationCompat.Builder = NotificationCompat.Builder(context, CHANNEL_ID)
         .setSmallIcon(R.drawable.ic_notification)
         .setContentTitle(title)
         .setContentText(body)
         .setContentIntent(contentIntent)
+        .setLargeIcon(largeIcon)
         .setAutoCancel(true)
         .setPriority(NotificationCompat.PRIORITY_HIGH)
+
+    /**
+     * Renders a circular category badge for the notification's large icon: the category's
+     * [Category.colorHex] as the fill, with either its mapped glyph ([CategoryNotificationIcon])
+     * or — for a custom category outside that curated set — the category name's first letter in
+     * white, matching the same fallback used for its in-app avatar.
+     *
+     * Never throws: a missing/invalid color or an unmapped icon name degrades gracefully rather
+     * than dropping the notification.
+     */
+    private fun categoryLargeIcon(
+        context: Context,
+        colorHex: String?,
+        iconName: String?,
+        categoryName: String?
+    ): Bitmap {
+        val size = LARGE_ICON_SIZE_PX
+        val bitmap = Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888)
+        val canvas = Canvas(bitmap)
+
+        val bgColor = colorHex?.let { runCatching { Color.parseColor(it) }.getOrNull() } ?: Color.GRAY
+        val circlePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = bgColor }
+        canvas.drawCircle(size / 2f, size / 2f, size / 2f, circlePaint)
+
+        val resId = iconName?.let(CategoryNotificationIcon::drawableFor)
+        if (resId != null) {
+            val inset = (size * 0.22f).toInt()
+            ContextCompat.getDrawable(context, resId)?.apply {
+                setBounds(inset, inset, size - inset, size - inset)
+                draw(canvas)
+            }
+        } else {
+            val letter = categoryName?.trim()?.firstOrNull()?.uppercaseChar()?.toString() ?: "?"
+            val textPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                color = Color.WHITE
+                textAlign = Paint.Align.CENTER
+                textSize = size * 0.42f
+                typeface = Typeface.DEFAULT_BOLD
+            }
+            val baselineY = size / 2f - (textPaint.descent() + textPaint.ascent()) / 2f
+            canvas.drawText(letter, size / 2f, baselineY, textPaint)
+        }
+
+        return bitmap
+    }
 
     private fun notify(context: Context, notifId: Int, notification: Notification) {
         if (NotificationManagerCompat.from(context).areNotificationsEnabled()) {
