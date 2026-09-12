@@ -55,7 +55,8 @@ These rules apply at all times, without exception.
 
 ## Database
 
-- **Room** — entities in `data/local/entity/`. **Current version: 20**. All migrations inline in `ExpenseAnalystDatabase.kt`.
+- **Room** — entities in `data/local/entity/`. **Current version: 21**. All migrations inline in `ExpenseAnalystDatabase.kt`.
+- **`categories.name` is not unique** (no indices on that table) — `INSERT OR IGNORE` cannot dedupe by name. Use UPDATE-then-`INSERT … WHERE NOT EXISTS` for any category a user may already have created (`MIGRATION_20_21`).
 - Dates: **UTC epoch milliseconds** (`Long`). Display converts via `TimeZone.currentSystemDefault()`
 - **Soft delete** — `isDeleted: Boolean` flag. Never hard-delete.
 - Expenses store both `amount` (original currency) and `homeAmount` (converted to home currency)
@@ -63,7 +64,7 @@ These rules apply at all times, without exception.
 - `TransactionType`: `EXPENSE | INCOME | TRANSFER | PAYMENT`
 - `AccountType`: `SAVINGS | CURRENT | CREDIT_CARD | DEBIT_CARD | FOREX_CARD | WALLET | OTHER`
 - 13 entities: Expense, Category, EmiGroup, CurrencyRate, **Account**, **MerchantRule**, **PendingNotification**, **Bill**, **Tag**, **ExpenseTagCrossRef**, **SalaryEntry**, **PlannedExpense**, **LentItem**
-- Pre-seeded categories: Food, Transport, Shopping, Bills, Entertainment, Health, Education, Groceries, Rent, Salary, Transfer, Other, **Refund**
+- Pre-seeded categories: Food, Transport, Shopping, Bills, Entertainment, Health, Education, Groceries, Rent, Salary, Transfer, Other, **Refund**, **Fuel**, **Leisure**
 
 ---
 

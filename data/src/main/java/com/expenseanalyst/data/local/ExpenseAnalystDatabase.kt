@@ -49,7 +49,7 @@ import com.expenseanalyst.data.local.entity.TagEntity
         PlannedExpenseEntity::class,
         LentItemEntity::class
     ],
-    version = 20,
+    version = 21,
     exportSchema = true
 )
 abstract class ExpenseAnalystDatabase : RoomDatabase() {
@@ -225,6 +225,60 @@ abstract class ExpenseAnalystDatabase : RoomDatabase() {
             }
         }
 
+        /**
+         * Fuel and Leisure: give the two user-created categories a proper icon and colour,
+         * and create them on any install that doesn't already have them.
+         *
+         * NOT the MIGRATION_16_17 pattern. There is no unique index on categories.name
+         * (schema 20 declares `"indices": []`), so `INSERT OR IGNORE` has no conflict target
+         * and cannot dedupe — it would add a second row alongside a user's existing one.
+         * Hence UPDATE-then-conditional-INSERT.
+         */
+        private val MIGRATION_20_21 = object : Migration(20, 21) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                upsertCategory(db, "fuel", "Fuel", "local_gas_station", "#C62828")
+                upsertCategory(db, "leisure", "Leisure", "beach_access", "#00897B")
+            }
+
+            /**
+             * The UPDATE guards are deliberate. A user CAN change an icon (the edit dialog
+             * offers the grid) but CANNOT change a colour (no picker exists anywhere), so
+             * 'more_horiz' / '#9E9E9E' reliably identify a row still carrying the defaults
+             * every user-created category starts with. A deliberate choice is left alone.
+             *
+             * is_default and sort_order are never touched on the UPDATE path: is_default
+             * gates the delete button (CategoryManagementViewModel.deleteCategory), and
+             * sort_order is the user's own list ordering (CategoryDao orders by it).
+             *
+             * LIKE 'x%' mirrors CategoryInference.findCategory's exact-then-startsWith
+             * lookup, so a row named e.g. "Fuel & Petrol" is updated rather than shadowed by
+             * a freshly inserted exact-name duplicate that would then win at runtime.
+             */
+            private fun upsertCategory(
+                db: SupportSQLiteDatabase,
+                match: String,
+                name: String,
+                iconName: String,
+                colorHex: String
+            ) {
+                db.execSQL(
+                    "UPDATE categories SET icon_name = '$iconName' " +
+                        "WHERE LOWER(name) LIKE '$match%' AND icon_name = 'more_horiz'"
+                )
+                db.execSQL(
+                    "UPDATE categories SET color_hex = '$colorHex' " +
+                        "WHERE LOWER(name) LIKE '$match%' AND color_hex = '#9E9E9E'"
+                )
+                db.execSQL(
+                    "INSERT INTO categories (name, icon_name, color_hex, is_default, sort_order) " +
+                        "SELECT '$name', '$iconName', '$colorHex', 1, " +
+                        "(SELECT COALESCE(MAX(sort_order), -1) + 1 FROM categories) " +
+                        "WHERE NOT EXISTS " +
+                        "(SELECT 1 FROM categories WHERE LOWER(name) LIKE '$match%')"
+                )
+            }
+        }
+
         private val MIGRATION_19_20 = object : Migration(19, 20) {
             override fun migrate(db: SupportSQLiteDatabase) {
                 db.execSQL("ALTER TABLE expenses ADD COLUMN needs_review_reasons TEXT")
@@ -345,7 +399,7 @@ abstract class ExpenseAnalystDatabase : RoomDatabase() {
                 ExpenseAnalystDatabase::class.java,
                 DATABASE_NAME
             )
-                .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13, MIGRATION_13_14, MIGRATION_14_15, MIGRATION_15_16, MIGRATION_16_17, MIGRATION_17_18, MIGRATION_18_19, MIGRATION_19_20)
+                .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13, MIGRATION_13_14, MIGRATION_14_15, MIGRATION_15_16, MIGRATION_16_17, MIGRATION_17_18, MIGRATION_18_19, MIGRATION_19_20, MIGRATION_20_21)
                 .addCallback(SeedDatabaseCallback())
                 .build()
         }
@@ -368,7 +422,9 @@ abstract class ExpenseAnalystDatabase : RoomDatabase() {
                 "('Transfer', 'swap_horiz', '#607D8B', 1, 10)",
                 "('Other', 'more_horiz', '#9E9E9E', 1, 11)",
                 "('Misc', 'help_outline', '#BDBDBD', 1, 12)",
-                "('Refund', 'currency_exchange', '#26C6DA', 1, 13)"
+                "('Refund', 'currency_exchange', '#26C6DA', 1, 13)",
+                "('Fuel', 'local_gas_station', '#C62828', 1, 14)",
+                "('Leisure', 'beach_access', '#00897B', 1, 15)"
             )
             defaultCategories.forEach { values ->
                 db.execSQL("INSERT INTO categories (name, icon_name, color_hex, is_default, sort_order) VALUES $values")

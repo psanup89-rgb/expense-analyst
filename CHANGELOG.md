@@ -4,6 +4,21 @@ Format: `[Date] — Summary`
 
 ---
 
+## 2026-09-12 — Fuel and Leisure categories (DB v21)
+
+- **Fuel** and **Leisure** now carry a proper icon and colour instead of the grey `more_horiz` default every user-created category starts with, and both auto-categorise from bank SMS.
+- **DB v21**: `MIGRATION_20_21` updates the two user-created rows in place (icon + colour) and inserts them only where absent. Deliberately **not** the `INSERT OR IGNORE` pattern used by `MIGRATION_16_17` — `categories` has no unique index, so `OR IGNORE` has no conflict target and would have created duplicates alongside the user's existing rows. The UPDATE is guarded per column (`icon_name = 'more_horiz'`, `color_hex = '#9E9E9E'`) so a deliberate user choice is never overwritten, and never touches `is_default` (which gates the delete button) or `sort_order` (which is the user's own list order).
+- `CategoryInference`: new `Fuel` rule before `Transport`, `Leisure` before `Entertainment` — the rule list is first-match-wins, so position is behaviour, not style. Fuel keywords move out of Transport; real-world outings (cinemas, theme parks, bowling, events) move out of Entertainment, which keeps the digital subscriptions. Gulf brands added: ADNOC, Petromin, SASCO, Aldrees, webook, Riyadh Season. `aramco` deliberately excluded — it is also a major employer and would have swallowed salary credits.
+- New `fallbacks` map: a matched keyword whose category has since been deleted now degrades to the category that owned it before the split, instead of returning null and dropping the expense into Misc.
+- New notification glyphs `ic_cat_fuel.xml` and `ic_cat_leisure.xml`, registered in `CategoryNotificationIcon`.
+- **Fix**: `currency_exchange` was missing from `availableCategoryIcons`, so the seeded Refund category's icon could not be re-selected in either picker — and was unrecoverable the moment its edit dialog touched the icon grid.
+- **Docs fix**: `DATA_MODELS.md` documented `categories.name` as UNIQUE. It is not, and that false claim is the likely root of the `INSERT OR IGNORE` trap above.
+- New tests: `CategoryInferenceTest` (14, heavy on regression/collision guards), `CategoryNotificationIconTest` (2, guards the whole 16-icon map).
+- Version bumped to 0.7.2 (`versionCode` 4).
+- **Notification glyphs not yet seen rendered** — no device was connected.
+
+---
+
 ## 2026-08-22 — Colored category icon on the transaction notification
 
 - The transaction notification's large icon is now a colored circular badge matching the resolved expense category — the category's `colorHex` as the fill, with a glyph on top for the 14 built-in categories, or the category name's first letter for a custom one. Persists across the "Add note" reply, the saved-note confirmation, and the blank-reply retry.

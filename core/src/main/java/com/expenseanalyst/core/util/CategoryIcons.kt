@@ -18,7 +18,7 @@ val availableCategoryIcons: List<String> = listOf(
     // Finance
     "payments", "credit_card", "savings", "account_balance_wallet",
     "trending_up", "trending_down", "money_off", "account_balance",
-    "receipt", "attach_money",
+    "receipt", "attach_money", "currency_exchange",
     // Home & Utilities
     "home", "weekend", "build", "local_laundry_service", "kitchen",
     "power", "water_drop", "wifi", "bathtub", "security",

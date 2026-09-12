@@ -6,6 +6,9 @@ import com.expenseanalyst.domain.model.MerchantRule
 /**
  * Infers an expense category from merchant name and/or bank name using keyword matching.
  * Returns null if no match — callers should fall back to "Misc".
+ *
+ * [rules] is ORDERED and matching is first-wins, so position is behaviour, not style.
+ * Read the comments above "Fuel" and "Leisure" before reordering anything.
  */
 object CategoryInference {
 
@@ -24,9 +27,22 @@ object CategoryInference {
             "din tai fung", "sushi", "shawarma", "bakery", "kitchen", "grill", "grills",
             "dining", "meals", "eatout", "takeaway", "takeout"
         ),
+        // Fuel MUST precede Transport, which owned these keywords until now.
+        // It sits AFTER Food deliberately: Food's "cafe" intercepts "Shell Beach Cafe"
+        // before "shell" below can claim it. Moving Fuel first would break that.
+        // Deliberately absent: "aramco" (also a major employer — would steal salary
+        // credits, since Salary is matched far later), bare "gas" (Bills owns "gas bill"
+        // and now runs after this), bare "oil" ("boil"), bare "station" ("hungerstation").
+        "Fuel" to listOf(
+            // Saudi / Gulf
+            "adnoc", "petromin", "sasco", "aldrees", "naft", "enoc", "emarat", "woqod",
+            // Global
+            "petrol", "fuel", "diesel", "gas station", "shell", "bp ", "caltex",
+            "total energies", "totalenergies", "atlas oil", "oilibya", "jax"
+        ),
         "Transport" to listOf(
             // India
-            "uber", "ola", "rapido", "metro", "petrol", "fuel", "diesel",
+            "uber", "ola", "rapido", "metro",
             "irctc", "indigo", "spicejet", "air india", "vistara", "goair", "akasa",
             "bus", "taxi", "cab", "ixigo", "redbus", "makemytrip", "cleartrip",
             "blumart", "yulu", "bounce",
@@ -34,8 +50,7 @@ object CategoryInference {
             "careem", "jeeny", "saptco", "hafilat", "salik", "nol card",
             // Global
             "airline", "airways", "airport", "flight", "train fare", "bus fare",
-            "parking", "toll", "petrol station", "fuel station",
-            "shell", "bp ", "total energies", "caltex", "atlas oil", "jax"
+            "parking", "toll"
         ),
         "Shopping" to listOf(
             // India
@@ -90,18 +105,32 @@ object CategoryInference {
             // Global
             "supermarket", "hypermarket", "grocery"
         ),
+        // Leisure MUST precede Entertainment. It takes the real-world outings that
+        // Entertainment used to own; Entertainment keeps the digital subscriptions.
+        // "disneyland" is listed here explicitly because Entertainment still holds
+        // "disney" — without it a Disneyland ticket would fall to Entertainment.
+        "Leisure" to listOf(
+            // India
+            "bookmyshow", "pvr", "inox",
+            // Saudi / Gulf
+            "cineco", "vox cinema", "reel cinema", "novo cinema", "muvi", "webook",
+            "platinumlist", "riyadh season", "global village", "img world",
+            "yas waterworld", "aquaventure", "motiongate", "funzone", "kidzania",
+            "legoland", "ferrari world",
+            // Global
+            "cinema", "theme park", "water park", "adventure", "concert", "event ticket",
+            "bowling", "escape room", "laser tag", "soft play", "funland", "disneyland",
+            "aquarium", "museum", "paintball", "trampoline", "karting"
+        ),
         "Entertainment" to listOf(
             // India
             "netflix", "spotify", "hotstar", "disney", "prime video", "youtube",
-            "bookmyshow", "pvr", "inox", "gaana", "wynk", "zee5", "sonyliv",
+            "gaana", "wynk", "zee5", "sonyliv",
             "jiosaavn", "mxplayer", "lionsgate", "apple tv", "steam",
             // Saudi / Gulf
-            "shahid", "viu", "starzplay", "jawwy tv", "cineco", "vox cinema",
-            "reel cinema", "novo cinema", "funzone", "kidzania", "legoland",
-            "ferrari world", "adventure", "theme park", "water park",
+            "shahid", "viu", "starzplay", "jawwy tv",
             // Global
-            "twitch", "ea games", "playstation", "xbox", "concert", "event ticket",
-            "bowling", "escape room", "laser tag", "soft play", "funland", "cinema"
+            "twitch", "ea games", "playstation", "xbox"
         ),
         "Education" to listOf(
             "udemy", "coursera", "byju", "unacademy", "vedantu", "simplilearn",
@@ -116,6 +145,20 @@ object CategoryInference {
             "federal one", "cibil", "repayment", "fund transfer", "bank transfer",
             "wire transfer", "atm withdrawal", "cash withdrawal"
         )
+    )
+
+    /**
+     * Where a rule's category may be absent from the user's database, the category that
+     * owned those keywords before the split.
+     *
+     * Fuel and Leisure are recent additions and — unlike the seeded categories — remain
+     * user-deletable, so this is reachable. Without it, a matched keyword whose category
+     * can't be resolved returns null and the caller drops the expense into Misc, which is
+     * strictly worse than the pre-split behaviour.
+     */
+    private val fallbacks = mapOf(
+        "Fuel" to "Transport",
+        "Leisure" to "Entertainment"
     )
 
     /**
@@ -151,11 +194,16 @@ object CategoryInference {
 
         // Step 2: keyword matching on merchant + bank name
         // Category name lookup uses exact match first, then startsWith to handle user renames
-        // e.g. "Food" rule matches "Food & Drinks" if user appended to the default name
+        // e.g. "Food" rule matches "Food & Drinks" if user appended to the default name.
+        // If neither the rule's category nor its fallback resolves, continue scanning rather
+        // than bailing out — a deleted category shouldn't sink the whole lookup.
         if (searchText.isNotBlank()) {
             for ((categoryName, keywords) in rules) {
                 if (keywords.any { searchText.contains(it) }) {
-                    return findCategory(categories, categoryName)
+                    findCategory(categories, categoryName)?.let { return it }
+                    fallbacks[categoryName]
+                        ?.let { fallbackName -> findCategory(categories, fallbackName) }
+                        ?.let { return it }
                 }
             }
         }

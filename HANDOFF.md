@@ -1,10 +1,64 @@
 # Expense Analyst — Handoff
 
-**Last updated**: 2026-08-22
-**DB version**: 20
+**Last updated**: 2026-09-12
+**DB version**: 21
 **Build**: `./gradlew clean assembleDebug` ✅
 **Repo**: `https://github.com/psanup89-rgb/expense-analyst` (public)
-**Release**: v0.7.1-debug (GitHub Release with APK)
+**Release**: v0.7.2-debug (GitHub Release with APK)
+
+---
+
+## Session Summary (2026-09-12) — Fuel and Leisure categories (DB v21)
+
+The owner had hand-created two categories, Fuel and Leisure. Since there is no colour picker
+anywhere in the app, every user-created category is hardcoded grey `#9E9E9E` with icon
+`more_horiz` — so both looked generic in-app and showed a plain letter badge on notifications.
+
+### What shipped
+- **`MIGRATION_20_21`** — UPDATE-then-conditional-INSERT, *not* the `INSERT OR IGNORE` pattern.
+- **`CategoryInference` restructure** — `Fuel` inserted before `Transport`, `Leisure` before
+  `Entertainment`, with keywords moved across and Gulf brands added.
+- **New `fallbacks` map** in `CategoryInference` — fixes a real regression (see below).
+- **Two notification glyphs** + `CategoryNotificationIcon` entries.
+- **`currency_exchange` picker drift fixed** — the seeded Refund category's icon was missing from
+  `availableCategoryIcons`, so it could not be re-selected and was unrecoverable once the edit
+  dialog touched the icon grid.
+- 16 new tests. Version 0.7.1/3 → **0.7.2/4**.
+
+### Three findings worth not rediscovering
+
+1. **`categories.name` has no unique index** — the table declares no indices at all (schema 20:
+   `"indices": []`). `INSERT OR IGNORE`, the pattern `MIGRATION_16_17` used to add Refund,
+   therefore has no conflict target and *cannot* dedupe. It would have silently created a second
+   "Fuel" beside the owner's existing row. `MIGRATION_16_17` still carries this latent bug: anyone
+   who hand-made a "Refund" category before v17 has two. `DATA_MODELS.md` had documented this
+   column as UNIQUE, which is almost certainly how the wrong pattern got established — corrected.
+2. **`CategoryInference.infer()` returned `null` on a matched-but-unresolvable category**, and the
+   callers fall back to Misc. Splitting Fuel out of Transport therefore introduced a regression:
+   delete the Fuel category and every petrol SMS would land in Misc instead of Transport. The
+   `fallbacks` map fixes it and incidentally hardens every other rule against a deleted category.
+3. **`is_default` is a hard delete gate**, not a marker — `CategoryManagementViewModel:125` returns
+   early and the button is disabled at `CategoryManagementScreen:238`. The migration never sets it
+   on the UPDATE path, or the owner would permanently lose the ability to delete two categories
+   they created themselves. Fresh installs get `1` via the INSERT path; that asymmetry is deliberate.
+
+### Verification
+`CategoryInferenceTest` (14) and `CategoryNotificationIconTest` (2) pass; all 22 parser test classes
+still green. Because `:data` has no `useJUnitPlatform()` and cannot run tests, the migration SQL was
+instead **executed directly against synthetic v20 databases** across five scenarios — both rows
+already present, neither present, a renamed "Fuel & Petrol", a user-chosen icon, and the migration
+run twice. All five produced the intended result with no duplicates.
+
+### Not verified on device
+No device was connected, so **the two glyphs have never been seen rendered**. AAPT2 validated the
+path syntax, which rules out crashes, but not whether a fuel pump reads as a fuel pump at 34dp.
+Install over the existing build (never uninstall, or the migration won't run) and fire a test SMS
+per the recipe in the 2026-08-19 section below, using `At:ADNOC` and `At:VOX Cinemas`.
+
+### Flagged, not done
+`ClaudeApiService.kt:83-84` caps tier-3 AI categorisation to a hardcoded nine-name set excluding
+Fuel, Leisure, Rent, Salary, Transfer, Misc and Refund — so AI inference can never return the new
+categories. Needs both `VALID_CATEGORIES` and the prompt text updating.
 
 ---
 

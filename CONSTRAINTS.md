@@ -22,7 +22,8 @@
 ## Build Constraints
 
 - **Always `./gradlew clean assembleDebug`** — never bare `assembleDebug`. KSP incremental is disabled (`ksp.incremental=false`). Missing clean after new files causes stale symbol errors.
-- **DB is currently v20.** Next migration = `MIGRATION_20_21` inline in `ExpenseAnalystDatabase.kt`. Never use `fallbackToDestructiveMigration()`.
+- **DB is currently v21.** Next migration = `MIGRATION_21_22` inline in `ExpenseAnalystDatabase.kt`. Never use `fallbackToDestructiveMigration()`.
+- **`categories.name` is NOT unique** — the table declares no indices, so `INSERT OR IGNORE` has no conflict target and will happily insert a duplicate. Adding a category a user may already have made requires UPDATE-then-`INSERT … WHERE NOT EXISTS` (`MIGRATION_20_21`). `MIGRATION_16_17` predates this understanding and carries the bug.
 - **After any migration**: run `./gradlew :data:kspDebugKotlin` to regenerate schema JSON. Commit the new schema file.
 - **Min SDK 26** — no APIs below API 26 without a version check.
 

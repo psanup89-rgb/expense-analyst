@@ -1,9 +1,9 @@
 # Expense Analyst — Current Status
 
-**Date**: 2026-08-19
-**DB version**: 20
+**Date**: 2026-09-12
+**DB version**: 21
 **Build**: `./gradlew clean assembleDebug` ✅ (requires JDK 21)
-**Version**: v0.7.0-debug
+**Version**: v0.7.2-debug
 **Repo**: `https://github.com/psanup89-rgb/expense-analyst` (public)
 **Open issues**: None
 
@@ -19,7 +19,7 @@
 
 ### Infrastructure
 - [x] 13-module Clean Architecture: `app`, `core`, `domain`, `data`, `feature/expenses`, `feature/emi`, `feature/notification`, `feature/settings`, `feature/analytics`, `feature/budget`, `feature/onboarding`, `feature/loans` + `:domain`
-- [x] Room DB v20 — 13 entities, full migration history v1→v20
+- [x] Room DB v21 — 13 entities, full migration history v1→v21
 - [x] Hilt DI — 13 repository interfaces
 - [x] Jetpack Navigation Compose — all routes registered
 - [x] Multi-currency: live rates (ExchangeRate-API via Ktor) + offline seed fallback
@@ -42,6 +42,7 @@
 - [x] Pending Bill Statements queue (repurposed old Pending Inbox, BILL type only) — accessible via Bills screen, unchanged confirm-before-save flow
 - [x] In-app banner ("Saved · tap to edit") + system tray notification (tap → expense detail)
 - [x] **"Add note" inline reply** on the tray notification: type a description straight into the shade (`RemoteInput`), written to `Expense.description` without opening the app; notification then shows the saved note and self-dismisses (~4s). Blank replies re-post the original untouched; a soft-deleted expense reports failure. Handled by `NoteReplyReceiver`
+- [x] Notification badge shows a coloured circle in the expense's category colour, with a glyph for each of the 16 seeded categories and a letter fallback for custom ones
 - [x] Bulk SMS import with two-tier dedup (body hash + amount/day/merchant fallback); onboarding offers last-1-month / this-year / all-time
 - [x] Live notification dedup (60s window + body hash vs saved expenses)
 

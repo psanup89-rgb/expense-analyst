@@ -4,7 +4,7 @@
 - Database class: `ExpenseAnalystDatabase`
 - **Current schema version: `20`**
 - Room schema export is enabled under `data/schemas/`
-- All migrations are inline in `ExpenseAnalystDatabase.kt` (v1→v2→...→v20)
+- All migrations are inline in `ExpenseAnalystDatabase.kt` (v1→v2→...→v21)
 - Home currency preference is stored separately in DataStore, not in Room
 
 ---
@@ -52,7 +52,7 @@ Pre-seeded and user-created expense categories.
 | Column | Type | Constraints | Description |
 |--------|------|-------------|-------------|
 | id | INTEGER | PK, autoGenerate | |
-| name | TEXT | NOT NULL, UNIQUE | Category name |
+| name | TEXT | NOT NULL | Category name. **Not unique** — the table declares no indices at all, so `INSERT OR IGNORE` has no conflict target and will *not* dedupe by name. Use UPDATE-then-`INSERT … WHERE NOT EXISTS` when adding a category that a user may already have created (see `MIGRATION_20_21`). |
 | icon_name | TEXT | NOT NULL | Material icon identifier |
 | color_hex | TEXT | NOT NULL | Hex color (e.g., "#FF5722") |
 | is_default | INTEGER | NOT NULL | 1 if pre-seeded, 0 if user-created |
@@ -75,6 +75,8 @@ Pre-seeded and user-created expense categories.
 | Transfer | swap_horiz | #607D8B |
 | Other | more_horiz | #9E9E9E |
 | Refund | currency_exchange | #26C6DA |
+| Fuel | local_gas_station | #C62828 |
+| Leisure | beach_access | #00897B |
 
 ### emi_groups
 Groups of installment payments linked to multiple expense entries.

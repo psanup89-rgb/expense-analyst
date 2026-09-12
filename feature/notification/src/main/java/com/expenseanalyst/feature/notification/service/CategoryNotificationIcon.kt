@@ -8,9 +8,12 @@ import com.expenseanalyst.feature.notification.R
  *
  * Deliberately a small subset of `CategoryIconMapper` (core/util/CategoryIconMapper.kt), which
  * maps the same icon-name vocabulary to Compose `ImageVector`s for in-app UI — those can't be
- * used here since notifications are built outside any Composition. This covers exactly the 14
- * built-in categories seeded in ExpenseAnalystDatabase; anything else (a custom category) falls
- * back to a plain colored-initial badge, drawn at the call site in TransactionAlertNotification.
+ * used here since notifications are built outside any Composition. This covers the 16 seeded
+ * categories; anything else (a custom category) falls back to a plain colored-initial badge,
+ * drawn at the call site in TransactionAlertNotification.
+ *
+ * Keyed by icon name, not category name — so any category using one of these icons gets the
+ * glyph regardless of what it is called.
  */
 internal object CategoryNotificationIcon {
 
@@ -28,7 +31,9 @@ internal object CategoryNotificationIcon {
         "swap_horiz" to R.drawable.ic_cat_transfer,
         "more_horiz" to R.drawable.ic_cat_other,
         "help_outline" to R.drawable.ic_cat_misc,
-        "currency_exchange" to R.drawable.ic_cat_refund
+        "currency_exchange" to R.drawable.ic_cat_refund,
+        "local_gas_station" to R.drawable.ic_cat_fuel,
+        "beach_access" to R.drawable.ic_cat_leisure
     )
 
     fun drawableFor(iconName: String): Int? = ICONS[iconName]
