@@ -35,6 +35,7 @@ fun EditExpenseScreen(
         onPaymentMethodChange = viewModel::onPaymentMethodChange,
         onDescriptionChange = viewModel::onDescriptionChange,
         onMerchantChange = viewModel::onMerchantChange,
+        onReimbursableToggle = viewModel::onReimbursableToggle,
         onTagSearchQueryChange = viewModel::onTagSearchQueryChange,
         onTagSelect = viewModel::onTagSelect,
         onTagRemove = viewModel::onTagRemove,

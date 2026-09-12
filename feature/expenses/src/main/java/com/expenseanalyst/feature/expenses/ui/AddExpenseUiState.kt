@@ -59,7 +59,8 @@ data class AddExpenseUiState(
     val linkedBillId: Long? = null,
     val linkedBill: Bill? = null,
     val availableBills: List<Bill> = emptyList(),
-    val isBillPickerVisible: Boolean = false
+    val isBillPickerVisible: Boolean = false,
+    val isReimbursable: Boolean = false
 ) {
     val selectedAccount: Account? get() = accounts.find { it.id == selectedAccountId }
 

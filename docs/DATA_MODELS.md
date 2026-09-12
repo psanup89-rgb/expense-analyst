@@ -2,9 +2,9 @@
 
 ## Database: Room (SQLite)
 - Database class: `ExpenseAnalystDatabase`
-- **Current schema version: `20`**
+- **Current schema version: `22`**
 - Room schema export is enabled under `data/schemas/`
-- All migrations are inline in `ExpenseAnalystDatabase.kt` (v1→v2→...→v21)
+- All migrations are inline in `ExpenseAnalystDatabase.kt` (v1→v2→...→v22)
 - Home currency preference is stored separately in DataStore, not in Room
 
 ---
@@ -39,6 +39,8 @@ Primary table for all transactions (manual and auto-parsed).
 | needs_review_reasons | TEXT | NULLABLE | Added in v19→v20. Comma-separated `ReviewReason` enum names (see `domain/util/NeedsReviewEvaluator.kt`) recording *which* condition(s) triggered `needs_review`, computed once at capture time. Not recomputed from other columns — a blank merchant is backfilled with the bank name before `merchant_name` is persisted, so the reason can't be reconstructed later from the row alone. |
 | created_at_utc_millis | INTEGER | NOT NULL | Record creation timestamp |
 | updated_at_utc_millis | INTEGER | NOT NULL | Last update timestamp |
+| is_reimbursable | INTEGER | NOT NULL, DEFAULT 0 | Added in v21→v22. Marks an expense as expected to be paid back. Independent status flag — no effect on any total; the reimbursement itself is expected to arrive as its own separately-detected `INCOME` expense. See Settings → Reimbursements. |
+| reimbursed_date_millis | INTEGER | NULLABLE | Added in v21→v22. Null while pending; set when the user manually marks the expense reimbursed. Ignored unless `is_reimbursable = 1`. |
 
 **Indices:**
 - `idx_expenses_date` on `date_utc_millis` (date range queries)
@@ -77,6 +79,7 @@ Pre-seeded and user-created expense categories.
 | Refund | currency_exchange | #26C6DA |
 | Fuel | local_gas_station | #C62828 |
 | Leisure | beach_access | #00897B |
+| Split Payments | credit_card | #5C6BC0 |
 
 ### emi_groups
 Groups of installment payments linked to multiple expense entries.

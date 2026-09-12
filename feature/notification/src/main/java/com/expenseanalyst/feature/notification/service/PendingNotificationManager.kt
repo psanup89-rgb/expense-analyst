@@ -66,6 +66,15 @@ class PendingNotificationManager @Inject constructor(
     val lastAutoSaved: StateFlow<AutoSavedEvent?> = _lastAutoSaved.asStateFlow()
 
     fun enqueue(transaction: ParsedTransaction) {
+        // BNPL split confirmations (Tabby/Tamara) go through a dedicated path that bypasses
+        // the normal auto-save flow entirely — including the amount+merchant+day dedup below,
+        // which would otherwise treat this as a duplicate of the merchant's own full-amount
+        // SMS instead of reclassifying it. See TabbyTamaraParser's KDoc for why this exists.
+        if (transaction.isBnplConfirmation) {
+            scope.launch { handleBnplConfirmation(transaction) }
+            return
+        }
+
         // Normalize: PAYMENT-type SMS without merchant defaults to "BillPayments"
         val normalized = if (transaction.type == TransactionDirection.PAYMENT &&
             transaction.merchant.isNullOrBlank()
@@ -217,6 +226,81 @@ class PendingNotificationManager @Inject constructor(
 
     companion object {
         const val DEFAULT_PAYMENT_MERCHANT = "BillPayments"
+    }
+
+    /**
+     * BNPL split confirmation (Tabby/Tamara), per the owner's decision: these purchases never
+     * count toward "spent this month," permanently — not deferred, unlike the existing EMI
+     * feature. Two outcomes, both landing as `PAYMENT` under "Split Payments" (structurally
+     * excluded from every total already, per [TransactionType.PAYMENT]'s existing behaviour):
+     *
+     * 1. The merchant's own full-amount SMS was already captured as a normal `EXPENSE` — that
+     *    row is reclassified in place via a targeted update, never [ExpenseRepository.updateExpense]
+     *    (which would null account_number and rewrite the tag join table).
+     * 2. No matching expense exists (merchant SMS missed, or outside the same-day window) — a
+     *    new expense is created directly from this SMS.
+     *
+     * Guarded against redelivery of the identical confirmation SMS: if a matching `PAYMENT` row
+     * already exists (case 1 or 2 already ran), this returns without touching anything.
+     */
+    private suspend fun handleBnplConfirmation(parsed: ParsedTransaction) {
+        val now = System.currentTimeMillis()
+        val merchantLower = parsed.merchant?.trim()?.lowercase()
+        val snapshot = expenseRepository.getExpensesSnapshot()
+
+        fun sameAmountMerchantDay(expense: Expense) =
+            !expense.isDeleted &&
+                expense.amount == parsed.amount &&
+                merchantLower != null &&
+                expense.merchantName?.trim()?.lowercase() == merchantLower &&
+                isSameCalendarDay(expense.date.toEpochMilliseconds(), now)
+
+        val alreadyHandled = snapshot.any {
+            it.transactionType == TransactionType.PAYMENT && sameAmountMerchantDay(it)
+        }
+        if (alreadyHandled) return
+
+        val categories = categoryRepository.getCategories().first()
+        val splitPaymentsCategory = categories.find { it.name == "Split Payments" }
+            ?: categories.find { it.name == "Other" }
+            ?: categories.last()
+
+        val matched = snapshot.firstOrNull {
+            it.transactionType == TransactionType.EXPENSE && sameAmountMerchantDay(it)
+        }
+
+        if (matched != null) {
+            expenseRepository.reclassifyAsSplitPayment(matched.id, splitPaymentsCategory.id)
+            return
+        }
+
+        val homeCurrencyCode = currencyRepository.getHomeCurrency().first()
+        val ratesByCode = runCatching {
+            currencyRepository.getRates().first().associateBy { it.currencyCode }
+        }.getOrElse { emptyMap() }
+
+        val paymentMethod = parsed.paymentMethodName?.let { name ->
+            runCatching { PaymentMethod.valueOf(name) }.getOrNull()
+        } ?: PaymentMethod.CREDIT_CARD
+
+        val stubExpense = Expense(
+            amount = parsed.amount,
+            currencyCode = parsed.currencyCode,
+            homeAmount = null,
+            exchangeRate = null,
+            description = "",
+            category = splitPaymentsCategory,
+            paymentMethod = paymentMethod,
+            transactionType = TransactionType.PAYMENT,
+            date = Instant.fromEpochMilliseconds(now),
+            merchantName = parsed.merchant?.takeIf { it.isNotBlank() } ?: parsed.bankName,
+            sourceType = SourceType.NOTIFICATION_AUTO,
+            rawSmsBody = parsed.rawBody
+        )
+        val conversion = CurrencyConversion.resolve(stubExpense, homeCurrencyCode, ratesByCode)
+        expenseRepository.addExpense(
+            stubExpense.copy(homeAmount = conversion.homeAmount, exchangeRate = conversion.exchangeRate)
+        )
     }
 
     private fun isSameCalendarDay(millis1: Long, millis2: Long): Boolean {

@@ -1,10 +1,92 @@
 # Expense Analyst — Handoff
 
-**Last updated**: 2026-09-12
-**DB version**: 21
+**Last updated**: 2026-09-13
+**DB version**: 22
 **Build**: `./gradlew clean assembleDebug` ✅
 **Repo**: `https://github.com/psanup89-rgb/expense-analyst` (public)
-**Release**: v0.7.2-debug (GitHub Release with APK)
+**Release**: v0.7.3-debug (GitHub Release with APK)
+
+---
+
+## Session Summary (2026-09-13) — Reimbursement tracking + BNPL/split-payment exclusion (DB v22)
+
+Two open issues from the "Expense App Issues" Notion board, both explicitly framed as "suggest an
+approach" rather than a spec — see `/Users/anup/.claude/plans/when-a-new-expense-luminous-walrus.md`
+for the full design writeup and the owner's exact decisions on each open question.
+
+### 1. Reimbursement tracking
+
+`Expense.isReimbursable: Boolean` + `reimbursedDate: Instant?` — considered and rejected both a
+category (the "Refund" precedent: `category.name == "Refund"` string-matched independently in two
+ViewModels, no unique index on `categories.name`, netting applied only to headline totals not
+category/daily breakdowns) and a `TransactionType` (wrong primitive — describes direction, not
+settlement status). Mirrors the `needsReview` flag, the one place this app already does a plain
+status-flag-on-`Expense` correctly.
+
+**Owner's decision, don't re-litigate:** does NOT net out of totals — the reimbursement money
+arrives as its own separately-detected `INCOME` transaction, so totals are already correct once
+that lands. Manual toggle only, no auto-matching of incoming credit to a flagged expense.
+
+New Settings → Reimbursements screen, targeted `ExpenseDao.updateReimbursedDate` (guarded on
+`is_reimbursable = 1`), toggle in Add/Edit Expense, status row in Expense Detail.
+
+### 2. BNPL / split payments (Tabby, Tamara)
+
+The reported failure: buying via Tabby/Tamara generates two SMS — one from the merchant for the
+full amount (already recorded as a real expense, shouldn't be) and one from Tabby/Tamara confirming
+the split (should be the one that's recorded). New `TabbyTamaraParser` detects the second SMS and,
+in `PendingNotificationManager.handleBnplConfirmation()`, either reclassifies the already-captured
+merchant expense (targeted `ExpenseDao.reclassifyAsSplitPayment`, category → "Split Payments",
+type → `PAYMENT`) or creates a new expense directly if no match is found — matched by amount +
+merchant + same calendar day, reusing the existing `isSameCalendarDay` dedup helper.
+
+**This path bypasses the normal dedup entirely** (`ParsedTransaction.isBnplConfirmation = true`
+short-circuits `enqueue()` before the standard amount+merchant+day check) — that check would
+otherwise treat the confirmation as a duplicate of the merchant's own SMS and silently discard it,
+defeating the whole point.
+
+**`TransactionType.PAYMENT` was already excluded from every spend total** (confirmed by exploring
+`ExpenseListViewModel`/`AnalyticsViewModel` — neither has ever summed it), so no new netting logic
+was needed. What was missing: Analytics never showed `PAYMENT` rows *at all*, in any chart. Added a
+synthetic "Split Payments" bucket to the category breakdown, computed separately from the
+`EXPENSE`-only sum that drives `totalExpense` — with `CategorySpend.isExcludedFromTotal` so the UI
+renders "Not counted in total spent" instead of a percentage that would otherwise be meaningless
+(the amount isn't part of the denominator). Drill-down scoped narrowly to only the Split Payments
+category name, so no other category's drill-down semantics changed.
+
+**The owner's explicit fallback, already built, zero code needed**: `ExpenseDetailScreen` →
+"Convert to EMI" → `CreateEmiFromExpenseUseCase`, already reachable from any expense. When the
+BNPL SMS isn't captured, this is the manual path — and it's a *deliberately different* accounting
+treatment (each installment counts in its own month) from true BNPL (excluded forever). Two tools
+for two situations, not an inconsistency.
+
+### ⚠️ `TabbyTamaraParser` needs a real sample before it can be trusted
+
+No real Tabby/Tamara purchase-confirmation SMS was available. Extrapolated from
+`TamaraStatementParser`'s one confirmed real sample — which is a payment-*due* reminder, a
+different message shape entirely — plus typical public BNPL wording. `TabbyTamaraParserTest`
+proves the parser matches its own assumed format, not that the format is real. First thing to
+check once an actual message is available; expect the regexes to need adjustment.
+
+### Bonus fix: a pre-existing doc gap, unrelated to this session's features
+
+`docs/NOTIFICATION_PARSING.md` and `CLAUDE.md` both listed 18 transaction parsers and never
+included `KeetaParser`, which shipped in an earlier session. True count before this session's
+addition was already 19. Fixed both while adding `TabbyTamaraParser` as the 20th.
+
+### Verification
+
+Full clean build green. `TabbyTamaraParserTest` (9 tests) passes; all pre-existing notification
+tests (283 total) still pass — confirms `KeetaParser`'s registration slot and `GenericParser`'s
+fallback position weren't disturbed by inserting the new parser ahead of it. Migration verified by
+executing the SQL directly (same method as the Fuel/Leisure session) rather than relying on `:data`
+tests, which still don't run (`useJUnitPlatform()` still missing there — a standing gap, not
+addressed this session either).
+
+**`CreateEmiFromExpenseUseCaseTest` still fails** — same pre-existing interest-calculation
+mismatch flagged two sessions ago (expects `1064.65`, gets `1066.19`). Confirmed unrelated by
+running domain tests before touching anything this session. Still unresolved; still needs an
+owner decision on which side (formula or test) is wrong.
 
 ---
 

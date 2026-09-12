@@ -28,6 +28,7 @@ object NavRoutes {
     const val LOAN_DETAIL = "loan_detail/{loanId}"
     const val ADD_LOAN = "add_loan"
     const val EDIT_LOAN = "edit_loan/{loanId}"
+    const val REIMBURSEMENTS = "reimbursements"
 
     fun smsImport(autoStart: String? = null) =
         if (autoStart != null) "sms_import?autoStart=$autoStart" else "sms_import"

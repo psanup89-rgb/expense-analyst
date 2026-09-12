@@ -95,7 +95,8 @@ class EditExpenseViewModel @Inject constructor(
                 selectedTags = expense.tags,
                 selectedAccountId = expense.accountId,
                 rawSmsBody = expense.rawSmsBody,
-                expenseSourceType = expense.sourceType
+                expenseSourceType = expense.sourceType,
+                isReimbursable = expense.isReimbursable
             )
         }
     }
@@ -164,6 +165,7 @@ class EditExpenseViewModel @Inject constructor(
     fun onPaymentMethodChange(method: PaymentMethod) = _form.update { it.copy(paymentMethod = method) }
     fun onDescriptionChange(value: String) = _form.update { it.copy(description = value) }
     fun onMerchantChange(value: String) = _form.update { it.copy(merchantName = value) }
+    fun onReimbursableToggle(value: Boolean) = _form.update { it.copy(isReimbursable = value) }
     fun onTagSearchQueryChange(value: String) = _form.update { it.copy(tagSearchQuery = value) }
     fun onTagSelect(tag: Tag) = _form.update {
         if (it.selectedTags.any { t -> t.id == tag.id }) it
@@ -326,7 +328,8 @@ class EditExpenseViewModel @Inject constructor(
                     merchantName = state.merchantName.trim().ifEmpty { null },
                     tags = state.selectedTags,
                     accountId = state.selectedAccountId,
-                    needsReview = false
+                    needsReview = false,
+                    isReimbursable = state.isReimbursable
                 )
                 updateExpenseUseCase(updated)
                 _form.update { it.copy(isSaving = false, savedExpenseId = original.id) }

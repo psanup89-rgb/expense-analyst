@@ -1,9 +1,9 @@
 # Expense Analyst — Current Status
 
-**Date**: 2026-09-12
-**DB version**: 21
+**Date**: 2026-09-13
+**DB version**: 22
 **Build**: `./gradlew clean assembleDebug` ✅ (requires JDK 21)
-**Version**: v0.7.2-debug
+**Version**: v0.7.3-debug
 **Repo**: `https://github.com/psanup89-rgb/expense-analyst` (public)
 **Open issues**: None
 
@@ -19,7 +19,7 @@
 
 ### Infrastructure
 - [x] 13-module Clean Architecture: `app`, `core`, `domain`, `data`, `feature/expenses`, `feature/emi`, `feature/notification`, `feature/settings`, `feature/analytics`, `feature/budget`, `feature/onboarding`, `feature/loans` + `:domain`
-- [x] Room DB v21 — 13 entities, full migration history v1→v21
+- [x] Room DB v22 — 13 entities, full migration history v1→v22
 - [x] Hilt DI — 13 repository interfaces
 - [x] Jetpack Navigation Compose — all routes registered
 - [x] Multi-currency: live rates (ExchangeRate-API via Ktor) + offline seed fallback
@@ -33,6 +33,8 @@
 - [x] Inline "Add new category" in category picker sheet
 - [x] Soft-delete with undo (swipe)
 - [x] EMI/instalment splitting + EMI list/detail
+- [x] Reimbursement tracking: mark any expense reimbursable, then check it off from Settings → Reimbursements once paid back. Status flag on `Expense` (`isReimbursable` + `reimbursedDate`), no effect on totals — the reimbursement itself is expected to arrive as its own separately-detected income
+- [x] BNPL/split-payment exclusion (Tabby, Tamara): purchase-split SMS auto-detected and routed to a "Split Payments" category as `PAYMENT` type, structurally excluded from every spend total; shown as its own bucket in the Analytics category chart with a "Not counted in total spent" label instead of a percentage. Manual EMI-split fallback already existed for cases the auto-detection misses
 - [x] Tags (many-to-many, searchable)
 
 ### Notification / SMS Pipeline

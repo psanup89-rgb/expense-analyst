@@ -102,4 +102,21 @@ class ExpenseRepositoryImpl @Inject constructor(
             description = description,
             updatedAt = DateTimeUtil.nowMillis()
         )
+
+    override fun getReimbursableExpenses(): Flow<List<Expense>> =
+        expenseDao.getReimbursableExpensesWithCategory().map { list -> list.map { it.toDomain() } }
+
+    override suspend fun markReimbursed(id: Long, reimbursedDate: Instant?): Int =
+        expenseDao.updateReimbursedDate(
+            id = id,
+            reimbursedDateMillis = reimbursedDate?.toEpochMilliseconds(),
+            updatedAt = DateTimeUtil.nowMillis()
+        )
+
+    override suspend fun reclassifyAsSplitPayment(id: Long, categoryId: Long): Int =
+        expenseDao.reclassifyAsSplitPayment(
+            id = id,
+            categoryId = categoryId,
+            updatedAt = DateTimeUtil.nowMillis()
+        )
 }

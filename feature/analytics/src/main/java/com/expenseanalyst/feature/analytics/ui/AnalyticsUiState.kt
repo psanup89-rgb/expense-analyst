@@ -30,7 +30,14 @@ data class CategorySpend(
     val iconName: String,
     val colorHex: String,
     val amount: Double,
-    val percentage: Float
+    val percentage: Float,
+    /**
+     * True only for the synthetic "Split Payments" (BNPL) bucket. Its [amount] is deliberately
+     * NOT part of [AnalyticsUiState.totalExpense]'s denominator — per the owner's decision that
+     * these purchases never count toward spend — so [percentage] is meaningless here and the UI
+     * must not render it as a normal progress bar.
+     */
+    val isExcludedFromTotal: Boolean = false
 )
 
 data class DailySpend(

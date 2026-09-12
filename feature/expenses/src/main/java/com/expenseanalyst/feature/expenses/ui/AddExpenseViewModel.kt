@@ -299,6 +299,7 @@ class AddExpenseViewModel @Inject constructor(
     fun onPaymentMethodChange(method: PaymentMethod) = _form.update { it.copy(paymentMethod = method) }
     fun onDescriptionChange(value: String) = _form.update { it.copy(description = value) }
     fun onMerchantChange(value: String) = _form.update { it.copy(merchantName = value) }
+    fun onReimbursableToggle(value: Boolean) = _form.update { it.copy(isReimbursable = value) }
     fun onTagSearchQueryChange(value: String) = _form.update { it.copy(tagSearchQuery = value) }
     fun onTagSelect(tag: Tag) = _form.update {
         if (it.selectedTags.any { t -> t.id == tag.id }) it
@@ -523,7 +524,8 @@ class AddExpenseViewModel @Inject constructor(
                     tags = state.selectedTags,
                     accountId = state.selectedAccountId,
                     billId = billId,
-                    rawSmsBody = state.rawSmsBody
+                    rawSmsBody = state.rawSmsBody,
+                    isReimbursable = state.isReimbursable
                 )
                 val id = addExpenseUseCase(expense)
 

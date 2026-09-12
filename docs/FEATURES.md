@@ -1,8 +1,8 @@
 # Feature Specifications & Acceptance Criteria
 
-**Last updated**: 2026-06-14
+**Last updated**: 2026-09-13
 **Phase 1 + 1.5**: Complete
-**Phase 2**: Partially started (F11 mostly complete, F12 complete, F13 complete, Loans/Lent complete, Auto-save + Needs Review complete)
+**Phase 2**: Partially started (F11 mostly complete, F12 complete, F13 complete, Loans/Lent complete, Auto-save + Needs Review complete, Reimbursement Tracking complete, BNPL/Split Payments complete)
 
 ---
 
@@ -145,6 +145,8 @@
 | Loans/Lent Tracking | ✅ Complete | New `:feature:loans` module. Track money lent to others (PENDING/SETTLED), WorkManager reminders with custom datetime, settlement creates INCOME+Refund expense (nets out of monthly totals). Entry: Settings → "Loans & Lending". DB v18: `lent_items` table. (Note: referred to as "F15" in `STATUS.md`/`HANDOFF.md`, overlapping the Cloud Backup number above — this table's F-numbers have never been fully reconciled between docs.) |
 | Auto-save + Needs Review | ✅ Complete | Detected bank SMS/notifications auto-save as expenses (no tap). Expenses missing merchant/category/payment method/account are flagged and surfaced in a new Review bottom-nav tab. DB v19: `needs_review` column. See F4 above for full detail. |
 | Notification "Add note" | ✅ Complete | Inline `RemoteInput` reply on the transaction notification writes `Expense.description` from the shade — no app launch. `NoteReplyReceiver` + `NoteReplySanitizer`; targeted `ExpenseDao.updateDescription`. No DB migration. See F4 above. |
+| Reimbursement Tracking | ✅ Complete | Mark any expense reimbursable (toggle in Add/Edit Expense); check it off from Settings → Reimbursements once paid back. Status flag directly on `Expense` (`isReimbursable` + `reimbursedDate`), not a category or type — deliberately has no effect on totals, since the reimbursement itself is expected to arrive as its own separately-detected `INCOME` expense. DB v22. |
+| BNPL / Split Payments | ✅ Complete | Tabby/Tamara purchase-split SMS auto-detected (`TabbyTamaraParser`, ⚠️ unverified — no real sample available) and routed to a new "Split Payments" category as `TransactionType.PAYMENT` — structurally excluded from every spend total. Shown as its own bucket in the Analytics category chart with a "Not counted in total spent" label instead of a percentage. Manual "Convert to EMI" (existing feature, unchanged) remains the fallback when auto-detection misses the confirmation SMS — each installment counts normally per month in that path, a deliberately different accounting treatment from true BNPL. DB v22. |
 | F16: Home Screen Widget | Not started | Glance widget: today's spend + monthly total |
 | F17: Dynamic Colors | Not started | Material 3 dynamic color (opt-out of neon theme) |
 | F18: Bulk Operations | Not started | Multi-select, bulk delete, bulk re-categorize |

@@ -33,6 +33,11 @@ object ParserRegistry {
         MubasherParser(),
         // Merchant apps (food delivery, e-commerce, etc.)
         KeetaParser(),
+        // BNPL purchase-split confirmations (Tabby, Tamara) — see TabbyTamaraParser's KDoc,
+        // unverified against a real message. Must precede GenericParser, whose isPayment
+        // regex ("payment successful/confirmed") could otherwise catch these SMS first and
+        // silently under-count them instead of routing to the BNPL-specific handling.
+        TabbyTamaraParser(),
         // Generic fallback
         GenericParser()
     )

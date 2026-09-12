@@ -41,6 +41,8 @@ import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Switch
+import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -143,6 +145,7 @@ fun AddExpenseScreen(
         onPaymentMethodChange = viewModel::onPaymentMethodChange,
         onDescriptionChange = viewModel::onDescriptionChange,
         onMerchantChange = viewModel::onMerchantChange,
+        onReimbursableToggle = viewModel::onReimbursableToggle,
         onTagSearchQueryChange = viewModel::onTagSearchQueryChange,
         onTagSelect = viewModel::onTagSelect,
         onTagRemove = viewModel::onTagRemove,
@@ -200,6 +203,7 @@ internal fun AddExpenseContent(
     onPaymentMethodChange: (PaymentMethod) -> Unit,
     onDescriptionChange: (String) -> Unit,
     onMerchantChange: (String) -> Unit,
+    onReimbursableToggle: (Boolean) -> Unit,
     onTagSearchQueryChange: (String) -> Unit,
     onTagSelect: (Tag) -> Unit,
     onTagRemove: (Tag) -> Unit,
@@ -1052,6 +1056,32 @@ internal fun AddExpenseContent(
                     Column(modifier = Modifier.padding(horizontal = 16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                         NeonTextField(value = uiState.merchantName, onValueChange = onMerchantChange, label = "Merchant *", accentColor = accentColor)
                         NeonTextField(value = uiState.description, onValueChange = onDescriptionChange, label = "Description (optional)", accentColor = accentColor)
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    text = "Reimbursable",
+                                    style = MaterialTheme.typography.labelLarge,
+                                    color = MaterialTheme.colorScheme.onSurface
+                                )
+                                Text(
+                                    text = "Track this expense until you're paid back for it",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                            Switch(
+                                checked = uiState.isReimbursable,
+                                onCheckedChange = onReimbursableToggle,
+                                colors = SwitchDefaults.colors(
+                                    checkedThumbColor = MaterialTheme.colorScheme.onPrimary,
+                                    checkedTrackColor = accentColor
+                                )
+                            )
+                        }
                         TagSelector(
                             selectedTags = uiState.selectedTags,
                             availableTags = uiState.availableTags,

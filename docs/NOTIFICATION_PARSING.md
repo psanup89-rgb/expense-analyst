@@ -1,7 +1,7 @@
 # Notification Parsing - Standard Operating Procedure
 
 ## Current Status
-The notification parsing system is **fully implemented and active**. 18 transaction parsers + 10 bill statement parsers are in production, handling real-time notification capture, bulk SMS import, and bill reminder routing.
+The notification parsing system is **fully implemented and active**. 20 transaction parsers + 10 bill statement parsers are in production, handling real-time notification capture, bulk SMS import, and bill reminder routing.
 
 ## Overview
 The notification parsing system intercepts bank SMS and push notifications, extracts transaction data using regex parsers, and presents pre-filled expense entries for user confirmation.
@@ -36,7 +36,7 @@ TransactionNotificationService (NotificationListenerService)
 - `feature/notification/service/TransactionNotificationService.kt` — Android NotificationListenerService
 - `feature/notification/parser/TransactionParser.kt` — Parser interface
 - `feature/notification/parser/ParserRegistry.kt` — Dispatcher (ordered list, first match wins)
-- `feature/notification/parser/<Bank>Parser.kt` — Transaction parsers (18 total)
+- `feature/notification/parser/<Bank>Parser.kt` — Transaction parsers (20 total)
 - `feature/notification/parser/<Bank>StatementParser.kt` — Bill statement parsers (10 total)
 - `feature/notification/parser/BillStatementParserRegistry.kt` — Bill dispatcher (tried BEFORE ParserRegistry)
 - `feature/notification/service/BillStatementManager.kt` — Enqueues bill SMS as PendingNotification(pendingType="BILL")
@@ -115,7 +115,7 @@ Registered in `BillStatementParserRegistry` (tried before transaction parsers). 
 
 ---
 
-## Transaction Parsers (18 total)
+## Transaction Parsers (20 total)
 
 ### ParserRegistry Order (first match wins)
 
@@ -138,7 +138,9 @@ Registered in `BillStatementParserRegistry` (tried before transaction parsers). 
 | 15 | WalletParser | Digital Wallet | Sender Apple/Google/Samsung Pay | Multi | `Payment of $X at`, `Paid X to` |
 | 16 | UpiParser | UPI (GPay/PhonePe/Paytm) | Sender or `UPI` in body | INR | `paid ₹X to`, `received from` |
 | 17 | MubasherParser | Mubasher (bill payment) | Sender `mub/mubasher` OR body fingerprint | SAR | `Biller:`, `Service:`, `Bill:` — bill payment confirmations |
-| 18 | GenericParser | Unknown (fallback) | Always matches (unless bill-reminder phrase detected) | Multi | Best-effort: `At:` merchant, `Card:` account, amount + direction. Has `billReminderPattern` guard — returns null for "ignore if already paid", "bill of Rs.X is pending", "minimum amount due", "bill payment reminder" |
+| 18 | KeetaParser | Keeta (food delivery) | Sender OR body contains `keeta` | SAR | Refund/cancellation ("SAR X refunded", "will return to the original way"), and charge SMS ("SAR X charged for your Keeta order") |
+| 19 | TabbyTamaraParser | Tabby / Tamara (BNPL) | Sender OR body contains `tabby`/`tamara` + a purchase-split fingerprint | Multi | ⚠️ **Unverified** — no real purchase-confirmation SMS sample was available when written; see the parser's KDoc. Extracts total + per-installment amount, sets `isBnplConfirmation = true`, routing `PendingNotificationManager` to reclassify the merchant's own full-amount expense as `PAYMENT`/"Split Payments" instead of the normal auto-save flow. Distinct from `TamaraStatementParser` (bill statement parser #6 above), which only handles the later payment-due reminder. |
+| 20 | GenericParser | Unknown (fallback) | Always matches (unless bill-reminder phrase detected) | Multi | Best-effort: `At:` merchant, `Card:` account, amount + direction. Has `billReminderPattern` guard — returns null for "ignore if already paid", "bill of Rs.X is pending", "minimum amount due", "bill payment reminder" |
 
 ## SMS Import (Bulk)
 

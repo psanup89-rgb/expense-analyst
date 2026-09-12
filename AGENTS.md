@@ -64,7 +64,7 @@ Defines agent domains, responsibilities, and boundaries.
 **Never touch**: Any `*Screen.kt` or `*ViewModel.kt`; parser files
 
 **Critical rules**
-- DB is currently at **version 21**. Next migration must be `MIGRATION_21_22`
+- DB is currently at **version 22**. Next migration must be `MIGRATION_22_23`
 - `categories.name` has **no unique index** (the table declares none at all), so `INSERT OR IGNORE` cannot dedupe by name. To add a category a user may already have created, UPDATE first then `INSERT … WHERE NOT EXISTS` — see `MIGRATION_20_21`
 - Prefer a **targeted `@Query` UPDATE** over `updateExpense(expense)` when writing one field from a non-UI context. `updateExpense` round-trips the whole row through `ExpenseMapper.toEntity`, which nulls `account_number`, and it rewrites the tag join table. See `ExpenseDao.updateDescription` for the pattern.
 - Always add the new migration to `addMigrations(...)` in `ExpenseAnalystDatabase`

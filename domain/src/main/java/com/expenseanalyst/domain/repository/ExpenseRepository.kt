@@ -26,4 +26,20 @@ interface ExpenseRepository {
 
     /** Targeted single-column update. Returns rows affected (0 if missing or soft-deleted). */
     suspend fun updateDescription(id: Long, description: String): Int
+
+    /** All expenses flagged reimbursable, regardless of reimbursement status. */
+    fun getReimbursableExpenses(): Flow<List<Expense>>
+
+    /**
+     * Marks (or, passing null, un-marks) an expense as reimbursed. Targeted update — does not
+     * touch any other field. Returns rows affected (0 if missing, soft-deleted, or no longer
+     * flagged reimbursable).
+     */
+    suspend fun markReimbursed(id: Long, reimbursedDate: Instant?): Int
+
+    /**
+     * Reclassifies an already-recorded expense as a BNPL split payment (category + type only,
+     * targeted update). Returns rows affected (0 if missing or soft-deleted).
+     */
+    suspend fun reclassifyAsSplitPayment(id: Long, categoryId: Long): Int
 }

@@ -53,5 +53,7 @@ data class ExpenseEntity(
     @ColumnInfo(name = "created_at_utc_millis") val createdAtUtcMillis: Long,
     @ColumnInfo(name = "updated_at_utc_millis") val updatedAtUtcMillis: Long,
     @ColumnInfo(name = "needs_review", defaultValue = "0") val needsReview: Boolean = false,
-    @ColumnInfo(name = "needs_review_reasons") val needsReviewReasons: String? = null
+    @ColumnInfo(name = "needs_review_reasons") val needsReviewReasons: String? = null,
+    @ColumnInfo(name = "is_reimbursable", defaultValue = "0") val isReimbursable: Boolean = false,
+    @ColumnInfo(name = "reimbursed_date_millis") val reimbursedDateMillis: Long? = null
 )

@@ -62,6 +62,7 @@ fun SettingsScreen(
     onNavigateToAccountManagement: () -> Unit = {},
     onNavigateToBudget: () -> Unit = {},
     onNavigateToLoans: () -> Unit = {},
+    onNavigateToReimbursements: () -> Unit = {},
     onTestNotification: () -> Unit = {},
     onGrantNotificationAccess: () -> Unit = {},
     viewModel: SettingsViewModel = hiltViewModel()
@@ -93,6 +94,7 @@ fun SettingsScreen(
         onNavigateToAccountManagement = onNavigateToAccountManagement,
         onNavigateToBudget = onNavigateToBudget,
         onNavigateToLoans = onNavigateToLoans,
+        onNavigateToReimbursements = onNavigateToReimbursements,
         onTestNotification = onTestNotification,
         onGrantNotificationAccess = onGrantNotificationAccess
     )
@@ -116,6 +118,7 @@ private fun SettingsContent(
     onNavigateToAccountManagement: () -> Unit,
     onNavigateToBudget: () -> Unit,
     onNavigateToLoans: () -> Unit,
+    onNavigateToReimbursements: () -> Unit,
     onTestNotification: () -> Unit,
     onGrantNotificationAccess: () -> Unit
 ) {
@@ -612,6 +615,36 @@ private fun SettingsContent(
                             shape = androidx.compose.foundation.shape.RoundedCornerShape(10.dp)
                         ) {
                             Text("Manage Loans")
+                        }
+                    }
+                }
+            }
+
+            // Reimbursements section
+            item {
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer)
+                ) {
+                    Column(modifier = Modifier.padding(20.dp)) {
+                        Text(
+                            text = "Reimbursements",
+                            style = MaterialTheme.typography.titleMedium,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                        Spacer(Modifier.height(12.dp))
+                        Text(
+                            text = "Mark expenses you expect to be paid back for, then check them off once the money arrives.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Spacer(Modifier.height(12.dp))
+                        FilledTonalButton(
+                            onClick = onNavigateToReimbursements,
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = androidx.compose.foundation.shape.RoundedCornerShape(10.dp)
+                        ) {
+                            Text("View Reimbursements")
                         }
                     }
                 }

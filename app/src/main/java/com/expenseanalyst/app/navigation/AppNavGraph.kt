@@ -37,6 +37,7 @@ import com.expenseanalyst.feature.settings.ui.SettingsScreen
 import com.expenseanalyst.feature.loans.ui.LoanListScreen
 import com.expenseanalyst.feature.loans.ui.AddLoanScreen
 import com.expenseanalyst.feature.expenses.ui.NeedsReviewScreen
+import com.expenseanalyst.feature.expenses.ui.ReimbursementsScreen
 import com.expenseanalyst.feature.loans.ui.LoanDetailScreen
 
 @Composable
@@ -221,7 +222,8 @@ fun AppNavGraph(
                 onNavigateToCategoryManagement = { navController.navigate(NavRoutes.CATEGORY_MANAGEMENT) },
                 onNavigateToAccountManagement = { navController.navigate(NavRoutes.ACCOUNT_MANAGEMENT) },
                 onNavigateToBudget = { navController.navigate(NavRoutes.BUDGET) },
-                onNavigateToLoans = { navController.navigate(NavRoutes.LOANS) }
+                onNavigateToLoans = { navController.navigate(NavRoutes.LOANS) },
+                onNavigateToReimbursements = { navController.navigate(NavRoutes.REIMBURSEMENTS) }
             )
         }
 
@@ -286,6 +288,13 @@ fun AppNavGraph(
                 loanId = loanId,
                 onBack = { navController.popBackStack() },
                 onEdit = { id -> navController.navigate(NavRoutes.editLoan(id)) }
+            )
+        }
+
+        composable(NavRoutes.REIMBURSEMENTS) {
+            ReimbursementsScreen(
+                onBack = { navController.popBackStack() },
+                onExpenseClick = { id -> navController.navigate(NavRoutes.expenseDetail(id)) }
             )
         }
 

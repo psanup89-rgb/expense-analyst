@@ -98,6 +98,23 @@ class AnalyticsViewModel @Inject constructor(
             }
             .sortedByDescending { it.second }
 
+        // BNPL split payments (Tabby/Tamara) — deliberately excluded from totalExpense (the
+        // owner's decision), but still surfaced as their own bucket so the spend is visible.
+        // Rows are PAYMENT type, not EXPENSE, so they sit entirely outside categoryTotals above.
+        val splitPaymentRows = active.filter {
+            it.transactionType == TransactionType.PAYMENT && it.category.name == SPLIT_PAYMENTS_CATEGORY
+        }
+        val splitPaymentsSpend = splitPaymentRows.firstOrNull()?.let { sample ->
+            CategorySpend(
+                categoryName = sample.category.name,
+                iconName = sample.category.iconName,
+                colorHex = sample.category.colorHex,
+                amount = splitPaymentRows.sumOf { it.homeAmount ?: it.amount },
+                percentage = 0f,
+                isExcludedFromTotal = true
+            )
+        }
+
         val categoryBreakdown = categoryTotals.map { (cat, total, _) ->
             CategorySpend(
                 categoryName = cat.name,
@@ -106,7 +123,7 @@ class AnalyticsViewModel @Inject constructor(
                 amount = total,
                 percentage = if (totalExpense > 0) (total / totalExpense * 100f).toFloat() else 0f
             )
-        }
+        } + listOfNotNull(splitPaymentsSpend)
 
         // Daily spend (EXPENSE per day-of-month)
         val dailyMap = active
@@ -149,12 +166,17 @@ class AnalyticsViewModel @Inject constructor(
             is DrillDownFilter.Income -> active
                 .filter { it.transactionType == TransactionType.INCOME }
                 .sortedByDescending { it.date }
-            is DrillDownFilter.ByCategory -> active
-                .filter {
-                    it.transactionType == TransactionType.EXPENSE &&
-                        it.category.name == drillDown.categoryName
-                }
-                .sortedByDescending { it.date }
+            is DrillDownFilter.ByCategory -> {
+                // Split Payments rows are PAYMENT type, not EXPENSE — scoped to exactly this
+                // one category name so every other category's drill-down stays EXPENSE-only
+                // and therefore stays consistent with the EXPENSE-only sum shown on its bar.
+                val includePayment = drillDown.categoryName == SPLIT_PAYMENTS_CATEGORY
+                active.filter {
+                    it.category.name == drillDown.categoryName &&
+                        (it.transactionType == TransactionType.EXPENSE ||
+                            (includePayment && it.transactionType == TransactionType.PAYMENT))
+                }.sortedByDescending { it.date }
+            }
             is DrillDownFilter.ByMerchant -> active
                 .filter {
                     it.transactionType == TransactionType.EXPENSE &&
@@ -214,5 +236,6 @@ class AnalyticsViewModel @Inject constructor(
 
     private companion object {
         const val REFUND_CATEGORY = "Refund"
+        const val SPLIT_PAYMENTS_CATEGORY = "Split Payments"
     }
 }

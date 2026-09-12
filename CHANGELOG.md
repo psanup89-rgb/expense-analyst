@@ -4,6 +4,18 @@ Format: `[Date] — Summary`
 
 ---
 
+## 2026-09-13 — Reimbursement tracking + BNPL/split-payment exclusion (DB v22)
+
+- **Reimbursement tracking**: `Expense` gains `isReimbursable` + `reimbursedDate` — a plain status flag, not a category or type (the owner asked directly; this app's existing "Refund category" precedent for that kind of thing is a fragile pattern this deliberately avoids). No effect on totals — the reimbursement itself is expected to arrive as its own separately-detected `INCOME` expense. New Settings → Reimbursements screen (Pending / Reimbursed, tap to toggle, undo supported); toggle in Add/Edit Expense; status row in Expense Detail.
+- **BNPL / split-payment exclusion** (Tabby, Tamara): new `TabbyTamaraParser` detects the purchase-split confirmation SMS and reclassifies the merchant's own already-captured full-amount expense (targeted update, `EXPENSE`→`PAYMENT`, category → new "Split Payments") — or creates a new expense directly if the merchant SMS was never captured. `TransactionType.PAYMENT` was already excluded from every spend total; this makes it visible in Analytics for the first time, as its own category-chart bucket with a "Not counted in total spent" label rather than a misleading percentage. The existing "Convert to EMI" flow (unchanged) remains the manual fallback when auto-detection misses the SMS.
+- ⚠️ **`TabbyTamaraParser` is unverified** — no real Tabby/Tamara purchase-confirmation SMS sample was available. Built by extrapolating from `TamaraStatementParser`'s one confirmed real sample, which is a payment-*due* reminder, not a purchase confirmation — a different message shape. Registered ahead of `GenericParser` in `ParserRegistry`.
+- **DB v22**: two nullable/defaulted columns on `expenses` (`is_reimbursable`, `reimbursed_date_millis`), plus the "Split Payments" category, both via `MIGRATION_21_22` — UPDATE-then-conditional-INSERT for the category, matching the Fuel/Leisure precedent, never `INSERT OR IGNORE` (`categories.name` still has no unique index).
+- **Doc fix**: also fixed a pre-existing gap in `docs/NOTIFICATION_PARSING.md` and `CLAUDE.md`'s parser lists/counts — `KeetaParser` had never been added to either after it shipped, so both undercounted at 18 when the true count (before this session) was already 19.
+- New tests: `TabbyTamaraParserTest` (9, tests the parser's own best-guess format — not a confirmed real one).
+- Version bumped to 0.7.3 (`versionCode` 5).
+
+---
+
 ## 2026-09-12 — Fuel and Leisure categories (DB v21)
 
 - **Fuel** and **Leisure** now carry a proper icon and colour instead of the grey `more_horiz` default every user-created category starts with, and both auto-categorise from bank SMS.

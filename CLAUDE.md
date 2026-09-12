@@ -55,7 +55,7 @@ These rules apply at all times, without exception.
 
 ## Database
 
-- **Room** — entities in `data/local/entity/`. **Current version: 21**. All migrations inline in `ExpenseAnalystDatabase.kt`.
+- **Room** — entities in `data/local/entity/`. **Current version: 22**. All migrations inline in `ExpenseAnalystDatabase.kt`.
 - **`categories.name` is not unique** (no indices on that table) — `INSERT OR IGNORE` cannot dedupe by name. Use UPDATE-then-`INSERT … WHERE NOT EXISTS` for any category a user may already have created (`MIGRATION_20_21`).
 - Dates: **UTC epoch milliseconds** (`Long`). Display converts via `TimeZone.currentSystemDefault()`
 - **Soft delete** — `isDeleted: Boolean` flag. Never hard-delete.
@@ -64,7 +64,7 @@ These rules apply at all times, without exception.
 - `TransactionType`: `EXPENSE | INCOME | TRANSFER | PAYMENT`
 - `AccountType`: `SAVINGS | CURRENT | CREDIT_CARD | DEBIT_CARD | FOREX_CARD | WALLET | OTHER`
 - 13 entities: Expense, Category, EmiGroup, CurrencyRate, **Account**, **MerchantRule**, **PendingNotification**, **Bill**, **Tag**, **ExpenseTagCrossRef**, **SalaryEntry**, **PlannedExpense**, **LentItem**
-- Pre-seeded categories: Food, Transport, Shopping, Bills, Entertainment, Health, Education, Groceries, Rent, Salary, Transfer, Other, **Refund**, **Fuel**, **Leisure**
+- Pre-seeded categories: Food, Transport, Shopping, Bills, Entertainment, Health, Education, Groceries, Rent, Salary, Transfer, Other, **Refund**, **Fuel**, **Leisure**, **Split Payments**
 
 ---
 
@@ -82,6 +82,7 @@ These rules apply at all times, without exception.
 - Routes defined in `core/navigation/NavRoutes.kt`
 - All routes registered in `app/navigation/AppNavGraph.kt`
 - Bottom nav: **Home · Review · Bills · EMI · Settings** (shown only on those five destinations). "Review" is `NavRoutes.NEEDS_REVIEW`, badged with the needs-review count.
+- Reimbursements is `NavRoutes.REIMBURSEMENTS`, reached from Settings (not a bottom-nav item — same pattern as "Loans & Lending")
 - Onboarding gate: `MainActivity` reads `OnboardingRepository.isOnboardingCompleted()` before rendering nav
 - Notification pre-fill: `ADD_EXPENSE_ROUTE` has optional args `?amount=&currency=&merchant=&type=` (still used for manual add-from-banner paths). Auto-saved transaction notifications now tap through to `ACTION_OPEN_EXPENSE_DETAIL` (expense detail screen) instead, since the expense is already saved.
 
@@ -113,7 +114,7 @@ These rules apply at all times, without exception.
 - Service: `feature/notification/service/TransactionNotificationService` (NotificationListenerService)
 - Parsers: `feature/notification/parser/` — one file per bank, all implement `TransactionParser`
 - Registry: `ParserRegistry` tries parsers in priority order; `GenericParser` is last resort
-- 18 parsers: HDFC, SBI, ICICI, Axis, Kotak, YesBank, IdfcFirstBank, OneCard, AlRajhi, StcBank, Alinma, D360, EmiratesNBD, FASTag, Wallet, UPI, Mubasher, Generic
+- 20 parsers: HDFC, SBI, ICICI, Axis, Kotak, YesBank, IdfcFirstBank, OneCard, AlRajhi, StcBank, Alinma, D360, EmiratesNBD, FASTag, Wallet, UPI, Mubasher, Keeta, TabbyTamara, Generic
 - `TransactionDirection`: `DEBIT | CREDIT | PAYMENT` (PAYMENT = bill/card payment confirmation)
 - `PaymentMethodDetector` — shared utility that infers payment method (Credit Card, UPI, Net Banking, Apple Pay, etc.) from SMS body text. Used by all parsers.
 - Parsed TRANSACTION results are **auto-saved directly as `Expense`** by `PendingNotificationManager` (dedup, category inference, account resolve, `needsReview` flag set if merchant/category/payment method/account couldn't be resolved) → `NotificationBanner` shows "Saved · tap to edit" **and** Android system tray notification (`TransactionAlertNotification.postForExpense()`, tap → `ACTION_OPEN_EXPENSE_DETAIL`)
@@ -126,6 +127,7 @@ These rules apply at all times, without exception.
   3. Reply request codes use `replyRequestCode(notifId) = notifId xor Int.MIN_VALUE` so they can never collide with the content intent's request code (which is `notifId` itself). A collision would deliver a note to the wrong expense.
 - Notification writes use `ExpenseRepository.updateDescription` (targeted single-column UPDATE, `is_deleted = 0` guarded), **not** `updateExpense` — the latter nulls `account_number` via the mapper and rewrites the tag join table
 - `MainViewModel.pendingRoute` receives tray notification taps; `AppNavGraph` navigates once
+- **BNPL split-purchase detection (Tabby/Tamara)**: `TabbyTamaraParser` (⚠️ unverified — no real purchase-confirmation SMS sample was available when written; see its KDoc) sets `ParsedTransaction.isBnplConfirmation = true`, which routes `PendingNotificationManager.enqueue()` to a dedicated `handleBnplConfirmation()` path that **bypasses the normal amount+merchant+day dedup entirely** — that dedup would otherwise treat the Tabby/Tamara confirmation as a duplicate of the merchant's own already-captured full-amount SMS instead of reclassifying it. It either reclassifies that existing `EXPENSE` row (targeted `ExpenseDao.reclassifyAsSplitPayment`, not `updateExpense`) to `PAYMENT` + "Split Payments" category, or creates a new expense directly if no matching row exists. `TransactionType.PAYMENT` is already excluded from every spend total, so this needs no netting logic. Registered in `ParserRegistry` before `GenericParser`, whose `isPayment` regex could otherwise misclassify these SMS first.
 - **SMS Import dedup**: Primary = raw SMS body hash; fallback = amount + day + merchant (for old records without rawSmsBody)
 - **Parser bug to avoid**: two-group amount regex — `groupValues[1]` is `""` not `null` when only group 2 matches. Always use `.takeIf { it.isNotBlank() }` when extracting from either group.
 - See `docs/NOTIFICATION_PARSING.md` for SOP on adding new parsers

@@ -33,7 +33,9 @@ fun ExpenseWithCategory.toDomain() = Expense(
     billId = expense.billId,
     isDeleted = expense.isDeleted,
     needsReview = expense.needsReview,
-    reviewReasons = NeedsReviewEvaluator.decode(expense.needsReviewReasons)
+    reviewReasons = NeedsReviewEvaluator.decode(expense.needsReviewReasons),
+    isReimbursable = expense.isReimbursable,
+    reimbursedDate = expense.reimbursedDateMillis?.let { Instant.fromEpochMilliseconds(it) }
 )
 
 fun Expense.toEntity(createdAt: Long, updatedAt: Long) = ExpenseEntity(
@@ -60,5 +62,7 @@ fun Expense.toEntity(createdAt: Long, updatedAt: Long) = ExpenseEntity(
     createdAtUtcMillis = createdAt,
     updatedAtUtcMillis = updatedAt,
     needsReview = needsReview,
-    needsReviewReasons = NeedsReviewEvaluator.encode(reviewReasons)
+    needsReviewReasons = NeedsReviewEvaluator.encode(reviewReasons),
+    isReimbursable = isReimbursable,
+    reimbursedDateMillis = reimbursedDate?.toEpochMilliseconds()
 )

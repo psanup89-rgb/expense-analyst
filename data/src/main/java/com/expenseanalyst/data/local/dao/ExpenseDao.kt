@@ -112,4 +112,37 @@ interface ExpenseDao {
         ORDER BY amount DESC
     """)
     fun getIncomeByDateRange(startMillis: Long, endMillis: Long): Flow<List<ExpenseWithCategory>>
+
+    @Transaction
+    @Query("SELECT * FROM expenses WHERE is_reimbursable = 1 AND is_deleted = 0 ORDER BY date_utc_millis DESC")
+    fun getReimbursableExpensesWithCategory(): Flow<List<ExpenseWithCategory>>
+
+    /**
+     * Targeted single-column update for the Reimbursements screen's "mark reimbursed" /
+     * "undo" toggle. Pass null to move an item back to pending. Guarded on is_reimbursable = 1
+     * so a stale UI action can never flip the flag on an expense that was un-marked meanwhile.
+     * Returns rows affected — 0 means the expense is missing, soft-deleted, or no longer
+     * reimbursable.
+     */
+    @Query(
+        """
+        UPDATE expenses SET reimbursed_date_millis = :reimbursedDateMillis, updated_at_utc_millis = :updatedAt
+        WHERE id = :id AND is_deleted = 0 AND is_reimbursable = 1
+        """
+    )
+    suspend fun updateReimbursedDate(id: Long, reimbursedDateMillis: Long?, updatedAt: Long): Int
+
+    /**
+     * Reclassifies an already-recorded expense as a BNPL split payment: category + type only.
+     * Targeted update for the same reason as [updateDescription] — a full-row updateExpense
+     * would null account_number (via the entity mapper) and rewrite the tag join table.
+     * `transaction_type` is written as the raw enum name to match ExpenseMapper's convention.
+     */
+    @Query(
+        """
+        UPDATE expenses SET category_id = :categoryId, transaction_type = 'PAYMENT', updated_at_utc_millis = :updatedAt
+        WHERE id = :id AND is_deleted = 0
+        """
+    )
+    suspend fun reclassifyAsSplitPayment(id: Long, categoryId: Long, updatedAt: Long): Int
 }

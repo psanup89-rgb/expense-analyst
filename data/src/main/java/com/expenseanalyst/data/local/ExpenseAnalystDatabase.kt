@@ -49,7 +49,7 @@ import com.expenseanalyst.data.local.entity.TagEntity
         PlannedExpenseEntity::class,
         LentItemEntity::class
     ],
-    version = 21,
+    version = 22,
     exportSchema = true
 )
 abstract class ExpenseAnalystDatabase : RoomDatabase() {
@@ -234,6 +234,39 @@ abstract class ExpenseAnalystDatabase : RoomDatabase() {
          * and cannot dedupe — it would add a second row alongside a user's existing one.
          * Hence UPDATE-then-conditional-INSERT.
          */
+        /**
+         * Reimbursement tracking (two nullable/defaulted columns, same shape as
+         * MIGRATION_18_19's needs_review) plus the "Split Payments" category for
+         * BNPL/EMI-split expenses.
+         *
+         * The category upsert deliberately does NOT use INSERT OR IGNORE — categories has no
+         * unique index on name (see MIGRATION_20_21's comment), so it cannot dedupe. Same
+         * UPDATE-then-conditional-INSERT shape as Fuel/Leisure, in case the user already made
+         * a "Split Payments" category of their own.
+         */
+        private val MIGRATION_21_22 = object : Migration(21, 22) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE expenses ADD COLUMN is_reimbursable INTEGER NOT NULL DEFAULT 0")
+                db.execSQL("ALTER TABLE expenses ADD COLUMN reimbursed_date_millis INTEGER")
+
+                db.execSQL(
+                    "UPDATE categories SET icon_name = 'credit_card' " +
+                        "WHERE LOWER(name) LIKE 'split payments%' AND icon_name = 'more_horiz'"
+                )
+                db.execSQL(
+                    "UPDATE categories SET color_hex = '#5C6BC0' " +
+                        "WHERE LOWER(name) LIKE 'split payments%' AND color_hex = '#9E9E9E'"
+                )
+                db.execSQL(
+                    "INSERT INTO categories (name, icon_name, color_hex, is_default, sort_order) " +
+                        "SELECT 'Split Payments', 'credit_card', '#5C6BC0', 1, " +
+                        "(SELECT COALESCE(MAX(sort_order), -1) + 1 FROM categories) " +
+                        "WHERE NOT EXISTS " +
+                        "(SELECT 1 FROM categories WHERE LOWER(name) LIKE 'split payments%')"
+                )
+            }
+        }
+
         private val MIGRATION_20_21 = object : Migration(20, 21) {
             override fun migrate(db: SupportSQLiteDatabase) {
                 upsertCategory(db, "fuel", "Fuel", "local_gas_station", "#C62828")
@@ -399,7 +432,7 @@ abstract class ExpenseAnalystDatabase : RoomDatabase() {
                 ExpenseAnalystDatabase::class.java,
                 DATABASE_NAME
             )
-                .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13, MIGRATION_13_14, MIGRATION_14_15, MIGRATION_15_16, MIGRATION_16_17, MIGRATION_17_18, MIGRATION_18_19, MIGRATION_19_20, MIGRATION_20_21)
+                .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13, MIGRATION_13_14, MIGRATION_14_15, MIGRATION_15_16, MIGRATION_16_17, MIGRATION_17_18, MIGRATION_18_19, MIGRATION_19_20, MIGRATION_20_21, MIGRATION_21_22)
                 .addCallback(SeedDatabaseCallback())
                 .build()
         }
@@ -424,7 +457,8 @@ abstract class ExpenseAnalystDatabase : RoomDatabase() {
                 "('Misc', 'help_outline', '#BDBDBD', 1, 12)",
                 "('Refund', 'currency_exchange', '#26C6DA', 1, 13)",
                 "('Fuel', 'local_gas_station', '#C62828', 1, 14)",
-                "('Leisure', 'beach_access', '#00897B', 1, 15)"
+                "('Leisure', 'beach_access', '#00897B', 1, 15)",
+                "('Split Payments', 'credit_card', '#5C6BC0', 1, 16)"
             )
             defaultCategories.forEach { values ->
                 db.execSQL("INSERT INTO categories (name, icon_name, color_hex, is_default, sort_order) VALUES $values")

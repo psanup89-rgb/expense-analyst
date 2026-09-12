@@ -12,7 +12,14 @@ data class ParsedTransaction(
     /** PaymentMethod enum name (e.g. "APPLE_PAY") when a specific payment method is detected. */
     val paymentMethodName: String? = null,
     /** True when the same amount + merchant was already saved as an expense today. */
-    val isPossibleDuplicate: Boolean = false
+    val isPossibleDuplicate: Boolean = false,
+    /**
+     * True only for [TabbyTamaraParser] results. Routes [PendingNotificationManager] to the
+     * BNPL match-or-create path instead of the normal auto-save flow — bypassing the standard
+     * amount+merchant+day dedup, which would otherwise silently discard this as a "duplicate"
+     * of the merchant's own full-amount SMS that it is actually meant to reclassify.
+     */
+    val isBnplConfirmation: Boolean = false
 )
 
 enum class TransactionDirection { DEBIT, CREDIT, PAYMENT, TRANSFER }

@@ -439,20 +439,30 @@ private fun CategoryBar(cat: CategorySpend, currencyCode: String, onClick: () ->
                 )
             }
             Spacer(Modifier.height(4.dp))
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                LinearProgressIndicator(
-                    progress = { (cat.percentage / 100f).coerceIn(0f, 1f) },
-                    modifier = Modifier.weight(1f).height(6.dp),
-                    color = barColor,
-                    trackColor = MaterialTheme.colorScheme.surfaceContainerHigh
-                )
-                Spacer(Modifier.width(8.dp))
+            if (cat.isExcludedFromTotal) {
+                // No progress bar: this amount isn't part of totalExpense, so a percentage
+                // of it would be meaningless (or misleadingly small).
                 Text(
-                    text = "${cat.percentage.toInt()}%",
+                    text = "Not counted in total spent",
                     style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.width(32.dp)
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
+            } else {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    LinearProgressIndicator(
+                        progress = { (cat.percentage / 100f).coerceIn(0f, 1f) },
+                        modifier = Modifier.weight(1f).height(6.dp),
+                        color = barColor,
+                        trackColor = MaterialTheme.colorScheme.surfaceContainerHigh
+                    )
+                    Spacer(Modifier.width(8.dp))
+                    Text(
+                        text = "${cat.percentage.toInt()}%",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.width(32.dp)
+                    )
+                }
             }
         }
     }

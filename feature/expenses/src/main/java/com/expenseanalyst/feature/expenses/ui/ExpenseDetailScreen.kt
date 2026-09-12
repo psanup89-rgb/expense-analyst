@@ -330,6 +330,18 @@ private fun ExpenseDetailContent(
                     DetailDivider()
                     DetailRow("EMI", "Installment ${expense.emiInstallmentNumber ?: "?"}")
                 }
+                if (expense.isReimbursable) {
+                    DetailDivider()
+                    val reimbursedDate = expense.reimbursedDate
+                    DetailRow(
+                        "Reimbursement",
+                        if (reimbursedDate != null) {
+                            "Reimbursed ${DateTimeUtil.formatDateHeader(reimbursedDate)}"
+                        } else {
+                            "Pending"
+                        }
+                    )
+                }
                 DetailDivider()
                 DetailRow("Source", expense.sourceType.name.replace("_", " "))
                 // Bill link row — only visible for PAYMENT type
