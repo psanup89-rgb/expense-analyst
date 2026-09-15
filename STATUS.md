@@ -1,9 +1,9 @@
 # Expense Analyst — Current Status
 
-**Date**: 2026-09-13
-**DB version**: 22
+**Date**: 2026-09-16
+**DB version**: 23
 **Build**: `./gradlew clean assembleDebug` ✅ (requires JDK 21)
-**Version**: v0.7.3-debug
+**Version**: v0.7.4-debug
 **Repo**: `https://github.com/psanup89-rgb/expense-analyst` (public)
 **Open issues**: None
 

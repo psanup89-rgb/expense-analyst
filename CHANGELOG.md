@@ -4,6 +4,14 @@ Format: `[Date] — Summary`
 
 ---
 
+## 2026-09-16 — "Food" renamed to "Food & Drinks"; fixed restaurant miscategorization (DB v23)
+
+- **Category rename**: seeded "Food" category renamed to "Food & Drinks" (`MIGRATION_22_23`, guarded to only touch the default seeded row — a user's own custom "Food" category, if they made one, is untouched). `CategoryInference.findCategory`'s existing `startsWith` fallback means the "Food" keyword rules keep matching the renamed category with no further change needed.
+- **Fix**: removed a fallback rule in `CategoryInference` that routed any SMS containing "POS purchase" or "point of sale" straight to Shopping — POS is a payment method, not a category signal, and it was misrouting restaurant/food transactions (and potentially others) into Shopping ahead of merchant-keyword matching ever running.
+- Version bumped to 0.7.4 (`versionCode` 6).
+
+---
+
 ## 2026-09-13 — Reimbursement tracking + BNPL/split-payment exclusion (DB v22)
 
 - **Reimbursement tracking**: `Expense` gains `isReimbursable` + `reimbursedDate` — a plain status flag, not a category or type (the owner asked directly; this app's existing "Refund category" precedent for that kind of thing is a fragile pattern this deliberately avoids). No effect on totals — the reimbursement itself is expected to arrive as its own separately-detected `INCOME` expense. New Settings → Reimbursements screen (Pending / Reimbursed, tap to toggle, undo supported); toggle in Add/Edit Expense; status row in Expense Detail.
