@@ -49,7 +49,7 @@ import com.expenseanalyst.data.local.entity.TagEntity
         PlannedExpenseEntity::class,
         LentItemEntity::class
     ],
-    version = 22,
+    version = 23,
     exportSchema = true
 )
 abstract class ExpenseAnalystDatabase : RoomDatabase() {
@@ -226,14 +226,23 @@ abstract class ExpenseAnalystDatabase : RoomDatabase() {
         }
 
         /**
-         * Fuel and Leisure: give the two user-created categories a proper icon and colour,
-         * and create them on any install that doesn't already have them.
+         * v22 → v23: Rename "Food" category to "Food & Drinks".
          *
-         * NOT the MIGRATION_16_17 pattern. There is no unique index on categories.name
-         * (schema 20 declares `"indices": []`), so `INSERT OR IGNORE` has no conflict target
-         * and cannot dedupe — it would add a second row alongside a user's existing one.
-         * Hence UPDATE-then-conditional-INSERT.
+         * Only updates the default seeded "Food" category (is_default = 1). If the user
+         * has already renamed it, or deleted it, this migration does nothing (0 rows affected).
+         *
+         * CategoryInference.findCategory() uses startsWith fallback, so the existing "Food"
+         * keyword rules will continue to match "Food & Drinks".
          */
+        private val MIGRATION_22_23 = object : Migration(22, 23) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    "UPDATE categories SET name = 'Food & Drinks' " +
+                        "WHERE name = 'Food' AND is_default = 1"
+                )
+            }
+        }
+
         /**
          * Reimbursement tracking (two nullable/defaulted columns, same shape as
          * MIGRATION_18_19's needs_review) plus the "Split Payments" category for
@@ -267,6 +276,15 @@ abstract class ExpenseAnalystDatabase : RoomDatabase() {
             }
         }
 
+        /**
+         * Fuel and Leisure: give the two user-created categories a proper icon and colour,
+         * and create them on any install that doesn't already have them.
+         *
+         * NOT the MIGRATION_16_17 pattern. There is no unique index on categories.name
+         * (schema 20 declares `"indices": []`), so `INSERT OR IGNORE` has no conflict target
+         * and cannot dedupe — it would add a second row alongside a user's existing one.
+         * Hence UPDATE-then-conditional-INSERT.
+         */
         private val MIGRATION_20_21 = object : Migration(20, 21) {
             override fun migrate(db: SupportSQLiteDatabase) {
                 upsertCategory(db, "fuel", "Fuel", "local_gas_station", "#C62828")
@@ -432,7 +450,7 @@ abstract class ExpenseAnalystDatabase : RoomDatabase() {
                 ExpenseAnalystDatabase::class.java,
                 DATABASE_NAME
             )
-                .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13, MIGRATION_13_14, MIGRATION_14_15, MIGRATION_15_16, MIGRATION_16_17, MIGRATION_17_18, MIGRATION_18_19, MIGRATION_19_20, MIGRATION_20_21, MIGRATION_21_22)
+                .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13, MIGRATION_13_14, MIGRATION_14_15, MIGRATION_15_16, MIGRATION_16_17, MIGRATION_17_18, MIGRATION_18_19, MIGRATION_19_20, MIGRATION_20_21, MIGRATION_21_22, MIGRATION_22_23)
                 .addCallback(SeedDatabaseCallback())
                 .build()
         }
@@ -442,7 +460,7 @@ abstract class ExpenseAnalystDatabase : RoomDatabase() {
         override fun onCreate(db: SupportSQLiteDatabase) {
             super.onCreate(db)
             val defaultCategories = listOf(
-                "('Food', 'restaurant', '#FF5722', 1, 0)",
+                "('Food & Drinks', 'restaurant', '#FF5722', 1, 0)",
                 "('Transport', 'directions_car', '#2196F3', 1, 1)",
                 "('Shopping', 'shopping_bag', '#E91E63', 1, 2)",
                 "('Bills', 'receipt_long', '#FF9800', 1, 3)",

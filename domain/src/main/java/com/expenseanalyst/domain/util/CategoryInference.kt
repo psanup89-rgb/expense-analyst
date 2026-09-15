@@ -224,8 +224,6 @@ object CategoryInference {
                 findCategory(categories, "Transfer")
             bodyLower.contains("atm") || bodyLower.contains("cash withdrawal") ->
                 findCategory(categories, "Transfer")
-            bodyLower.contains("pos purchase") || bodyLower.contains("point of sale") ->
-                findCategory(categories, "Shopping")
             else -> null
         }
     }

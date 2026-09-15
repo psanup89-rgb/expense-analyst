@@ -17,6 +17,9 @@ local.properties
 *.jks
 *.keystore
 
+# Built APKs — published via GitHub Releases, never committed
+/releases/
+
 # Generated
 /captures
 /schemas
