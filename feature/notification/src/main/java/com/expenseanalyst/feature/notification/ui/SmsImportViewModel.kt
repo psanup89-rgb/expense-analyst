@@ -20,6 +20,7 @@ import com.expenseanalyst.domain.repository.MerchantSearchRepository
 import com.expenseanalyst.domain.util.CategoryInference
 import com.expenseanalyst.domain.util.CurrencyConversion
 import com.expenseanalyst.domain.util.MerchantRuleMatcher
+import com.expenseanalyst.domain.util.RefundMatcher
 import com.expenseanalyst.feature.notification.parser.BillStatementParserRegistry
 import com.expenseanalyst.feature.notification.parser.ParsedTransaction
 import com.expenseanalyst.feature.notification.parser.ParserRegistry
@@ -112,7 +113,11 @@ class SmsImportViewModel @Inject constructor(
             // Primary key: rawSmsBody hash (exact SMS match).
             // Fallback key: amount + day + merchant (for expenses without rawSmsBody).
             // Include NOTIFICATION_AUTO so previously live-confirmed expenses block re-import.
-            val existingSmsAuto = expenseRepository.getExpensesSnapshot()
+            val fullSnapshot = expenseRepository.getExpensesSnapshot()
+            // For refund matching below — starts with originals already claimed by a
+            // previously-saved refund, and grows as this loop matches more within the batch.
+            val claimedRefundOriginalIds = fullSnapshot.mapNotNullTo(mutableSetOf()) { it.refundOriginalExpenseId }
+            val existingSmsAuto = fullSnapshot
                 .filter { it.sourceType == SourceType.SMS_AUTO || it.sourceType == SourceType.NOTIFICATION_AUTO }
             val existingBodyKeys = existingSmsAuto
                 .filter { !it.rawSmsBody.isNullOrBlank() }
@@ -228,6 +233,21 @@ class SmsImportViewModel @Inject constructor(
                     runCatching { PaymentMethod.valueOf(name) }.getOrNull()
                 } ?: PaymentMethod.OTHER
 
+                // Refund matching: for a Refund-category INCOME, find the original expense it
+                // refunds and inherit its account/payment method — same rule as live capture,
+                // see PendingNotificationManager and RefundMatcher's KDoc.
+                val refundMatch = if (transactionType == TransactionType.INCOME && category.name == "Refund") {
+                    val candidates = fullSnapshot.filter { it.id !in claimedRefundOriginalIds }
+                    RefundMatcher.findMatch(
+                        refundAmount = parsed.amount,
+                        refundCurrencyCode = parsed.currencyCode,
+                        refundDateMillis = sms.timestampMs,
+                        allExpenses = candidates
+                    )?.also { claimedRefundOriginalIds.add(it.id) }
+                } else null
+                val effectivePaymentMethod = refundMatch?.paymentMethod ?: paymentMethod
+                val effectiveAccountId = refundMatch?.accountId ?: resolvedAccountId
+
                 // Build a stub expense to run CurrencyConversion.resolve()
                 val stubExpense = Expense(
                     amount = parsed.amount,
@@ -236,15 +256,16 @@ class SmsImportViewModel @Inject constructor(
                     exchangeRate = null,
                     description = "",
                     category = category,
-                    paymentMethod = paymentMethod,
+                    paymentMethod = effectivePaymentMethod,
                     transactionType = transactionType,
                     date = Instant.fromEpochMilliseconds(sms.timestampMs),
                     merchantName = merchantName,
                     sourceType = SourceType.SMS_AUTO,
                     sourceSender = sms.sender,
-                    accountId = resolvedAccountId,
+                    accountId = effectiveAccountId,
                     rawSmsBody = sms.body,
-                    tags = matchedRule?.tags ?: emptyList()
+                    tags = matchedRule?.tags ?: emptyList(),
+                    refundOriginalExpenseId = refundMatch?.id
                 )
                 val conversion = CurrencyConversion.resolve(stubExpense, homeCurrencyCode, ratesByCode)
 

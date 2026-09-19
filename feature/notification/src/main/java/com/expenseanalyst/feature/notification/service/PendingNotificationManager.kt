@@ -20,6 +20,7 @@ import com.expenseanalyst.domain.util.CategoryInference
 import com.expenseanalyst.domain.util.CurrencyConversion
 import com.expenseanalyst.domain.util.MerchantRuleMatcher
 import com.expenseanalyst.domain.util.NeedsReviewEvaluator
+import com.expenseanalyst.domain.util.RefundMatcher
 import com.expenseanalyst.feature.notification.parser.ParsedTransaction
 import com.expenseanalyst.feature.notification.parser.TransactionDirection
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -166,6 +167,20 @@ class PendingNotificationManager @Inject constructor(
                 TransactionDirection.TRANSFER -> TransactionType.TRANSFER
             }
 
+            // ── Refund matching: for a Refund-category INCOME, find the original expense it
+            // refunds (same amount+currency, within RefundMatcher's window) and inherit its
+            // account/payment method instead of guessing from this SMS's own sparse wording ──
+            val refundMatch = if (transactionType == TransactionType.INCOME && category.name == "Refund") {
+                RefundMatcher.findMatch(
+                    refundAmount = normalized.amount,
+                    refundCurrencyCode = normalized.currencyCode,
+                    refundDateMillis = now,
+                    allExpenses = expenseRepository.getExpensesSnapshot()
+                )
+            } else null
+            val effectivePaymentMethod = refundMatch?.paymentMethod ?: paymentMethod
+            val effectiveAccountId = refundMatch?.accountId ?: resolvedAccountId
+
             // ── Currency conversion ──
             val homeCurrencyCode = currencyRepository.getHomeCurrency().first()
             val ratesByCode = runCatching {
@@ -176,8 +191,8 @@ class PendingNotificationManager @Inject constructor(
             val reviewReasons = NeedsReviewEvaluator.evaluate(
                 merchantName = normalized.merchant,
                 categoryName = category.name,
-                paymentMethod = paymentMethod,
-                accountLastFour = normalized.accountLast4
+                paymentMethod = effectivePaymentMethod,
+                accountLastFour = refundMatch?.accountLastFour ?: normalized.accountLast4
             )
             val needsReview = reviewReasons.isNotEmpty()
 
@@ -188,18 +203,19 @@ class PendingNotificationManager @Inject constructor(
                 exchangeRate = null,
                 description = "",
                 category = category,
-                paymentMethod = paymentMethod,
+                paymentMethod = effectivePaymentMethod,
                 transactionType = transactionType,
                 date = Instant.fromEpochMilliseconds(now),
                 merchantName = merchantName,
                 sourceType = SourceType.NOTIFICATION_AUTO,
                 sourceSender = null,
-                accountId = resolvedAccountId,
+                accountId = effectiveAccountId,
                 rawSmsBody = normalized.rawBody,
                 billId = linkedBillId,
                 needsReview = needsReview,
                 reviewReasons = reviewReasons,
-                tags = matchedRule?.tags ?: emptyList()
+                tags = matchedRule?.tags ?: emptyList(),
+                refundOriginalExpenseId = refundMatch?.id
             )
             val conversion = CurrencyConversion.resolve(stubExpense, homeCurrencyCode, ratesByCode)
             val savedExpense = stubExpense.copy(

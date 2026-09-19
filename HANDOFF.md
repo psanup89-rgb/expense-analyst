@@ -1,10 +1,46 @@
 # Expense Analyst — Handoff
 
-**Last updated**: 2026-09-19
-**DB version**: 24
+**Last updated**: 2026-09-20
+**DB version**: 25
 **Build**: `./gradlew clean assembleDebug` ✅
 **Repo**: `https://github.com/psanup89-rgb/expense-analyst` (public)
-**Release**: v0.7.7-debug (GitHub Release with APK)
+**Release**: v0.7.8-debug (GitHub Release with APK)
+
+---
+
+## Session Summary (2026-09-20) — Refund auto-matching (DB v25)
+
+Owner asked how the Refund category is detected today, then asked for account/payment method to
+be pulled from the original expense when a refund matches one from the last 3 months.
+
+Confirmed via `AskUserQuestion` before building, since this touches netting/categorization logic
+with real ambiguity:
+- Match on **amount + currency only** (not merchant — refund SMS rarely carry a clean merchant name).
+- **Most-recent match wins** on ties, same precedent as the existing BNPL same-day match.
+- Amount-matching runs **only after** the existing keyword-based Refund detection already fired —
+  it does not expand what counts as a refund, only refines account/payment method + links it, once
+  one is already identified as a refund. (This was explicitly scoped down from the owner's literal
+  ask, which suggested amount-matching could also be a *detection* signal — flagged as a possible
+  future follow-up, not built.)
+- Matched original is **marked** (`refundOriginalExpenseId`) so it can't be claimed by a second
+  refund later.
+
+New `domain/util/RefundMatcher.kt`: given a refund amount/currency/date and the full expense
+snapshot, filters to `EXPENSE`-type, non-deleted, same amount+currency (epsilon-tolerant), within
+a 90-day window, excluding any expense already claimed via another expense's
+`refundOriginalExpenseId`, and returns the most recent match. Wired into `PendingNotificationManager`
+(live capture) and `SmsImportViewModel` (bulk import — needed its own in-batch claim tracking,
+since a refund and its original purchase can both land in the same import run before either is
+persisted, so the DB-only exclusion check wouldn't catch a same-batch double-claim).
+
+**DB v25**: `MIGRATION_24_25` adds one nullable column, `expenses.refund_original_expense_id`.
+
+Also investigated and documented (no code change) how account/payment method are resolved for
+*every* other auto-captured transaction today: `PaymentMethodDetector.detect()` scans only the
+current SMS's own text (falls back to `OTHER`), and account type is guessed from the current SMS
+body too (defaults to `SAVINGS`), with `AccountRepository.findOrCreate` only reusing an existing
+account on an exact bankName+lastFour match — refund SMS often omit the last 4 digits, which is
+why refunds were landing in the wrong account before this session's fix.
 
 ---
 

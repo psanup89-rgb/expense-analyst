@@ -37,5 +37,12 @@ data class Expense(
      */
     val isReimbursable: Boolean = false,
     /** Null while pending; set when the user manually marks this reimbursed. */
-    val reimbursedDate: Instant? = null
+    val reimbursedDate: Instant? = null,
+    /**
+     * Set on a Refund-category INCOME expense that was auto-matched to the original EXPENSE
+     * it refunds (same amount + currency, within [domain/util/RefundMatcher.kt]'s window).
+     * Points at the original expense's id. Null on every non-refund expense, and on a refund
+     * whose original purchase couldn't be found. See RefundMatcher's KDoc for the matching rule.
+     */
+    val refundOriginalExpenseId: Long? = null
 )

@@ -4,6 +4,27 @@ Format: `[Date] — Summary`
 
 ---
 
+## 2026-09-20 — Refund auto-matching (DB v25)
+
+- A Refund-category incoming transaction (already detected via existing keyword matching —
+  `refund`/`reversal`/`cashback`/`reimburs`; this does **not** change what counts as a refund) is
+  now matched against expenses from the last 90 days with the same amount and currency
+  (most-recent match wins on ties). New `domain/util/RefundMatcher.kt`.
+- When matched, the refund inherits the **original expense's account and payment method** instead
+  of guessing from the refund SMS's own (often sparse) wording — refund SMS rarely say "credit
+  card" or repeat the card's last 4 digits, so this was previously landing in the wrong account
+  most of the time.
+- The matched original expense is linked via a new `Expense.refundOriginalExpenseId` field, so the
+  same purchase can never be claimed by two different refunds.
+- Wired into both auto-capture paths: live notification capture (`PendingNotificationManager`) and
+  bulk SMS import (`SmsImportViewModel`, which also tracks in-batch claims since newly-imported
+  originals aren't queryable from the DB yet within the same import run).
+- **DB v25**: one nullable column, `expenses.refund_original_expense_id` (`MIGRATION_24_25`).
+- New tests: `RefundMatcherTest` (8).
+- Version bumped to 0.7.8 (`versionCode` 10).
+
+---
+
 ## 2026-09-19 — Delete option in Edit Expense
 
 - Edit Expense now has a delete icon in the top bar (previously only reachable from Expense

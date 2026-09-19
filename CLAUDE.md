@@ -55,7 +55,7 @@ These rules apply at all times, without exception.
 
 ## Database
 
-- **Room** — entities in `data/local/entity/`. **Current version: 24**. All migrations inline in `ExpenseAnalystDatabase.kt`.
+- **Room** — entities in `data/local/entity/`. **Current version: 25**. All migrations inline in `ExpenseAnalystDatabase.kt`.
 - **`categories.name` is not unique** (no indices on that table) — `INSERT OR IGNORE` cannot dedupe by name. Use UPDATE-then-`INSERT … WHERE NOT EXISTS` for any category a user may already have created (`MIGRATION_20_21`).
 - Dates: **UTC epoch milliseconds** (`Long`). Display converts via `TimeZone.currentSystemDefault()`
 - **Soft delete** — `isDeleted: Boolean` flag. Never hard-delete.
@@ -131,6 +131,7 @@ These rules apply at all times, without exception.
 - **SMS Import dedup**: Primary = raw SMS body hash; fallback = amount + day + merchant (for old records without rawSmsBody)
 - **Parser bug to avoid**: two-group amount regex — `groupValues[1]` is `""` not `null` when only group 2 matches. Always use `.takeIf { it.isNotBlank() }` when extracting from either group.
 - **Merchant rules ("Teach App") carry tags** (DB v24): `MerchantRule.tags` (via `merchant_rule_tags` join table) auto-apply to an `Expense` whenever the rule matches — both on live auto-capture (`PendingNotificationManager.enqueue()`) and bulk SMS import (`SmsImportViewModel`), not just when set manually via the `RuleDialog` in `ExpenseDetailScreen`. `domain/util/MerchantRuleMatcher.findMatch()` is the single source of truth for "does this merchant match this rule's pattern" — used by `CategoryInference` Step 1, `ExpenseDetailViewModel`'s `existingRule` lookup, and both auto-capture sites, so there's exactly one place deciding rule-match semantics.
+- **Refund auto-matching** (DB v25): once `CategoryInference` has already keyword-matched an incoming INCOME transaction to the "Refund" category (unchanged — this does NOT expand what counts as a refund), `domain/util/RefundMatcher.findMatch()` looks for an `EXPENSE` with the same amount + currency in the last 90 days (most-recent-wins on ties) and, if found, the refund inherits that expense's `accountId`/`paymentMethod` instead of guessing from the refund SMS's own wording. The matched original's id is stored on the refund row as `Expense.refundOriginalExpenseId`, which also excludes that original from matching any later refund. Wired into both `PendingNotificationManager` and `SmsImportViewModel` (bulk import tracks in-batch claims separately, since newly-imported originals aren't in the DB yet to query).
 - See `docs/NOTIFICATION_PARSING.md` for SOP on adding new parsers
 
 ---

@@ -55,5 +55,6 @@ data class ExpenseEntity(
     @ColumnInfo(name = "needs_review", defaultValue = "0") val needsReview: Boolean = false,
     @ColumnInfo(name = "needs_review_reasons") val needsReviewReasons: String? = null,
     @ColumnInfo(name = "is_reimbursable", defaultValue = "0") val isReimbursable: Boolean = false,
-    @ColumnInfo(name = "reimbursed_date_millis") val reimbursedDateMillis: Long? = null
+    @ColumnInfo(name = "reimbursed_date_millis") val reimbursedDateMillis: Long? = null,
+    @ColumnInfo(name = "refund_original_expense_id") val refundOriginalExpenseId: Long? = null
 )
