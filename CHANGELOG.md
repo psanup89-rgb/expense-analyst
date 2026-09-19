@@ -4,6 +4,18 @@ Format: `[Date] — Summary`
 
 ---
 
+## 2026-09-19 — Delete option in Edit Expense
+
+- Edit Expense now has a delete icon in the top bar (previously only reachable from Expense
+  Detail). Confirms with the same "This action cannot be undone" dialog used elsewhere, soft-deletes
+  the expense, then navigates back to the expense list — skipping the now-stale Expense Detail
+  screen it was pushed from, rather than just popping one step back.
+- `AddExpenseContent` (shared by Add and Edit) gained an opt-in `showDeleteOption` — Add Expense
+  keeps no delete affordance since there's nothing to delete yet.
+- Version bumped to 0.7.7 (`versionCode` 9).
+
+---
+
 ## 2026-09-19 — Rule-tag bug fixes + account search
 
 - **Fix**: the "Also apply these tags" tag search inside the merchant rule dialog (`RuleDialog`)

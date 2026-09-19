@@ -4,7 +4,22 @@
 **DB version**: 24
 **Build**: `./gradlew clean assembleDebug` ✅
 **Repo**: `https://github.com/psanup89-rgb/expense-analyst` (public)
-**Release**: v0.7.6-debug (GitHub Release with APK)
+**Release**: v0.7.7-debug (GitHub Release with APK)
+
+---
+
+## Session Summary (2026-09-19) — Delete option in Edit Expense
+
+Owner request: delete was only reachable from Expense Detail; wanted it in Edit Expense too.
+
+`AddExpenseContent` (the composable shared by both Add and Edit Expense) gained an opt-in
+`showDeleteOption` param, off by default so Add Expense is unaffected. When on (Edit Expense only),
+a delete icon appears in the top bar, opening the same confirm dialog used on Expense Detail.
+`EditExpenseViewModel` gained `showDeleteConfirm()` / `dismissDeleteConfirm()` / `deleteExpense()`
+(soft-delete via the existing `SoftDeleteExpenseUseCase`). New `EditExpenseScreen.onDeleted`
+callback, wired in `AppNavGraph` to `navController.popBackStack(NavRoutes.EXPENSE_LIST, false)` —
+deliberately popping all the way to the list rather than one step back, since a single pop would
+land on the now-stale Expense Detail screen for an expense that no longer exists.
 
 ---
 

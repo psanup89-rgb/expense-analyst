@@ -26,6 +26,7 @@ import kotlinx.datetime.toLocalDateTime
 import com.expenseanalyst.domain.usecase.GetAccountsUseCase
 import com.expenseanalyst.domain.usecase.GetCategoriesUseCase
 import com.expenseanalyst.domain.usecase.GetExpenseByIdUseCase
+import com.expenseanalyst.domain.usecase.SoftDeleteExpenseUseCase
 import com.expenseanalyst.domain.usecase.UpdateExpenseUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -48,6 +49,7 @@ class EditExpenseViewModel @Inject constructor(
     savedStateHandle: SavedStateHandle,
     private val getExpenseByIdUseCase: GetExpenseByIdUseCase,
     private val updateExpenseUseCase: UpdateExpenseUseCase,
+    private val softDeleteExpenseUseCase: SoftDeleteExpenseUseCase,
     private val getCategoriesUseCase: GetCategoriesUseCase,
     private val getAccountsUseCase: GetAccountsUseCase,
     private val accountRepository: AccountRepository,
@@ -336,6 +338,16 @@ class EditExpenseViewModel @Inject constructor(
             } catch (e: Exception) {
                 _form.update { it.copy(isSaving = false, error = "Failed to update expense") }
             }
+        }
+    }
+
+    fun showDeleteConfirm() = _form.update { it.copy(showDeleteConfirm = true) }
+    fun dismissDeleteConfirm() = _form.update { it.copy(showDeleteConfirm = false) }
+
+    fun deleteExpense() {
+        viewModelScope.launch {
+            softDeleteExpenseUseCase(expenseId)
+            _form.update { it.copy(showDeleteConfirm = false, isDeleted = true) }
         }
     }
 }

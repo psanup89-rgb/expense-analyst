@@ -122,7 +122,8 @@ fun AppNavGraph(
         ) {
             EditExpenseScreen(
                 onBack = { navController.popBackStack() },
-                onSaved = { navController.popBackStack() }
+                onSaved = { navController.popBackStack() },
+                onDeleted = { navController.popBackStack(NavRoutes.EXPENSE_LIST, false) }
             )
         }
 

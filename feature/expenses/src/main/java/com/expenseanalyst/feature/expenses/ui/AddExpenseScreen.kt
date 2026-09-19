@@ -35,6 +35,7 @@ import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.CalendarMonth
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material.icons.filled.Search
@@ -189,6 +190,10 @@ fun AddExpenseScreen(
 internal fun AddExpenseContent(
     uiState: AddExpenseUiState,
     titleOverride: String = "Add Expense",
+    showDeleteOption: Boolean = false,
+    onShowDeleteConfirm: () -> Unit = {},
+    onDismissDeleteConfirm: () -> Unit = {},
+    onConfirmDelete: () -> Unit = {},
     onBack: () -> Unit,
     onAmountChange: (String) -> Unit,
     onTransactionTypeChange: (TransactionType) -> Unit,
@@ -746,6 +751,23 @@ internal fun AddExpenseContent(
         )
     }
 
+    if (uiState.showDeleteConfirm) {
+        AlertDialog(
+            onDismissRequest = onDismissDeleteConfirm,
+            title = { Text("Delete expense?") },
+            text = { Text("This expense will be removed. This action cannot be undone.") },
+            confirmButton = {
+                TextButton(
+                    onClick = onConfirmDelete,
+                    colors = ButtonDefaults.textButtonColors(contentColor = Color(0xFFFF5555))
+                ) { Text("Delete") }
+            },
+            dismissButton = {
+                TextButton(onClick = onDismissDeleteConfirm) { Text("Cancel") }
+            }
+        )
+    }
+
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
         topBar = {
@@ -755,6 +777,17 @@ internal fun AddExpenseContent(
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                    }
+                },
+                actions = {
+                    if (showDeleteOption) {
+                        IconButton(onClick = onShowDeleteConfirm) {
+                            Icon(
+                                Icons.Default.Delete,
+                                contentDescription = "Delete expense",
+                                tint = MaterialTheme.colorScheme.error
+                            )
+                        }
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(

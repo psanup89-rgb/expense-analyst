@@ -10,6 +10,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 fun EditExpenseScreen(
     onBack: () -> Unit,
     onSaved: () -> Unit,
+    onDeleted: () -> Unit = onBack,
     viewModel: EditExpenseViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
@@ -18,9 +19,17 @@ fun EditExpenseScreen(
         if (uiState.savedExpenseId != null) onSaved()
     }
 
+    LaunchedEffect(uiState.isDeleted) {
+        if (uiState.isDeleted) onDeleted()
+    }
+
     AddExpenseContent(
         uiState = uiState,
         titleOverride = "Edit Expense",
+        showDeleteOption = true,
+        onShowDeleteConfirm = viewModel::showDeleteConfirm,
+        onDismissDeleteConfirm = viewModel::dismissDeleteConfirm,
+        onConfirmDelete = viewModel::deleteExpense,
         onBack = onBack,
         onAmountChange = viewModel::onAmountChange,
         onTransactionTypeChange = viewModel::onTransactionTypeChange,
