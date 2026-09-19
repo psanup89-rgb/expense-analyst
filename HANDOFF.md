@@ -1,10 +1,54 @@
 # Expense Analyst — Handoff
 
-**Last updated**: 2026-09-16
-**DB version**: 23
+**Last updated**: 2026-09-19
+**DB version**: 24
 **Build**: `./gradlew clean assembleDebug` ✅
 **Repo**: `https://github.com/psanup89-rgb/expense-analyst` (public)
-**Release**: v0.7.4-debug (GitHub Release with APK)
+**Release**: v0.7.5-debug (GitHub Release with APK)
+
+---
+
+## Session Summary (2026-09-19) — Amount/range search + tags on merchant rules (DB v24)
+
+Two open items from the "Expense App Issues" Notion board (both confirmed done at the start of this
+session had already shipped: reimbursement tracking and BNPL/split-payment exclusion, marked Done
+in Notion). The two genuinely open items were planned and implemented this session.
+
+### 1. Search by amount or range
+
+The expense list search box (`ExpenseListViewModel`) now auto-detects whether the typed query is
+an amount lookup rather than free text: a bare number (`4386`) is an exact match, `"4000 to 4500"`
+is an inclusive range, anything else falls back to the existing description/merchant/tag substring
+search. New `domain/util/AmountSearchParser.kt`. Per the owner's explicit choice, matches the
+expense's **original-currency amount** (`expense.amount`), not `homeAmount` — a foreign-currency
+expense is found by the figure it was actually charged, not its converted value. Only the `"X to Y"`
+range wording is supported (no hyphen-range syntax).
+
+### 2. Tags on merchant rules ("Teach App")
+
+A merchant rule can now carry tags alongside its category (`MerchantRule.tags`, new
+`merchant_rule_tags` join table, DB v24 `MIGRATION_23_24` — mirrors the existing `expense_tags`
+pattern). Per the owner's explicit answer to "should this only apply via the manual dialog, or also
+on auto-capture?" — **both**:
+
+- Manual: `RuleDialog` in `ExpenseDetailScreen` now embeds the same `TagSelector` used on Add/Edit
+  Expense (widened from `private` to `internal` in `AddExpenseScreen.kt` to allow reuse).
+- Auto-capture: whenever a rule matches an incoming bank SMS, its tags are applied to the
+  auto-saved expense — both on live capture (`PendingNotificationManager.enqueue()`) and bulk SMS
+  import (`SmsImportViewModel`).
+
+New `domain/util/MerchantRuleMatcher.findMatch()` consolidates the "does this merchant match this
+rule's pattern" predicate, previously duplicated independently in three places
+(`CategoryInference` Step 1, `ExpenseDetailViewModel`'s `existingRule` lookup, and would have been
+a fourth/fifth duplicate in the two auto-capture sites had it not been extracted first).
+
+**Side-effect fix, needed for the auto-capture tags to actually land**: bulk SMS import
+(`ExpenseRepositoryImpl.addExpenses`) previously called `ExpenseDao.insertAll` for a `Unit` return
+and never persisted any `Expense.tags` on the inserted rows — any tags from a matched rule would
+have been silently dropped. `insertAll` now returns the generated ids so tags can be written via
+`TagDao.setTagsForExpense` for bulk inserts too, same as the single-`addExpense` path already did.
+
+New tests: `AmountSearchParserTest` (11), `MerchantRuleMatcherTest` (5).
 
 ---
 

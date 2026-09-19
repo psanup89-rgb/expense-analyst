@@ -55,7 +55,7 @@ These rules apply at all times, without exception.
 
 ## Database
 
-- **Room** — entities in `data/local/entity/`. **Current version: 23**. All migrations inline in `ExpenseAnalystDatabase.kt`.
+- **Room** — entities in `data/local/entity/`. **Current version: 24**. All migrations inline in `ExpenseAnalystDatabase.kt`.
 - **`categories.name` is not unique** (no indices on that table) — `INSERT OR IGNORE` cannot dedupe by name. Use UPDATE-then-`INSERT … WHERE NOT EXISTS` for any category a user may already have created (`MIGRATION_20_21`).
 - Dates: **UTC epoch milliseconds** (`Long`). Display converts via `TimeZone.currentSystemDefault()`
 - **Soft delete** — `isDeleted: Boolean` flag. Never hard-delete.
@@ -63,7 +63,7 @@ These rules apply at all times, without exception.
 - `Expense` has: `merchantName` (primary, mandatory in UI), `description` (optional user notes), `accountId`, `rawSmsBody`
 - `TransactionType`: `EXPENSE | INCOME | TRANSFER | PAYMENT`
 - `AccountType`: `SAVINGS | CURRENT | CREDIT_CARD | DEBIT_CARD | FOREX_CARD | WALLET | OTHER`
-- 13 entities: Expense, Category, EmiGroup, CurrencyRate, **Account**, **MerchantRule**, **PendingNotification**, **Bill**, **Tag**, **ExpenseTagCrossRef**, **SalaryEntry**, **PlannedExpense**, **LentItem**
+- 14 entities: Expense, Category, EmiGroup, CurrencyRate, **Account**, **MerchantRule**, **PendingNotification**, **Bill**, **Tag**, **ExpenseTagCrossRef**, **SalaryEntry**, **PlannedExpense**, **LentItem**, **MerchantRuleTagCrossRef**
 - Pre-seeded categories: Food & Drinks, Transport, Shopping, Bills, Entertainment, Health, Education, Groceries, Rent, Salary, Transfer, Other, **Refund**, **Fuel**, **Leisure**, **Split Payments**
 
 ---
@@ -130,6 +130,7 @@ These rules apply at all times, without exception.
 - **BNPL split-purchase detection (Tabby/Tamara)**: `TabbyTamaraParser` (⚠️ unverified — no real purchase-confirmation SMS sample was available when written; see its KDoc) sets `ParsedTransaction.isBnplConfirmation = true`, which routes `PendingNotificationManager.enqueue()` to a dedicated `handleBnplConfirmation()` path that **bypasses the normal amount+merchant+day dedup entirely** — that dedup would otherwise treat the Tabby/Tamara confirmation as a duplicate of the merchant's own already-captured full-amount SMS instead of reclassifying it. It either reclassifies that existing `EXPENSE` row (targeted `ExpenseDao.reclassifyAsSplitPayment`, not `updateExpense`) to `PAYMENT` + "Split Payments" category, or creates a new expense directly if no matching row exists. `TransactionType.PAYMENT` is already excluded from every spend total, so this needs no netting logic. Registered in `ParserRegistry` before `GenericParser`, whose `isPayment` regex could otherwise misclassify these SMS first.
 - **SMS Import dedup**: Primary = raw SMS body hash; fallback = amount + day + merchant (for old records without rawSmsBody)
 - **Parser bug to avoid**: two-group amount regex — `groupValues[1]` is `""` not `null` when only group 2 matches. Always use `.takeIf { it.isNotBlank() }` when extracting from either group.
+- **Merchant rules ("Teach App") carry tags** (DB v24): `MerchantRule.tags` (via `merchant_rule_tags` join table) auto-apply to an `Expense` whenever the rule matches — both on live auto-capture (`PendingNotificationManager.enqueue()`) and bulk SMS import (`SmsImportViewModel`), not just when set manually via the `RuleDialog` in `ExpenseDetailScreen`. `domain/util/MerchantRuleMatcher.findMatch()` is the single source of truth for "does this merchant match this rule's pattern" — used by `CategoryInference` Step 1, `ExpenseDetailViewModel`'s `existingRule` lookup, and both auto-capture sites, so there's exactly one place deciding rule-match semantics.
 - See `docs/NOTIFICATION_PARSING.md` for SOP on adding new parsers
 
 ---

@@ -67,6 +67,7 @@ import com.expenseanalyst.domain.model.Expense
 import com.expenseanalyst.domain.model.MerchantRule
 import com.expenseanalyst.domain.model.Bill
 import com.expenseanalyst.domain.model.SourceType
+import com.expenseanalyst.domain.model.Tag
 import com.expenseanalyst.domain.model.TransactionType
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -121,7 +122,14 @@ fun ExpenseDetailScreen(
                 merchantName = dialogPattern,
                 categories = uiState.categories,
                 existingRule = uiState.existingRule,
-                onSave = { category -> viewModel.saveRule(dialogPattern, category) },
+                selectedTags = uiState.ruleSelectedTags,
+                availableTags = uiState.availableTags,
+                tagSearchQuery = uiState.ruleTagSearchQuery,
+                onTagSearchQueryChange = viewModel::onRuleTagSearchQueryChange,
+                onTagSelect = viewModel::onRuleTagSelect,
+                onTagRemove = viewModel::onRuleTagRemove,
+                onCreateTag = viewModel::onRuleCreateTag,
+                onSave = { category, tags -> viewModel.saveRule(dialogPattern, category, tags) },
                 onDismiss = viewModel::dismissRuleDialog
             )
         }
@@ -589,7 +597,14 @@ private fun RuleDialog(
     merchantName: String,
     categories: List<Category>,
     existingRule: MerchantRule?,
-    onSave: (Category) -> Unit,
+    selectedTags: List<Tag>,
+    availableTags: List<Tag>,
+    tagSearchQuery: String,
+    onTagSearchQueryChange: (String) -> Unit,
+    onTagSelect: (Tag) -> Unit,
+    onTagRemove: (Tag) -> Unit,
+    onCreateTag: (String) -> Unit,
+    onSave: (Category, List<Tag>) -> Unit,
     onDismiss: () -> Unit
 ) {
     var selectedCategory by remember {
@@ -617,11 +632,26 @@ private fun RuleDialog(
                         )
                     }
                 }
+                Text(
+                    text = "Also apply these tags:",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                TagSelector(
+                    selectedTags = selectedTags,
+                    availableTags = availableTags,
+                    searchQuery = tagSearchQuery,
+                    onSearchQueryChange = onTagSearchQueryChange,
+                    onTagSelect = onTagSelect,
+                    onTagRemove = onTagRemove,
+                    onCreateTag = onCreateTag,
+                    accentColor = MaterialTheme.colorScheme.primary
+                )
             }
         },
         confirmButton = {
             TextButton(
-                onClick = { selectedCategory?.let { onSave(it) } },
+                onClick = { selectedCategory?.let { onSave(it, selectedTags) } },
                 enabled = selectedCategory != null
             ) { Text("Save") }
         },

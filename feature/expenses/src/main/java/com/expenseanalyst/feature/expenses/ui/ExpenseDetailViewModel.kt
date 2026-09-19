@@ -8,13 +8,16 @@ import com.expenseanalyst.domain.model.BillStatus
 import com.expenseanalyst.domain.model.Category
 import com.expenseanalyst.domain.model.Expense
 import com.expenseanalyst.domain.model.MerchantRule
+import com.expenseanalyst.domain.model.Tag
 import com.expenseanalyst.domain.repository.BillRepository
 import com.expenseanalyst.domain.repository.CategoryRepository
 import com.expenseanalyst.domain.repository.CurrencyRepository
 import com.expenseanalyst.domain.repository.ExpenseRepository
 import com.expenseanalyst.domain.repository.MerchantRuleRepository
+import com.expenseanalyst.domain.repository.TagRepository
 import com.expenseanalyst.domain.usecase.GetExpenseByIdUseCase
 import com.expenseanalyst.domain.usecase.SoftDeleteExpenseUseCase
+import com.expenseanalyst.domain.util.MerchantRuleMatcher
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -36,6 +39,9 @@ data class ExpenseDetailUiState(
     val categories: List<Category> = emptyList(),
     val existingRule: MerchantRule? = null,
     val ruleSaved: Boolean = false,
+    val availableTags: List<Tag> = emptyList(),
+    val ruleSelectedTags: List<Tag> = emptyList(),
+    val ruleTagSearchQuery: String = "",
     val showLinkBillSheet: Boolean = false,
     val openBills: List<Bill> = emptyList(),
     val linkedBillName: String? = null,
@@ -52,7 +58,8 @@ class ExpenseDetailViewModel @Inject constructor(
     private val categoryRepository: CategoryRepository,
     private val billRepository: BillRepository,
     private val expenseRepository: ExpenseRepository,
-    private val currencyRepository: CurrencyRepository
+    private val currencyRepository: CurrencyRepository,
+    private val tagRepository: TagRepository
 ) : ViewModel() {
 
     private val expenseId: Long = checkNotNull(savedStateHandle["expenseId"])
@@ -67,15 +74,14 @@ class ExpenseDetailViewModel @Inject constructor(
         combine(
             billRepository.getBills(),
             currencyRepository.getHomeCurrency(),
-            _ui
-        ) { bills, homeCurrency, ui -> Triple(bills, homeCurrency, ui) }
-    ) { (expense, rules, categories), (bills, homeCurrency, ui) ->
+            tagRepository.getAllTags()
+        ) { bills, homeCurrency, tags -> Triple(bills, homeCurrency, tags) },
+        _ui
+    ) { (expense, rules, categories), (bills, homeCurrency, allTags), ui ->
         val ruleSearchText = expense?.let {
             it.merchantName?.takeIf { m -> m.isNotBlank() } ?: it.description.takeIf { d -> d.isNotBlank() }
         }
-        val existingRule = ruleSearchText?.let { text ->
-            rules.firstOrNull { text.lowercase().contains(it.merchantPattern.lowercase()) }
-        }
+        val existingRule = MerchantRuleMatcher.findMatch(ruleSearchText, rules)
         val openBills = bills.filter { it.status != BillStatus.SETTLED && !it.isDeleted }
         val linkedBill = expense?.billId?.let { bid -> bills.find { it.id == bid } }
         ui.copy(
@@ -83,6 +89,7 @@ class ExpenseDetailViewModel @Inject constructor(
             isLoading = expense == null && !ui.isDeleted,
             categories = categories,
             existingRule = existingRule,
+            availableTags = allTags,
             openBills = openBills,
             linkedBillName = linkedBill?.billerName,
             linkedBillId = linkedBill?.id,
@@ -98,10 +105,27 @@ class ExpenseDetailViewModel @Inject constructor(
     fun dismissDeleteConfirm() = _ui.update { it.copy(showDeleteConfirm = false) }
     fun showEmiSheet() = _ui.update { it.copy(showEmiSheet = true) }
     fun dismissEmiSheet() = _ui.update { it.copy(showEmiSheet = false) }
-    fun showRuleDialog() = _ui.update { it.copy(showRuleDialog = true) }
+    fun showRuleDialog() = _ui.update {
+        it.copy(showRuleDialog = true, ruleSelectedTags = it.existingRule?.tags ?: emptyList(), ruleTagSearchQuery = "")
+    }
     fun dismissRuleDialog() = _ui.update { it.copy(showRuleDialog = false) }
     fun showLinkBillSheet() = _ui.update { it.copy(showLinkBillSheet = true) }
     fun dismissLinkBillSheet() = _ui.update { it.copy(showLinkBillSheet = false) }
+
+    fun onRuleTagSearchQueryChange(value: String) = _ui.update { it.copy(ruleTagSearchQuery = value) }
+    fun onRuleTagSelect(tag: Tag) = _ui.update {
+        if (it.ruleSelectedTags.any { t -> t.id == tag.id }) it
+        else it.copy(ruleSelectedTags = it.ruleSelectedTags + tag, ruleTagSearchQuery = "")
+    }
+    fun onRuleTagRemove(tag: Tag) = _ui.update {
+        it.copy(ruleSelectedTags = it.ruleSelectedTags.filter { t -> t.id != tag.id })
+    }
+    fun onRuleCreateTag(name: String) {
+        viewModelScope.launch {
+            val tag = tagRepository.createTag(name.trim())
+            _ui.update { it.copy(ruleSelectedTags = it.ruleSelectedTags + tag, ruleTagSearchQuery = "") }
+        }
+    }
 
     fun linkToBill(bill: Bill) {
         viewModelScope.launch {
@@ -128,12 +152,13 @@ class ExpenseDetailViewModel @Inject constructor(
         }
     }
 
-    fun saveRule(merchantPattern: String, category: Category) {
+    fun saveRule(merchantPattern: String, category: Category, tags: List<Tag>) {
         viewModelScope.launch {
             merchantRuleRepository.saveRule(
                 merchantPattern = merchantPattern,
                 categoryId = category.id,
-                categoryName = category.name
+                categoryName = category.name,
+                tagIds = tags.map { it.id }
             )
             _ui.value = _ui.value.copy(showRuleDialog = false, ruleSaved = true)
         }

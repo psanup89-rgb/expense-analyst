@@ -5,5 +5,6 @@ data class MerchantRule(
     val merchantPattern: String,
     val categoryId: Long,
     val categoryName: String,
-    val createdAt: Long
+    val createdAt: Long,
+    val tags: List<Tag> = emptyList()
 )

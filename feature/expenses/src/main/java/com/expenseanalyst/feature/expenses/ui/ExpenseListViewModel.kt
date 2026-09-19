@@ -7,6 +7,7 @@ import com.expenseanalyst.domain.model.PaymentMethod
 import com.expenseanalyst.domain.model.TransactionType
 import com.expenseanalyst.domain.repository.CurrencyRepository
 import com.expenseanalyst.domain.repository.ExpenseRepository
+import com.expenseanalyst.domain.util.AmountSearchParser
 import com.expenseanalyst.domain.util.CurrencyConversion
 import com.expenseanalyst.domain.usecase.GetCategoriesUseCase
 import com.expenseanalyst.domain.usecase.GetExpensesUseCase
@@ -103,11 +104,24 @@ class ExpenseListViewModel @Inject constructor(
             .let { list ->
                 if (searchQuery.isBlank()) list
                 else {
-                    val q = searchQuery.trim().lowercase()
-                    list.filter {
-                        it.description.lowercase().contains(q) ||
-                            it.merchantName?.lowercase()?.contains(q) == true ||
-                            it.tags.any { tag -> tag.name.lowercase().contains(q) }
+                    val trimmed = searchQuery.trim()
+                    // Amount/range search matches the original-currency amount (not homeAmount),
+                    // so a foreign-currency expense is found by the figure it was actually
+                    // charged as, not its converted value. Exact match uses an epsilon since
+                    // Double equality on currency is never reliable.
+                    when (val parsed = AmountSearchParser.parse(trimmed)) {
+                        is AmountSearchParser.Result.Exact ->
+                            list.filter { kotlin.math.abs(it.amount - parsed.amount) < 0.005 }
+                        is AmountSearchParser.Result.Range ->
+                            list.filter { it.amount in parsed.min..parsed.max }
+                        AmountSearchParser.Result.NotAnAmount -> {
+                            val q = trimmed.lowercase()
+                            list.filter {
+                                it.description.lowercase().contains(q) ||
+                                    it.merchantName?.lowercase()?.contains(q) == true ||
+                                    it.tags.any { tag -> tag.name.lowercase().contains(q) }
+                            }
+                        }
                     }
                 }
             }

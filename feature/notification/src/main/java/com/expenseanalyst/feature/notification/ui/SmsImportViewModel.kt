@@ -19,6 +19,7 @@ import com.expenseanalyst.domain.repository.MerchantRuleRepository
 import com.expenseanalyst.domain.repository.MerchantSearchRepository
 import com.expenseanalyst.domain.util.CategoryInference
 import com.expenseanalyst.domain.util.CurrencyConversion
+import com.expenseanalyst.domain.util.MerchantRuleMatcher
 import com.expenseanalyst.feature.notification.parser.BillStatementParserRegistry
 import com.expenseanalyst.feature.notification.parser.ParsedTransaction
 import com.expenseanalyst.feature.notification.parser.ParserRegistry
@@ -192,6 +193,7 @@ class SmsImportViewModel @Inject constructor(
                             ?: categories.find { catName != null && it.name.startsWith(catName, ignoreCase = true) }
                     }
                 } else null) ?: miscCategory
+                val matchedRule = MerchantRuleMatcher.findMatch(merchantName, merchantRules)
                 val inferredAccountType = when {
                     sms.body.contains("credit card", ignoreCase = true) ||
                         sms.body.contains(" CC ", ignoreCase = true) ||
@@ -241,7 +243,8 @@ class SmsImportViewModel @Inject constructor(
                     sourceType = SourceType.SMS_AUTO,
                     sourceSender = sms.sender,
                     accountId = resolvedAccountId,
-                    rawSmsBody = sms.body
+                    rawSmsBody = sms.body,
+                    tags = matchedRule?.tags ?: emptyList()
                 )
                 val conversion = CurrencyConversion.resolve(stubExpense, homeCurrencyCode, ratesByCode)
 

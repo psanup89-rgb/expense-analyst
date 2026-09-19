@@ -4,6 +4,30 @@ Format: `[Date] — Summary`
 
 ---
 
+## 2026-09-19 — Amount/range search + tags on merchant rules (DB v24)
+
+- **Search by amount or range**: the expense list search box now auto-detects an exact amount
+  (e.g. `4386`) or a range (`4000 to 4500`) and filters against the expense's original-currency
+  amount, falling back to the existing description/merchant/tag text search otherwise. New
+  `domain/util/AmountSearchParser.kt`, wired into `ExpenseListViewModel`.
+- **Tags on merchant rules ("Teach App")**: a merchant rule can now carry tags in addition to a
+  category. Tags auto-apply both when set manually via the `RuleDialog` (now includes the same
+  `TagSelector` used on Add/Edit Expense) and automatically whenever the rule matches an incoming
+  bank SMS — on live auto-capture (`PendingNotificationManager`) and bulk SMS import
+  (`SmsImportViewModel`) alike.
+- New `domain/util/MerchantRuleMatcher.kt` consolidates the "does this merchant match this rule"
+  predicate, previously duplicated independently in `CategoryInference`, `ExpenseDetailViewModel`,
+  and the auto-capture pipeline.
+- **DB v24**: new `merchant_rule_tags` join table (`MIGRATION_23_24`), mirroring the existing
+  `expense_tags` pattern.
+- Bulk SMS import (`ExpenseRepositoryImpl.addExpenses`) previously silently dropped any tags on
+  the expenses it inserted — `ExpenseDao.insertAll` now returns the generated ids so tags can be
+  persisted for bulk inserts too, closing that gap as part of this work.
+- New tests: `AmountSearchParserTest` (11), `MerchantRuleMatcherTest` (5).
+- Version bumped to 0.7.5 (`versionCode` 7).
+
+---
+
 ## 2026-09-16 — "Food" renamed to "Food & Drinks"; fixed restaurant miscategorization (DB v23)
 
 - **Category rename**: seeded "Food" category renamed to "Food & Drinks" (`MIGRATION_22_23`, guarded to only touch the default seeded row — a user's own custom "Food" category, if they made one, is untouched). `CategoryInference.findCategory`'s existing `startsWith` fallback means the "Food" keyword rules keep matching the renamed category with no further change needed.

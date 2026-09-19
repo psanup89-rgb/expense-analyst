@@ -62,7 +62,7 @@ interface ExpenseDao {
     suspend fun countPaidInstallments(emiGroupId: Long, nowMillis: Long): Int
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
-    suspend fun insertAll(expenses: List<ExpenseEntity>)
+    suspend fun insertAll(expenses: List<ExpenseEntity>): List<Long>
 
     @Transaction
     @Query("SELECT * FROM expenses WHERE is_deleted = 0 AND bill_id = :billId ORDER BY date_utc_millis DESC")

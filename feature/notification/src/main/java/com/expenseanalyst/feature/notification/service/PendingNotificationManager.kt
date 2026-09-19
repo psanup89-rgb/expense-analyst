@@ -18,6 +18,7 @@ import com.expenseanalyst.domain.repository.PendingNotificationRepository
 import com.expenseanalyst.domain.util.BillMatcher
 import com.expenseanalyst.domain.util.CategoryInference
 import com.expenseanalyst.domain.util.CurrencyConversion
+import com.expenseanalyst.domain.util.MerchantRuleMatcher
 import com.expenseanalyst.domain.util.NeedsReviewEvaluator
 import com.expenseanalyst.feature.notification.parser.ParsedTransaction
 import com.expenseanalyst.feature.notification.parser.TransactionDirection
@@ -132,6 +133,7 @@ class PendingNotificationManager @Inject constructor(
                 merchantName, normalized.bankName, categories,
                 smsBody = normalized.rawBody, merchantRules = merchantRules
             ) ?: fallbackCategory
+            val matchedRule = MerchantRuleMatcher.findMatch(merchantName, merchantRules)
 
             // ── Resolve payment method ──
             val paymentMethod = normalized.paymentMethodName?.let { name ->
@@ -196,7 +198,8 @@ class PendingNotificationManager @Inject constructor(
                 rawSmsBody = normalized.rawBody,
                 billId = linkedBillId,
                 needsReview = needsReview,
-                reviewReasons = reviewReasons
+                reviewReasons = reviewReasons,
+                tags = matchedRule?.tags ?: emptyList()
             )
             val conversion = CurrencyConversion.resolve(stubExpense, homeCurrencyCode, ratesByCode)
             val savedExpense = stubExpense.copy(

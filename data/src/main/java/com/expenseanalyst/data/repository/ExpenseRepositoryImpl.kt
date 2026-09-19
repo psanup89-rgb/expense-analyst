@@ -57,7 +57,12 @@ class ExpenseRepositoryImpl @Inject constructor(
 
     override suspend fun addExpenses(expenses: List<Expense>) {
         val now = DateTimeUtil.nowMillis()
-        expenseDao.insertAll(expenses.map { it.toEntity(createdAt = now, updatedAt = now) })
+        val ids = expenseDao.insertAll(expenses.map { it.toEntity(createdAt = now, updatedAt = now) })
+        expenses.zip(ids).forEach { (expense, id) ->
+            if (expense.tags.isNotEmpty()) {
+                tagDao.setTagsForExpense(id, expense.tags.map { it.id })
+            }
+        }
     }
 
     override suspend fun updateExpense(expense: Expense) {

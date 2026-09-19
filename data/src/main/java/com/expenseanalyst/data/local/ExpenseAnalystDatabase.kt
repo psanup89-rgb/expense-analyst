@@ -27,6 +27,7 @@ import com.expenseanalyst.data.local.entity.ExpenseEntity
 import com.expenseanalyst.data.local.entity.ExpenseTagCrossRef
 import com.expenseanalyst.data.local.entity.LentItemEntity
 import com.expenseanalyst.data.local.entity.MerchantRuleEntity
+import com.expenseanalyst.data.local.entity.MerchantRuleTagCrossRef
 import com.expenseanalyst.data.local.entity.PendingNotificationEntity
 import com.expenseanalyst.data.local.entity.PlannedExpenseEntity
 import com.expenseanalyst.data.local.entity.SalaryEntryEntity
@@ -47,9 +48,10 @@ import com.expenseanalyst.data.local.entity.TagEntity
         ExpenseTagCrossRef::class,
         SalaryEntryEntity::class,
         PlannedExpenseEntity::class,
-        LentItemEntity::class
+        LentItemEntity::class,
+        MerchantRuleTagCrossRef::class
     ],
-    version = 23,
+    version = 24,
     exportSchema = true
 )
 abstract class ExpenseAnalystDatabase : RoomDatabase() {
@@ -239,6 +241,26 @@ abstract class ExpenseAnalystDatabase : RoomDatabase() {
                 db.execSQL(
                     "UPDATE categories SET name = 'Food & Drinks' " +
                         "WHERE name = 'Food' AND is_default = 1"
+                )
+            }
+        }
+
+        /**
+         * "Add Tags also to rules" — join table letting a merchant rule ("Teach App") carry
+         * tags, same shape as expense_tags/ExpenseTagCrossRef.
+         */
+        private val MIGRATION_23_24 = object : Migration(23, 24) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS merchant_rule_tags (" +
+                        "rule_id INTEGER NOT NULL, " +
+                        "tag_id INTEGER NOT NULL, " +
+                        "PRIMARY KEY(rule_id, tag_id), " +
+                        "FOREIGN KEY(rule_id) REFERENCES merchant_rules(id) ON DELETE CASCADE, " +
+                        "FOREIGN KEY(tag_id) REFERENCES tags(id) ON DELETE CASCADE)"
+                )
+                db.execSQL(
+                    "CREATE INDEX IF NOT EXISTS index_merchant_rule_tags_tag_id ON merchant_rule_tags(tag_id)"
                 )
             }
         }
@@ -450,7 +472,7 @@ abstract class ExpenseAnalystDatabase : RoomDatabase() {
                 ExpenseAnalystDatabase::class.java,
                 DATABASE_NAME
             )
-                .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13, MIGRATION_13_14, MIGRATION_14_15, MIGRATION_15_16, MIGRATION_16_17, MIGRATION_17_18, MIGRATION_18_19, MIGRATION_19_20, MIGRATION_20_21, MIGRATION_21_22, MIGRATION_22_23)
+                .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13, MIGRATION_13_14, MIGRATION_14_15, MIGRATION_15_16, MIGRATION_16_17, MIGRATION_17_18, MIGRATION_18_19, MIGRATION_19_20, MIGRATION_20_21, MIGRATION_21_22, MIGRATION_22_23, MIGRATION_23_24)
                 .addCallback(SeedDatabaseCallback())
                 .build()
         }

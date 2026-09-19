@@ -181,12 +181,9 @@ object CategoryInference {
         merchantRules: List<MerchantRule> = emptyList()
     ): Category? {
         // Step 1: User-defined rules (highest priority)
-        if (!merchant.isNullOrBlank() && merchantRules.isNotEmpty()) {
-            val ml = merchant.lowercase()
-            merchantRules.firstOrNull { ml.contains(it.merchantPattern.lowercase()) }
-                ?.let { rule -> categories.find { it.id == rule.categoryId } }
-                ?.let { return it }
-        }
+        MerchantRuleMatcher.findMatch(merchant, merchantRules)
+            ?.let { rule -> categories.find { it.id == rule.categoryId } }
+            ?.let { return it }
 
         val searchText = listOfNotNull(merchant, bankName)
             .joinToString(" ")

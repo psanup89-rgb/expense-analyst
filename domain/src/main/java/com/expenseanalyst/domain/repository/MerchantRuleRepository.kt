@@ -5,6 +5,6 @@ import kotlinx.coroutines.flow.Flow
 
 interface MerchantRuleRepository {
     fun getRules(): Flow<List<MerchantRule>>
-    suspend fun saveRule(merchantPattern: String, categoryId: Long, categoryName: String)
+    suspend fun saveRule(merchantPattern: String, categoryId: Long, categoryName: String, tagIds: List<Long> = emptyList())
     suspend fun deleteRule(id: Long)
 }

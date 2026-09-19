@@ -1347,7 +1347,7 @@ private fun NeonTextField(value: String, onValueChange: (String) -> Unit, label:
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
-private fun TagSelector(
+internal fun TagSelector(
     selectedTags: List<Tag>,
     availableTags: List<Tag>,
     searchQuery: String,
