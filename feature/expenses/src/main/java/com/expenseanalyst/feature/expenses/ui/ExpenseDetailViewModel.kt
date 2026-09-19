@@ -106,7 +106,10 @@ class ExpenseDetailViewModel @Inject constructor(
     fun showEmiSheet() = _ui.update { it.copy(showEmiSheet = true) }
     fun dismissEmiSheet() = _ui.update { it.copy(showEmiSheet = false) }
     fun showRuleDialog() = _ui.update {
-        it.copy(showRuleDialog = true, ruleSelectedTags = it.existingRule?.tags ?: emptyList(), ruleTagSearchQuery = "")
+        // existingRule lives on the derived `uiState`, not on `_ui` itself — `it.existingRule`
+        // here is always the default null, which silently reset the tag picker to empty on
+        // every open. Read the current computed value instead.
+        it.copy(showRuleDialog = true, ruleSelectedTags = uiState.value.existingRule?.tags ?: emptyList(), ruleTagSearchQuery = "")
     }
     fun dismissRuleDialog() = _ui.update { it.copy(showRuleDialog = false) }
     fun showLinkBillSheet() = _ui.update { it.copy(showLinkBillSheet = true) }

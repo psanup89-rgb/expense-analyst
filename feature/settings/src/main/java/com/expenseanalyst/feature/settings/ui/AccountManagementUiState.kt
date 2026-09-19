@@ -6,6 +6,7 @@ import com.expenseanalyst.domain.model.Expense
 
 data class AccountManagementUiState(
     val accounts: List<Account> = emptyList(),
+    val searchQuery: String = "",
     val isLoading: Boolean = true,
     val showAddDialog: Boolean = false,
     val showEditDialog: Boolean = false,

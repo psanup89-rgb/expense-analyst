@@ -4,7 +4,48 @@
 **DB version**: 24
 **Build**: `./gradlew clean assembleDebug` ✅
 **Repo**: `https://github.com/psanup89-rgb/expense-analyst` (public)
-**Release**: v0.7.5-debug (GitHub Release with APK)
+**Release**: v0.7.6-debug (GitHub Release with APK)
+
+---
+
+## Session Summary (2026-09-19) — Rule-tag bug fixes + account search
+
+Bug reports from testing the v0.7.5 release (tags-on-rules feature), plus a small usability gap
+on Manage Accounts. No DB change this session.
+
+### 1. Merchant rule dialog: tag search hidden behind keyboard
+
+The "Also apply these tags" section inside `RuleDialog` (`ExpenseDetailScreen.kt`) had no scroll
+behavior — when the keyboard opened while typing a tag search, the dialog window shrank but the
+suggestion/"+ Create" chips below the search field were clipped off-screen with no way to reach
+them. Fixed by making the dialog's content `Column` scrollable and IME-aware:
+`heightIn(max = 420.dp)` + `verticalScroll(rememberScrollState())` + `imePadding()`.
+
+### 2. Merchant rule dialog: tags didn't persist across reopens
+
+Real bug, and the likely actual cause behind "tags aren't saving" — not just a symptom of #1.
+`ExpenseDetailViewModel.showRuleDialog()` initialized the tag picker from `it.existingRule?.tags`,
+where `it` is `_ui`'s own raw state. But `_ui` never actually holds a computed `existingRule` —
+that field only exists on the *derived* `uiState` (built in the `combine` chain via
+`MerchantRuleMatcher.findMatch`). So `_ui.existingRule` was always its default `null`, and every
+dialog open silently reset the tag picker to empty, regardless of what had actually saved
+correctly to the DB. Fixed to read `uiState.value.existingRule` instead. Also added a "+ tags: ..."
+line to the "Auto-category rule" info row on Expense Detail, so applied tags are visible without
+reopening the dialog.
+
+### 3. Manage Accounts: added search
+
+The account list (`AccountManagementScreen.kt`) had no way to filter once it grew past a screen or
+two. New search field above the list, filtering by bank name, display name, last-4-digits, or
+account type (`AccountManagementViewModel.onSearchQueryChange`, new `searchQuery` field on
+`AccountManagementUiState`).
+
+### 4. Manage Accounts: delete-with-remap — already shipped
+
+Checked, and the "map expenses to another account before deleting" flow the owner asked about was
+already fully implemented (`DeleteRemapDialog`, `AccountManagementViewModel.confirmDelete` →
+`ExpenseRepository.remapAccount`). No change made; likely just hadn't been exercised yet on a
+device that had it installed.
 
 ---
 

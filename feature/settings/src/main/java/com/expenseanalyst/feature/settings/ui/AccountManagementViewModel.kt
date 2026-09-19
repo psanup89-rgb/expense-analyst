@@ -24,12 +24,26 @@ class AccountManagementViewModel @Inject constructor(
     private val _form = MutableStateFlow(AccountManagementUiState())
 
     val uiState = combine(accountRepository.getAccounts(), _form) { accounts, state ->
-        state.copy(accounts = accounts.sortedBy { it.bankName }, isLoading = false)
+        val sorted = accounts.sortedBy { it.bankName }
+        val query = state.searchQuery.trim()
+        val filtered = if (query.isBlank()) {
+            sorted
+        } else {
+            sorted.filter {
+                it.displayName.contains(query, ignoreCase = true) ||
+                    it.bankName.contains(query, ignoreCase = true) ||
+                    it.lastFour?.contains(query, ignoreCase = true) == true ||
+                    it.accountType.label.contains(query, ignoreCase = true)
+            }
+        }
+        state.copy(accounts = filtered, isLoading = false)
     }.stateIn(
         scope = viewModelScope,
         started = SharingStarted.WhileSubscribed(5_000),
         initialValue = AccountManagementUiState()
     )
+
+    fun onSearchQueryChange(value: String) = _form.update { it.copy(searchQuery = value) }
 
     fun showAddDialog() {
         _form.update {

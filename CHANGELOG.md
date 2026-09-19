@@ -4,6 +4,25 @@ Format: `[Date] — Summary`
 
 ---
 
+## 2026-09-19 — Rule-tag bug fixes + account search
+
+- **Fix**: the "Also apply these tags" tag search inside the merchant rule dialog (`RuleDialog`)
+  rendered its suggestion/create chips below the visible area once the keyboard opened, with no
+  way to scroll to them. Dialog content is now scrollable and IME-aware
+  (`heightIn(max = 420.dp)` + `verticalScroll` + `imePadding()`).
+- **Fix**: tags selected on a merchant rule were silently discarded every time the rule dialog was
+  reopened. `ExpenseDetailViewModel.showRuleDialog()` was reading `existingRule` off `_ui` (always
+  its default `null`) instead of the derived `uiState.value.existingRule`, so the tag picker reset
+  to empty on every open regardless of what had actually been saved. The rule info row on Expense
+  Detail now also shows a rule's applied tags, so this is visible without reopening the dialog.
+- **Manage Accounts**: added a search field (bank name, display name, last-4-digits, account type)
+  above the account list — it had grown long enough that finding one account meant scrolling.
+- Confirmed the existing delete-with-remap flow (choose where to move an account's expenses before
+  deleting it) was already shipped and working; no change needed there.
+- Version bumped to 0.7.6 (`versionCode` 8).
+
+---
+
 ## 2026-09-19 — Amount/range search + tags on merchant rules (DB v24)
 
 - **Search by amount or range**: the expense list search box now auto-detects an exact amount

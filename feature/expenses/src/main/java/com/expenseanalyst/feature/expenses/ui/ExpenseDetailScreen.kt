@@ -11,6 +11,8 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -420,6 +422,13 @@ private fun ExpenseDetailContent(
                                     color = MaterialTheme.colorScheme.onSurface,
                                     fontWeight = FontWeight.Medium
                                 )
+                                if (existingRule.tags.isNotEmpty()) {
+                                    Text(
+                                        text = "+ tags: " + existingRule.tags.joinToString(", ") { it.name },
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
                             }
                         }
                         Spacer(Modifier.width(8.dp))
@@ -614,7 +623,13 @@ private fun RuleDialog(
         onDismissRequest = onDismiss,
         title = { Text("Set category rule") },
         text = {
-            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            Column(
+                modifier = Modifier
+                    .heightIn(max = 420.dp)
+                    .verticalScroll(rememberScrollState())
+                    .imePadding(),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
                 Text(
                     text = "Always categorize expenses from \"$merchantName\" as:",
                     style = MaterialTheme.typography.bodyMedium,

@@ -77,6 +77,7 @@ fun AccountManagementScreen(
     AccountManagementContent(
         uiState = uiState,
         onBack = onBack,
+        onSearchQueryChange = viewModel::onSearchQueryChange,
         onAddClick = viewModel::showAddDialog,
         onEditClick = viewModel::showEditDialog,
         onDeleteClick = viewModel::showDeleteDialog,
@@ -96,6 +97,7 @@ fun AccountManagementScreen(
 private fun AccountManagementContent(
     uiState: AccountManagementUiState,
     onBack: () -> Unit,
+    onSearchQueryChange: (String) -> Unit,
     onAddClick: () -> Unit,
     onEditClick: (Account) -> Unit,
     onDeleteClick: (Account) -> Unit,
@@ -166,38 +168,51 @@ private fun AccountManagementContent(
             }
         }
     ) { padding ->
-        if (uiState.isLoading) {
-            Box(
-                modifier = Modifier.fillMaxSize().padding(padding),
-                contentAlignment = Alignment.Center
-            ) {
-                CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
-            }
-        } else if (uiState.accounts.isEmpty()) {
-            Box(
-                modifier = Modifier.fillMaxSize().padding(padding),
-                contentAlignment = Alignment.Center
-            ) {
-                Text(
-                    "No accounts yet. Tap + to add one.",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+        Column(modifier = Modifier.fillMaxSize().padding(padding)) {
+            OutlinedTextField(
+                value = uiState.searchQuery,
+                onValueChange = onSearchQueryChange,
+                placeholder = { Text("Search accounts...") },
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedBorderColor = MaterialTheme.colorScheme.primary,
+                    focusedLabelColor = MaterialTheme.colorScheme.primary
                 )
-            }
-        } else {
-            LazyColumn(
-                modifier = Modifier.fillMaxSize().padding(padding),
-                contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                items(uiState.accounts, key = { it.id }) { account ->
-                    AccountRow(
-                        account = account,
-                        onEdit = { onEditClick(account) },
-                        onDelete = { onDeleteClick(account) }
+            )
+            if (uiState.isLoading) {
+                Box(
+                    modifier = Modifier.fillMaxSize(),
+                    contentAlignment = Alignment.Center
+                ) {
+                    CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
+                }
+            } else if (uiState.accounts.isEmpty()) {
+                Box(
+                    modifier = Modifier.fillMaxSize(),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = if (uiState.searchQuery.isBlank()) "No accounts yet. Tap + to add one." else "No accounts match \"${uiState.searchQuery}\".",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
-                item { Spacer(Modifier.height(72.dp)) }
+            } else {
+                LazyColumn(
+                    modifier = Modifier.fillMaxSize(),
+                    contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    items(uiState.accounts, key = { it.id }) { account ->
+                        AccountRow(
+                            account = account,
+                            onEdit = { onEditClick(account) },
+                            onDelete = { onDeleteClick(account) }
+                        )
+                    }
+                    item { Spacer(Modifier.height(72.dp)) }
+                }
             }
         }
     }
