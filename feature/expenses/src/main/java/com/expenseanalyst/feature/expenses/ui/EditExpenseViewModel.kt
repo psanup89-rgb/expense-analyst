@@ -97,6 +97,7 @@ class EditExpenseViewModel @Inject constructor(
                 selectedTags = expense.tags,
                 selectedAccountId = expense.accountId,
                 rawSmsBody = expense.rawSmsBody,
+                sourceSender = expense.sourceSender,
                 expenseSourceType = expense.sourceType,
                 isReimbursable = expense.isReimbursable
             )

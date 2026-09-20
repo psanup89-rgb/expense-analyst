@@ -42,6 +42,7 @@ data class AddExpenseUiState(
     val savedExpenseId: Long? = null,
     val error: String? = null,
     val rawSmsBody: String? = null,
+    val sourceSender: String? = null,
     val expenseSourceType: SourceType? = null,
     val isAddingNewCategory: Boolean = false,
     val newCategoryName: String = "",

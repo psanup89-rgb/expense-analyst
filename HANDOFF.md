@@ -1,10 +1,77 @@
 # Expense Analyst — Handoff
 
 **Last updated**: 2026-09-20
-**DB version**: 25
+**DB version**: 26
 **Build**: `./gradlew clean assembleDebug` ✅
 **Repo**: `https://github.com/psanup89-rgb/expense-analyst` (public)
-**Release**: v0.7.8-debug (GitHub Release with APK)
+**Release**: v0.7.9-debug (GitHub Release with APK)
+
+---
+
+## Session Summary (2026-09-20) — Account-attribution bug fixes + SMS sender display
+
+Owner spotted a phantom "Al Rajhi Bank · Forex Card" account with no real card behind it, and gave
+the correct bank/type for several last-4-digit accounts that had been mis-labeled as Al Rajhi.
+Investigation turned into a broader audit that found three distinct, previously-unnoticed bugs.
+
+### 1. `AlRajhiParser` was stealing other banks' messages
+
+Root cause, found while investigating why 22 genuine Emirates NBD \*4388 transactions were on an
+"Al Rajhi Bank \*4388" account: `AlRajhiParser.canParse()` had a generic, bank-agnostic body
+fingerprint (`purchase...SAR...balance/amount`) as one of its OR-alternatives. Since it's
+registered early in `ParserRegistry` and this fingerprint matches practically any Saudi/Gulf bank's
+card-purchase SMS shape, it claimed messages from Emirates NBD and D360 Bank whenever their sender
+didn't literally contain "alrajhi" — before those banks' own (correct) parsers ever got a turn.
+Fixed by removing the generic fingerprint, keeping only Al Rajhi-specific body shapes.
+
+**General lesson for future parsers, recorded in CLAUDE.md**: a bank parser's `canParse()` body-only
+fallback must be specific enough to that bank's actual wording — never a shape any bank's SMS could
+produce.
+
+### 2. OTP messages parsed as duplicate transactions
+
+Found while auditing a "Bank D·360" naming-duplicate account: one row was literally an OTP text
+("OTP: 7951. Amount: SAR 649.00...") that restated a real purchase's amount for context, and got
+parsed as a second, separate expense. `ParserRegistry.parse()` now skips any message matching
+`\bOTP\b`/"one time password"/"verification code" before trying any parser. The duplicate expense
+itself was deleted from the owner's device (confirmed with them first).
+
+### 3. Refund from a keyword merchant miscategorized
+
+The owner separately noticed 3 Keeta refunds were categorized "Food & Drinks" instead of "Refund".
+Root cause: `KeetaParser` hardcodes `merchant = "Keeta"`, and `"keeta"` is itself a Food & Drinks
+keyword in `CategoryInference`'s keyword list — so merchant-keyword matching (which ran before the
+SMS-body refund-wording check) always won. This silently broke the refund-nets-out-of-spend logic
+(only `INCOME` + category=="Refund" rows get netted in `ExpenseListViewModel`) for any refund from
+a merchant whose name doubles as a spending keyword — not just Keeta. Fixed by checking the SMS
+body for refund/reversal/cashback wording *before* merchant-keyword matching in `CategoryInference.infer()`.
+
+### 4. Unknown-bank account fragmentation
+
+Separately fixed this session (owner noticed two "Unknown Bank" accounts after the first cleanup
+pass): `AccountRepositoryImpl.findOrCreate` now always drops the last-4 digits for `bankName ==
+"Unknown Bank"`, so every unidentifiable SMS collapses onto one single account rather than
+fragmenting by whatever last-4 a given SMS happened to parse. New `MIGRATION_25_26` (DB v25→v26)
+does a one-time consolidation of any pre-existing duplicates on upgrade.
+
+### 5. SMS sender shown in Edit and View
+
+`RawSmsPreviewCard` (Edit screen) now shows "From: \<sender\>" using `Expense.sourceSender` — only
+populated for `SMS_AUTO` expenses; `NOTIFICATION_AUTO` ones have no sender by design (Android's
+`NotificationListenerService` only exposes the notifying app's identity, not a telecom sender ID).
+The "Original SMS" section on Expense Detail (**View**) was previously gated to `SMS_AUTO` only;
+widened to any non-manual expense, since `NOTIFICATION_AUTO` is the majority of recent auto-saves
+and never showed its source text there at all before this fix.
+
+### Manual data correction on the owner's device (one-time, not a code fix)
+
+Applied directly via a pulled/corrected/pushed database (full integrity checks before and after
+each write): Al Rajhi \*2819/\*7573/\*8422 corrected from Savings to Debit/Credit Card as
+appropriate; \*4087/\*7421/\*9855 moved to Riyad Bank/SAB/D360 Bank respectively (per owner's own
+knowledge of their cards — no code signal could have derived this for `NOTIFICATION_AUTO`
+captures, which carry no sender); the 22 Emirates NBD transactions and the "Bank D·360" naming
+duplicate merged into their correct existing accounts; an empty ghost account (\*9731, zero
+transactions) removed; the OTP-duplicate expense deleted.
 
 ---
 

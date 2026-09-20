@@ -1219,6 +1219,7 @@ internal fun AddExpenseContent(
                 item {
                     RawSmsPreviewCard(
                         rawBody = rawBody,
+                        sender = uiState.sourceSender,
                         onOpenInMessages = if (!rawBody.isNullOrBlank()) {
                             {
                                 val address = findSmsAddress(context, rawBody)
@@ -1241,7 +1242,7 @@ internal fun AddExpenseContent(
 }
 
 @Composable
-private fun RawSmsPreviewCard(rawBody: String?, onOpenInMessages: (() -> Unit)? = null) {
+internal fun RawSmsPreviewCard(rawBody: String?, sender: String? = null, onOpenInMessages: (() -> Unit)? = null) {
     val hasBody = !rawBody.isNullOrBlank()
     var expanded by remember { mutableStateOf(false) }
     Card(
@@ -1274,6 +1275,14 @@ private fun RawSmsPreviewCard(rawBody: String?, onOpenInMessages: (() -> Unit)? 
                         tint = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
+            }
+            if (!sender.isNullOrBlank()) {
+                Spacer(Modifier.height(4.dp))
+                Text(
+                    "From: $sender",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
             }
             if (hasBody && expanded) {
                 Spacer(Modifier.height(8.dp))
@@ -1489,7 +1498,7 @@ internal fun TagSelector(
     }
 }
 
-private fun findSmsAddress(context: Context, body: String?): String? {
+internal fun findSmsAddress(context: Context, body: String?): String? {
     if (body.isNullOrBlank()) return null
     return try {
         context.contentResolver.query(

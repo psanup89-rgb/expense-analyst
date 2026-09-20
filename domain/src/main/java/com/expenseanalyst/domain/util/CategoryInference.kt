@@ -185,11 +185,26 @@ object CategoryInference {
             ?.let { rule -> categories.find { it.id == rule.categoryId } }
             ?.let { return it }
 
+        // Step 2: a refund/reversal/cashback signal in the SMS body wins ahead of merchant
+        // keyword matching below. Without this, a refund FROM a merchant whose own name is
+        // also a spending keyword (e.g. KeetaParser hardcodes merchant="Keeta", and "keeta" is
+        // a Food & Drinks keyword for the food-delivery app) lands in that spending category
+        // instead of Refund — silently breaking the refund-nets-out-of-spend logic in
+        // ExpenseListViewModel, which only nets INCOME rows whose category is "Refund".
+        smsBody?.lowercase()?.let { body ->
+            if (body.contains("refund") || body.contains("reversal") ||
+                body.contains("cashback") || body.contains("cash back") ||
+                body.contains("reimburs")
+            ) {
+                findCategory(categories, "Refund")?.let { return it }
+            }
+        }
+
         val searchText = listOfNotNull(merchant, bankName)
             .joinToString(" ")
             .lowercase()
 
-        // Step 2: keyword matching on merchant + bank name
+        // Step 3: keyword matching on merchant + bank name
         // Category name lookup uses exact match first, then startsWith to handle user renames
         // e.g. "Food" rule matches "Food & Drinks" if user appended to the default name.
         // If neither the rule's category nor its fallback resolves, continue scanning rather
@@ -205,13 +220,10 @@ object CategoryInference {
             }
         }
 
-        // Fallback: check SMS body for payment-type signals
+        // Step 4: fallback — check SMS body for other payment-type signals (refund already
+        // handled in Step 2)
         val bodyLower = smsBody?.lowercase() ?: return null
         return when {
-            bodyLower.contains("refund") || bodyLower.contains("reversal") ||
-                bodyLower.contains("cashback") || bodyLower.contains("cash back") ||
-                bodyLower.contains("reimburs") ->
-                findCategory(categories, "Refund")
             bodyLower.contains("salary") || bodyLower.contains("payroll") ||
                 bodyLower.contains("stipend") ->
                 findCategory(categories, "Salary")

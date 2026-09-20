@@ -51,7 +51,7 @@ import com.expenseanalyst.data.local.entity.TagEntity
         LentItemEntity::class,
         MerchantRuleTagCrossRef::class
     ],
-    version = 25,
+    version = 26,
     exportSchema = true
 )
 abstract class ExpenseAnalystDatabase : RoomDatabase() {
@@ -278,6 +278,36 @@ abstract class ExpenseAnalystDatabase : RoomDatabase() {
         }
 
         /**
+         * Collapses every "Unknown Bank" account into one. Before this, AccountRepositoryImpl's
+         * findOrCreate keyed unresolved-bank accounts on (bank_name, last_four) same as any
+         * real bank, so each distinct last-4 digit parsed off an unidentifiable SMS created its
+         * own "Unknown Bank *XXXX" row — none of which is actually known to be a separate real
+         * account. findOrCreate now always passes lastFour=null for this bank name, so this
+         * migration is a one-time cleanup of accounts created before that fix: merge every
+         * "Unknown Bank" row onto the lowest-id one (arbitrary but deterministic), rename it to
+         * "Unknown Account", and drop the rest.
+         */
+        private val MIGRATION_25_26 = object : Migration(25, 26) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                val canonicalId = db.query("SELECT MIN(id) FROM accounts WHERE bank_name = 'Unknown Bank'").use { cursor ->
+                    if (cursor.moveToFirst() && !cursor.isNull(0)) cursor.getLong(0) else null
+                } ?: return
+
+                db.execSQL(
+                    "UPDATE expenses SET account_id = $canonicalId " +
+                        "WHERE account_id IN (SELECT id FROM accounts WHERE bank_name = 'Unknown Bank')"
+                )
+                db.execSQL(
+                    "UPDATE accounts SET last_four = NULL, display_name = 'Unknown Account' " +
+                        "WHERE id = $canonicalId"
+                )
+                db.execSQL(
+                    "DELETE FROM accounts WHERE bank_name = 'Unknown Bank' AND id != $canonicalId"
+                )
+            }
+        }
+
+        /**
          * Reimbursement tracking (two nullable/defaulted columns, same shape as
          * MIGRATION_18_19's needs_review) plus the "Split Payments" category for
          * BNPL/EMI-split expenses.
@@ -484,7 +514,7 @@ abstract class ExpenseAnalystDatabase : RoomDatabase() {
                 ExpenseAnalystDatabase::class.java,
                 DATABASE_NAME
             )
-                .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13, MIGRATION_13_14, MIGRATION_14_15, MIGRATION_15_16, MIGRATION_16_17, MIGRATION_17_18, MIGRATION_18_19, MIGRATION_19_20, MIGRATION_20_21, MIGRATION_21_22, MIGRATION_22_23, MIGRATION_23_24, MIGRATION_24_25)
+                .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13, MIGRATION_13_14, MIGRATION_14_15, MIGRATION_15_16, MIGRATION_16_17, MIGRATION_17_18, MIGRATION_18_19, MIGRATION_19_20, MIGRATION_20_21, MIGRATION_21_22, MIGRATION_22_23, MIGRATION_23_24, MIGRATION_24_25, MIGRATION_25_26)
                 .addCallback(SeedDatabaseCallback())
                 .build()
         }

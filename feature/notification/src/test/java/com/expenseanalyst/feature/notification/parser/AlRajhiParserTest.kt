@@ -98,4 +98,57 @@ class AlRajhiParserTest {
         val body = "Credit Transfer Internal\nAmount:SAR 5000\nTo:6805\nFrom:SOMEONE\nFrom:5119"
         assertEquals(true, parser.canParse("74100", body))
     }
+
+    @org.junit.jupiter.api.Test
+    fun `parse extracts a standing order transfer, attributed to Al Rajhi not D360`() {
+        val body = """
+            Standing Order-Debit Transfer Local
+            From:6805
+            Amount:SAR 5000
+            To:ANOOP SASEEDHARAN
+            To:1616
+        """.trimIndent()
+        val result = parser.parse("AlRajhiBank", body)
+        assertNotNull(result)
+        assertEquals(5000.0, result!!.amount, 0.01)
+        assertEquals(TransactionDirection.TRANSFER, result.type)
+        assertEquals("SAR", result.currencyCode)
+        assertEquals("6805", result.accountLast4)
+        assertEquals("ANOOP SASEEDHARAN", result.merchant)
+        assertEquals("Al Rajhi Bank", result.bankName)
+    }
+
+    @org.junit.jupiter.api.Test
+    fun `parse extracts a bill payment, attributed to Al Rajhi not Mubasher`() {
+        val body = """
+            Bill Payment
+            From:6805
+            Amount:SAR 240
+            Biller:125
+            Service:ENBD PAYMENTS
+            Bill:01600000025919
+        """.trimIndent()
+        val result = parser.parse("AlRajhiBank", body)
+        assertNotNull(result)
+        assertEquals(240.0, result!!.amount, 0.01)
+        assertEquals(TransactionDirection.PAYMENT, result.type)
+        assertEquals("SAR", result.currencyCode)
+        assertEquals("6805", result.accountLast4)
+        assertEquals("ENBD PAYMENTS", result.merchant)
+        assertEquals("Al Rajhi Bank", result.bankName)
+    }
+
+    @org.junit.jupiter.api.Test
+    fun `ParserRegistry attributes a real Al Rajhi standing order to Al Rajhi, not D360`() {
+        val body = "Standing Order-Debit Transfer Local\nFrom:6805\nAmount:SAR 5000\nTo:ANOOP SASEEDHARAN\nTo:1616"
+        val result = ParserRegistry.parse("AlRajhiBank", body)
+        assertEquals("Al Rajhi Bank", result?.bankName)
+    }
+
+    @org.junit.jupiter.api.Test
+    fun `ParserRegistry attributes a real Al Rajhi bill payment to Al Rajhi, not Mubasher`() {
+        val body = "Bill Payment\nFrom:6805\nAmount:SAR 240\nBiller:125\nService:ENBD PAYMENTS\nBill:01600000025919"
+        val result = ParserRegistry.parse("AlRajhiBank", body)
+        assertEquals("Al Rajhi Bank", result?.bankName)
+    }
 }

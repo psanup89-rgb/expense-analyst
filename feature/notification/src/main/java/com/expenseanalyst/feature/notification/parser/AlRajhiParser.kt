@@ -15,20 +15,33 @@ package com.expenseanalyst.feature.notification.parser
  *   "تم خصم مبلغ 350.00 ر.س من حسابك"
  * Sample (MOI government payment):
  *   "MOI Payments From:6805 Amount:SR 400 Provider:Residents Services Service:Extend Exit Re-entry Visa Duration 26/4/14 18:57"
+ * Sample (standing order / external transfer — note From: is the digits here, opposite of
+ * the "Credit Transfer Internal" sample below where From: is a name and To: is the digits):
+ *   "Standing Order-Debit Transfer Local\nFrom:6805\nAmount:SAR 5000\nTo:ANOOP SASEEDHARAN\nTo:1616"
+ * Sample (bill payment — same Biller:/Service: field vocabulary as the Mubasher app, but this
+ * one arrives from Al Rajhi's own sender):
+ *   "Bill Payment\nFrom:6805\nAmount:SAR 240\nBiller:125\nService:ENBD PAYMENTS\nBill:01600000025919"
  */
 class AlRajhiParser : TransactionParser {
 
     override val bankName = "Al Rajhi Bank"
 
     private val senderPattern = Regex("""(?i)(?:alrajhi|al.rajhi|rajhi|74100)""")
-    // Content fingerprint: typical Al Rajhi SMS body patterns
-    private val bodyFingerprintPattern = Regex(
-        """(?i)(?:pos\s+purchase|online\s+purchase|purchase|debited|credited).*?(?:sar|ر\.س).*?(?:balance|amount|at\s*:)""",
-        RegexOption.DOT_MATCHES_ALL
-    )
     private val transferFingerprintPattern = Regex("""(?i)(?:Credit|Debit)\s+Transfer\s+Internal""")
     // MOI (Ministry of Interior) government service payments via Al Rajhi
     private val moiFingerprintPattern = Regex("""(?i)MOI\s+Payments""")
+    // Standing order / external transfer — without these, this shape falls through every
+    // branch below and gets claimed by D360Parser's own standing-order fingerprint instead,
+    // mislabeling the bank as "D360 Bank".
+    private val standingOrderPattern = Regex("""(?i)standing\s+order""")
+    private val standingOrderToNamePattern = Regex("""(?i)To\s*:\s*([A-Za-z][A-Za-z ]{2,})""")
+    // Bill payment — without these, this shape falls through and gets claimed by
+    // MubasherParser's own Biller:/Service: fingerprint instead, mislabeling the bank as
+    // "Mubasher" (the app Al Rajhi's bill-pay flow happens to share field vocabulary with).
+    private val billPaymentPattern = Regex("""(?i)bill\s*payment""")
+    private val billServicePattern = Regex("""(?i)Service\s*:\s*(.+?)(?:\n|$)""")
+    // Shared by both branches above: "From:6805" — the user's own account being debited.
+    private val fromAccountDigitsPattern = Regex("""(?i)From\s*:\s*(\d{4})""")
     private val moiAccountPattern = Regex("""(?i)From:\s*(\d{3,4})""")
     private val moiProviderPattern = Regex("""(?i)Provider:\s*([A-Za-z][A-Za-z ]+?)(?:\s+Service:|\s*${'$'})""")
     private val moiServicePattern = Regex("""(?i)Service:\s*([A-Za-z][A-Za-z 0-9\-]+?)(?:\s+Duration|\s+\d|\s*${'$'})""")
@@ -48,11 +61,20 @@ class AlRajhiParser : TransactionParser {
         """(?i)\bat[:\s]\s*([A-Za-z0-9][A-Za-z0-9 _\-&./*]*?)(?=\s*\n|\s+(?:Amount|Fee|Balance|Ref|Exchange|Country|Total|Available|on\s+\d)|\s*${'$'})"""
     )
 
+    // Deliberately NOT a generic "purchase...SAR...balance/amount" body fingerprint —
+    // that used to sit here and matched practically any Saudi bank's card-purchase SMS
+    // shape, so Al Rajhi (registered first in ParserRegistry) was silently stealing real
+    // Emirates NBD and D360 Bank messages whenever their sender didn't literally contain
+    // "alrajhi". Every body-only fingerprint below is Al-Rajhi-specific wording (MOI
+    // Payments, Standing Order, Bill Payment+Biller/Service, Credit/Debit Transfer
+    // Internal) precisely so this parser only self-claims a message when the sender
+    // doesn't match AND the body itself is unambiguously an Al Rajhi shape.
     override fun canParse(sender: String, body: String): Boolean =
         senderPattern.containsMatchIn(sender) ||
-        bodyFingerprintPattern.containsMatchIn(body) ||
         transferFingerprintPattern.containsMatchIn(body) ||
-        moiFingerprintPattern.containsMatchIn(body)
+        moiFingerprintPattern.containsMatchIn(body) ||
+        standingOrderPattern.containsMatchIn(body) ||
+        (billPaymentPattern.containsMatchIn(body) && billServicePattern.containsMatchIn(body))
 
     override fun parse(sender: String, body: String): ParsedTransaction? {
         // Handle MOI government payment: "MOI Payments From:6805 Amount:SR 400 Provider:X Service:Y"
@@ -79,6 +101,51 @@ class AlRajhiParser : TransactionParser {
                 referenceNumber = null,
                 bankName = bankName,
                 paymentMethodName = "NET_BANKING"
+            )
+        }
+
+        // Standing order / external transfer: "Standing Order-Debit Transfer Local /
+        // From:XXXX / Amount:SAR N / To:NAME / To:YYYY". Field convention is the mirror image
+        // of "Credit Transfer Internal" below — here From: is the user's own account digits
+        // and To: is the recipient's name.
+        if (standingOrderPattern.containsMatchIn(body)) {
+            val amountMatch = amountSarPattern.find(body)
+            val amount = (amountMatch?.groupValues?.get(1)?.takeIf { it.isNotBlank() }
+                ?: amountMatch?.groupValues?.get(2)?.takeIf { it.isNotBlank() })
+                ?.replace(",", "")?.toDoubleOrNull() ?: return null
+            val accountLast4 = fromAccountDigitsPattern.find(body)?.groupValues?.get(1)
+            val merchant = standingOrderToNamePattern.find(body)?.groupValues?.get(1)?.trim()
+                ?.takeIf { it.isNotBlank() && it.length < 80 }
+            return ParsedTransaction(
+                amount = amount,
+                currencyCode = "SAR",
+                type = TransactionDirection.TRANSFER,
+                merchant = merchant,
+                accountLast4 = accountLast4,
+                referenceNumber = null,
+                bankName = bankName,
+                paymentMethodName = "NET_BANKING"
+            )
+        }
+
+        // Bill payment: "Bill Payment / From:XXXX / Amount:SAR N / Biller:.. / Service:.. / Bill:.."
+        if (billPaymentPattern.containsMatchIn(body) && billServicePattern.containsMatchIn(body)) {
+            val amountMatch = amountSarPattern.find(body)
+            val amount = (amountMatch?.groupValues?.get(1)?.takeIf { it.isNotBlank() }
+                ?: amountMatch?.groupValues?.get(2)?.takeIf { it.isNotBlank() })
+                ?.replace(",", "")?.toDoubleOrNull() ?: return null
+            val accountLast4 = fromAccountDigitsPattern.find(body)?.groupValues?.get(1)
+            val merchant = billServicePattern.find(body)?.groupValues?.get(1)?.trim()
+                ?.takeIf { it.isNotBlank() && it.length < 80 }
+            return ParsedTransaction(
+                amount = amount,
+                currencyCode = "SAR",
+                type = TransactionDirection.PAYMENT,
+                merchant = merchant,
+                accountLast4 = accountLast4,
+                referenceNumber = null,
+                bankName = bankName,
+                paymentMethodName = PaymentMethodDetector.detect(body)
             )
         }
 

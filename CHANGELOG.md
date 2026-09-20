@@ -4,6 +4,46 @@ Format: `[Date] — Summary`
 
 ---
 
+## 2026-09-20 — Account-attribution bug fixes + SMS sender display (DB v26)
+
+Fixes from a manual audit of mis-mapped accounts across the whole dataset, prompted by the owner
+spotting a phantom "Al Rajhi Bank · Forex Card" account and several last-4-digit accounts under
+the wrong bank name.
+
+- **Fix**: `AlRajhiParser` had a generic, bank-agnostic body fingerprint ("purchase...SAR...
+  balance/amount") in its `canParse()`. Since it's registered early in `ParserRegistry`, it was
+  silently stealing real Emirates NBD and D360 Bank SMS whenever their sender didn't literally say
+  "Al Rajhi" — the message body shape alone was enough. Removed the generic fingerprint, kept only
+  Al Rajhi-specific ones (MOI Payments, Standing Order, Bill Payment+Biller/Service, Credit/Debit
+  Transfer Internal).
+- **Fix**: `ParserRegistry.parse()` now skips OTP/verification-code messages before trying any
+  parser — a bank's OTP text often restates the transaction amount for context, and several
+  parsers' generic amount-matching was parsing it as a second, duplicate expense.
+- **Fix**: a refund from a merchant whose own name is a spending keyword (e.g. a Keeta refund —
+  `KeetaParser` hardcodes merchant="Keeta", and "keeta" is a Food & Drinks keyword) now correctly
+  routes to the Refund category instead of the merchant's spending category. `CategoryInference`
+  now checks for refund/reversal/cashback wording in the SMS body *before* merchant-keyword
+  matching, not after — this was silently breaking the refund-nets-out-of-spend logic for any
+  merchant whose name doubled as a category keyword.
+- **Fix**: unresolved-bank accounts ("Unknown Bank") now always collapse onto a single "Unknown
+  Account" instead of fragmenting into a new row per distinct last-4 digit a parser happened to
+  extract. New `MIGRATION_25_26` consolidates existing duplicates automatically on upgrade.
+- **Manual data correction on the owner's device**: reassigned every Al Rajhi-labeled account to
+  its real bank/type — \*2819/\*7573/\*8422 corrected from Savings to Debit/Credit Card as
+  appropriate, \*4087/\*7421/\*9855 moved to Riyad Bank/SAB/D360 Bank respectively, 22 Emirates
+  NBD \*4388 transactions and a "Bank D·360" naming-duplicate account merged into their correct
+  existing accounts, an empty ghost account removed, and a duplicate OTP-message expense deleted.
+- **SMS sender now shown**: the "Source SMS" section (Edit) now shows a "From: \<sender\>" line.
+  The same section is now also shown in Expense Detail (**View**), not just Edit — previously
+  gated to `SMS_AUTO` only, so `NOTIFICATION_AUTO`-captured expenses (the majority of recent
+  auto-saves) never showed their source text there at all.
+- New tests: 2 `CategoryInferenceTest` (Keeta refund ordering), 2 `AlRajhiParserTest` (Emirates
+  NBD/D360 no longer stolen), 3 `ParserRegistryTest` (OTP guard + Emirates NBD attribution).
+- **DB v26**: `MIGRATION_25_26` — one-time consolidation of duplicate "Unknown Bank" accounts.
+- Version bumped to 0.7.9 (`versionCode` 11).
+
+---
+
 ## 2026-09-20 — Refund auto-matching (DB v25)
 
 - A Refund-category incoming transaction (already detected via existing keyword matching —

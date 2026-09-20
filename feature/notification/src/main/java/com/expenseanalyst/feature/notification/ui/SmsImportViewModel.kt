@@ -397,6 +397,12 @@ class SmsImportViewModel @Inject constructor(
             "STCBNK" in s || "STCPAY" in s -> "STC Bank"
             "D360" in s -> "Bank D·360"
             "CLRTRP" in s || "CLEARTRIP" in s -> "Cleartrip"
+            // Kept in sync with GenericParser.bankNameFromSender() — see its comments for why
+            // the substring checks below don't just use the obvious full words.
+            "EMIRNBD" in s || "ENBD" in s || "EMIRATES" in s -> "Emirates NBD"
+            "IDFCFB" in s || "IDFCFIRST" in s -> "IDFC First Bank"
+            "ONECARD" in s || "ONECRD" in s || "FEDERAL" in s || "FEDONE" in s -> "OneCard"
+            "DBSBNK" in s || "DBS" in s -> "DBS Bank"
             else -> null
         }
     }

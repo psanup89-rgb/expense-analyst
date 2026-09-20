@@ -58,9 +58,12 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import android.content.Intent
+import android.net.Uri
 import com.expenseanalyst.core.util.CurrencyFormatter
 import com.expenseanalyst.core.util.DateTimeUtil
 import com.expenseanalyst.core.util.categoryIconVector
@@ -226,6 +229,7 @@ private fun ExpenseDetailContent(
     onViewBill: (Long) -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val context = LocalContext.current
     val isIncome = expense.transactionType == TransactionType.INCOME
     val isPayment = expense.transactionType == TransactionType.PAYMENT
     val amountColor = when {
@@ -451,7 +455,10 @@ private fun ExpenseDetailContent(
                     }
                 }
                 val rawSmsBody = expense.rawSmsBody
-                if (expense.sourceType == SourceType.SMS_AUTO && rawSmsBody != null) {
+                // Not gated to SMS_AUTO — NOTIFICATION_AUTO-captured expenses (the majority of
+                // recent auto-saves, per PendingNotificationManager) also carry the source text
+                // and deserve to show it here too, same as the Edit screen already does.
+                if (expense.sourceType != SourceType.MANUAL && rawSmsBody != null) {
                     DetailDivider()
                     var smsExpanded by remember { mutableStateOf(false) }
                     Row(
@@ -474,6 +481,14 @@ private fun ExpenseDetailContent(
                             modifier = Modifier.size(20.dp)
                         )
                     }
+                    if (!expense.sourceSender.isNullOrBlank()) {
+                        Text(
+                            text = "From: ${expense.sourceSender}",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.padding(bottom = if (smsExpanded) 8.dp else 4.dp)
+                        )
+                    }
                     if (smsExpanded) {
                         Text(
                             text = rawSmsBody,
@@ -481,11 +496,29 @@ private fun ExpenseDetailContent(
                             color = MaterialTheme.colorScheme.onSurface,
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .padding(bottom = 8.dp)
+                                .padding(bottom = 4.dp)
                                 .clip(RoundedCornerShape(8.dp))
                                 .background(MaterialTheme.colorScheme.surfaceContainerHigh)
                                 .padding(12.dp)
                         )
+                        if (expense.sourceType == SourceType.SMS_AUTO) {
+                            TextButton(
+                                onClick = {
+                                    val address = findSmsAddress(context, rawSmsBody)
+                                    val intent = if (address != null) {
+                                        Intent(Intent.ACTION_VIEW, Uri.parse("sms:$address"))
+                                    } else {
+                                        Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_APP_MESSAGING)
+                                    }
+                                    intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                                    context.startActivity(intent)
+                                },
+                                contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 0.dp, vertical = 0.dp),
+                                modifier = Modifier.padding(bottom = 4.dp)
+                            ) {
+                                Text("Open in Messages ↗", style = MaterialTheme.typography.labelSmall)
+                            }
+                        }
                     }
                 }
             }

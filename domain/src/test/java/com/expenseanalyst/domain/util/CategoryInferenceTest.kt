@@ -131,6 +131,42 @@ class CategoryInferenceTest {
         assertEquals("Fuel & Petrol", infer("ADNOC", renamed))
     }
 
+    // ── Refund signal beats merchant-keyword matching ────────────────────────
+
+    @Test
+    fun `a Keeta refund routes to Refund, not Food, even though Keeta is a Food keyword`() {
+        val result = CategoryInference.infer(
+            merchant = "Keeta",
+            bankName = "Keeta",
+            categories = allCategories,
+            smsBody = "SAR 31.83 refunded to your payment method on 17 Apr 2026 at 12:34."
+        )
+        assertEquals("Refund", result?.name)
+    }
+
+    @Test
+    fun `a normal Keeta order still routes to Food when the body has no refund wording`() {
+        val result = CategoryInference.infer(
+            merchant = "Keeta",
+            bankName = "Keeta",
+            categories = allCategories,
+            smsBody = "SAR 31.83 charged for your Keeta order on 17 Apr 2026."
+        )
+        assertEquals("Food", result?.name)
+    }
+
+    @Test
+    fun `refund signal falls back to merchant keyword matching when Refund category is missing`() {
+        val without = allCategories.filterNot { it.name == "Refund" }
+        val result = CategoryInference.infer(
+            merchant = "Keeta",
+            bankName = "Keeta",
+            categories = without,
+            smsBody = "SAR 31.83 refunded to your payment method on 17 Apr 2026 at 12:34."
+        )
+        assertEquals("Food", result?.name)
+    }
+
     @Test
     fun `a user merchant rule still beats keyword matching`() {
         val rule = MerchantRule(

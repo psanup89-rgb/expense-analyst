@@ -52,4 +52,28 @@ class ParserRegistryTest {
     fun `registry returns null for non-transaction messages`(sender: String, body: String) {
         assertNull(ParserRegistry.parse(sender, body))
     }
+
+    @ParameterizedTest
+    @CsvSource(
+        "AlRajhi, OTP: 7951. Amount: SAR 649.00. Merchant: noon. For: Internet purchase with card ending 9855.",
+        "AXISBK, Your one-time password to complete this transaction of Rs 500 is 445566.",
+        "HDFCBK, Verification code 8842 for your purchase of Rs 1200 at Amazon."
+    )
+    fun `registry ignores OTP messages even though they restate a transaction amount`(sender: String, body: String) {
+        assertNull(ParserRegistry.parse(sender, body))
+    }
+
+    @org.junit.jupiter.api.Test
+    fun `Emirates NBD's own POS purchase shape is not stolen by Al Rajhi's generic fingerprint`() {
+        val body = "POS Purchase (Apple Pay)\nCard: Visa card XX4388\nAmount: SAR 36.00\nMerchant: STARBUCKS-S876\nIn: SAUDI ARABIA\nRemaining limit SAR 18,117.95\nOn: 2026-03-28 15:54:43"
+        val result = ParserRegistry.parse("EmiratesNBD", body)
+        assertEquals("Emirates NBD", result?.bankName)
+    }
+
+    @org.junit.jupiter.api.Test
+    fun `a credit card payment credited shape from Emirates NBD is not stolen by Al Rajhi's generic fingerprint`() {
+        val body = "Credit Card: Credited\nCard : XX4388;Credit Card Visa\nAmount: SAR 39.00\nBalance: SAR 18,156.95\nDate: 29-03-2026"
+        val result = ParserRegistry.parse("EmiratesNBD", body)
+        assertEquals("Emirates NBD", result?.bankName)
+    }
 }

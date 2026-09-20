@@ -115,9 +115,14 @@ class GenericParser : TransactionParser {
             "ALINMA" in s -> "Alinma Bank"
             "STCBNK" in s || "STCPAY" in s -> "STC Bank"
             "D360" in s -> "Bank D·360"
-            "EMIRNBD" in s || "ENBD" in s -> "Emirates NBD"
+            // "EmiratesNBD" (literal app/notification sender name) contains neither "ENBD" nor
+            // "EMIRNBD" as a substring — only the 6-char DLT SMS code "EMIRNBD" does.
+            "EMIRNBD" in s || "ENBD" in s || "EMIRATES" in s -> "Emirates NBD"
             "IDFCFB" in s || "IDFCFIRST" in s -> "IDFC First Bank"
-            "ONECARD" in s || "FEDERAL" in s -> "OneCard"
+            // Real DLT sender codes truncate to 6 chars: "FEDONE" (Federal Bank OneCard) and
+            // "ONECRD", neither of which contains "FEDERAL" or "ONECARD" as a substring.
+            "ONECARD" in s || "ONECRD" in s || "FEDERAL" in s || "FEDONE" in s -> "OneCard"
+            "DBSBNK" in s || "DBS" in s -> "DBS Bank"
             "CANARA" in s -> "Canara Bank"
             "BOB" in s || "BANKOFBARODA" in s -> "Bank of Baroda"
             "UNION" in s -> "Union Bank"
