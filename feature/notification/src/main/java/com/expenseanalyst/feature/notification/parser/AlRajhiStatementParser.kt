@@ -23,7 +23,9 @@ class AlRajhiStatementParser : BillStatementParser {
 
     private val totalDuePattern = Regex("""(?i)total\s+(?:amount\s+)?due\s*[:\-]?\s*(?:sar|sr|ر\.س)?\s*([\d,]+\.?\d*)""")
     private val minDuePattern = Regex("""(?i)min(?:imum)?\s+(?:due|payment|amount)?\s*[:\-]?\s*(?:sar|sr|ر\.س)?\s*([\d,]+\.?\d*)""")
-    private val dueDatePattern = Regex("""(?i)(?:payment\s+)?due\s*(?:date|by)?\s*[:\-]\s*(.{5,20}?)(?:\.|$|\n)""")
+    // "date|by" is REQUIRED. When it was optional this matched the earlier "Total amount due:"
+    // and tried to parse the amount as a date, so the real "Due date: 25-07-2026" was never read.
+    private val dueDatePattern = Regex("""(?i)(?:payment\s+)?due\s+(?:date|by)\s*[:\-]?\s*(.{5,20}?)(?:\.|$|\n)""")
     private val accountPattern = Regex("""(?i)(?:card|cc|account)\s*(?:ending|no\.?|xxxx)?\s*[xX*]*(\d{4})""")
 
     override fun canParse(sender: String, body: String): Boolean =

@@ -1,10 +1,51 @@
 # Expense Analyst — Handoff
 
-**Last updated**: 2026-09-20
+**Last updated**: 2026-09-21
 **DB version**: 26
 **Build**: `./gradlew clean assembleDebug` ✅
 **Repo**: `https://github.com/psanup89-rgb/expense-analyst` (public)
-**Release**: v0.7.9-debug (GitHub Release with APK)
+**Release**: v0.7.10-debug (GitHub Release with APK)
+
+---
+
+## Session Summary (2026-09-21) — Bills were detected but unreachable
+
+Two Notion issues ("Bills are not getting detected", "Transaction not detected") plus an
+investigation that found the real bill problem was not detection at all.
+
+### The bill bug worth remembering
+
+34 statements had been detected since June and sat in `pending_notifications`. The `bills` table
+had 0 rows. Cause: `BillsScreen` computes `isEmpty` from *saved* Bills and early-returns to a
+"No bills yet" state, and the "Pending Bill Statements" card — the only route into `PENDING_INBOX`
+anywhere in the app — lived below that return. No saved bill → no link → cannot confirm a
+statement → `bills` stays empty → link never appears. Compounding it, bills were detected silently:
+transactions get a banner and a tray notification, bills got neither, and `getCount()` existed but
+nothing consumed it.
+
+Fixed by rendering the card in the empty state with a count badge, and posting a tray notification
+on detection (`postForBill` → `ACTION_OPEN_PENDING_INBOX`). Verified on device: badge showed 34 and
+the inbox opened.
+
+**Lesson for future UI work**: when a screen's only navigation to a sub-screen lives inside a list,
+check what the empty state does to it.
+
+### Also fixed
+
+- Re-sent reminders deduped on biller + amount within 35 days (6 real Saudi Energy bills had
+  become 17 rows). The existing `findRecentByRawBody` only catches byte-identical bodies.
+- `BankNameFromSender` now the single source of truth for sender → bank name, collapsing three
+  drifting copies that had split Al Rajhi across two biller names.
+- `AlRajhiStatementParser` due-date regex required "date"/"by" after "due"; it was matching
+  "Total amount due:" and parsing the amount as a date.
+- New `OneCardStatementParser`; `AlRajhiParser` now handles "Debit/Credit Internal Transfer".
+
+### Deliberately not done
+
+- The existing 34 queued rows were left alone — they still carry the old biller spellings and the
+  reminder duplicates. The dedup and naming fixes apply to newly arriving bills only. The owner
+  chose to triage the backlog in-app now that the inbox is reachable.
+- Saudi Energy's missing due dates are not a bug: those SMS carry no due date.
 
 ---
 

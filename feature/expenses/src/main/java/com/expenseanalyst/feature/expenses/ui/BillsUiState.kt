@@ -13,6 +13,7 @@ data class BillWithPayments(
 data class BillsUiState(
     val pendingBills: List<BillWithPayments> = emptyList(),
     val settledBills: List<BillWithPayments> = emptyList(),
+    val pendingStatementCount: Int = 0,
     val isLoading: Boolean = true,
     val showAddBillSheet: Boolean = false,
     val newBillerName: String = "",

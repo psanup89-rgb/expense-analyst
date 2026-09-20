@@ -45,9 +45,10 @@ class GenericStatementParser : BillStatementParser {
         val dueDateStr = dueDatePattern.find(body)?.groupValues?.get(1)?.trim()
         val dueDateMillis = dueDateStr?.let { parseDate(it) }
 
-        // Derive biller name from sender if it looks like a bank name, else fall back
-        val biller = sender.trim()
-            .takeIf { it.isNotBlank() && it.all { c -> c.isLetter() || c.isWhitespace() || c == '-' } }
+        // Canonical name first: the raw sender is a DLT code or a spaceless app name, which is
+        // how one Al Rajhi card ended up split across "Al Rajhi Bank" and "AlRajhiBank".
+        val biller = BankNameFromSender.resolve(sender)
+            ?: sender.trim().takeIf { it.isNotBlank() && it.all { c -> c.isLetter() || c.isWhitespace() || c == '-' } }
             ?: bankName
 
         return ParsedBillStatement(

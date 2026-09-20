@@ -21,6 +21,7 @@ import com.expenseanalyst.domain.util.CategoryInference
 import com.expenseanalyst.domain.util.CurrencyConversion
 import com.expenseanalyst.domain.util.MerchantRuleMatcher
 import com.expenseanalyst.domain.util.RefundMatcher
+import com.expenseanalyst.feature.notification.parser.BankNameFromSender
 import com.expenseanalyst.feature.notification.parser.BillStatementParserRegistry
 import com.expenseanalyst.feature.notification.parser.ParsedTransaction
 import com.expenseanalyst.feature.notification.parser.ParserRegistry
@@ -381,31 +382,8 @@ class SmsImportViewModel @Inject constructor(
     private fun isFinancialSms(body: String) = financialKeywords.containsMatchIn(body)
 
     /** Maps a raw SMS sender ID to a human-readable bank name, or null if unknown. */
-    private fun bankDisplayNameFromSender(sender: String): String? {
-        val s = sender.uppercase()
-        return when {
-            "HDFC" in s -> "HDFC Bank"
-            "ICICI" in s -> "ICICI Bank"
-            "SBI" in s -> "SBI"
-            "AXIS" in s -> "Axis Bank"
-            "KOTAK" in s -> "Kotak Bank"
-            "YESBNK" in s || "YESBANK" in s -> "Yes Bank"
-            "INDUS" in s -> "IndusInd Bank"
-            "PNBSMS" in s || "PUNJAB" in s -> "PNB"
-            "ALRJHI" in s || "ALRAJHI" in s -> "Al Rajhi Bank"
-            "ALINMA" in s -> "Alinma Bank"
-            "STCBNK" in s || "STCPAY" in s -> "STC Bank"
-            "D360" in s -> "Bank D·360"
-            "CLRTRP" in s || "CLEARTRIP" in s -> "Cleartrip"
-            // Kept in sync with GenericParser.bankNameFromSender() — see its comments for why
-            // the substring checks below don't just use the obvious full words.
-            "EMIRNBD" in s || "ENBD" in s || "EMIRATES" in s -> "Emirates NBD"
-            "IDFCFB" in s || "IDFCFIRST" in s -> "IDFC First Bank"
-            "ONECARD" in s || "ONECRD" in s || "FEDERAL" in s || "FEDONE" in s -> "OneCard"
-            "DBSBNK" in s || "DBS" in s -> "DBS Bank"
-            else -> null
-        }
-    }
+    private fun bankDisplayNameFromSender(sender: String): String? =
+        BankNameFromSender.resolve(sender)
 
     /**
      * Fallback dedup key for old expenses that don't have rawSmsBody stored.

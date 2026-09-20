@@ -168,6 +168,17 @@ class CategoryInferenceTest {
     }
 
     @Test
+    fun `an internal transfer body routes to Transfer`() {
+        val result = CategoryInference.infer(
+            merchant = "SAMUEL RAJASEKAR",
+            bankName = "Al Rajhi Bank",
+            categories = allCategories,
+            smsBody = "Debit Internal Transfer From:6805 Amount:SR 4000 To:SAMUEL RAJASEKAR"
+        )
+        assertEquals("Transfer", result?.name)
+    }
+
+    @Test
     fun `a user merchant rule still beats keyword matching`() {
         val rule = MerchantRule(
             id = 1,

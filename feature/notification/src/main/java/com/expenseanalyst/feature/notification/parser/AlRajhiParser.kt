@@ -28,6 +28,10 @@ class AlRajhiParser : TransactionParser {
 
     private val senderPattern = Regex("""(?i)(?:alrajhi|al.rajhi|rajhi|74100)""")
     private val transferFingerprintPattern = Regex("""(?i)(?:Credit|Debit)\s+Transfer\s+Internal""")
+    // Word-order variant Al Rajhi also sends: "Debit Internal Transfer / From:6805 / Amount:SR 4000 /
+    // To:NAME / To:XXXX". For Debit, From: is the user's own account digits and To: the recipient's
+    // name (mirror of the "Transfer Internal" credit layout below).
+    private val internalTransferPattern = Regex("""(?i)(Credit|Debit)\s+Internal\s+Transfer""")
     // MOI (Ministry of Interior) government service payments via Al Rajhi
     private val moiFingerprintPattern = Regex("""(?i)MOI\s+Payments""")
     // Standing order / external transfer — without these, this shape falls through every
@@ -72,6 +76,7 @@ class AlRajhiParser : TransactionParser {
     override fun canParse(sender: String, body: String): Boolean =
         senderPattern.containsMatchIn(sender) ||
         transferFingerprintPattern.containsMatchIn(body) ||
+        internalTransferPattern.containsMatchIn(body) ||
         moiFingerprintPattern.containsMatchIn(body) ||
         standingOrderPattern.containsMatchIn(body) ||
         (billPaymentPattern.containsMatchIn(body) && billServicePattern.containsMatchIn(body))
@@ -96,6 +101,33 @@ class AlRajhiParser : TransactionParser {
                 amount = amount,
                 currencyCode = "SAR",
                 type = TransactionDirection.DEBIT,
+                merchant = merchant,
+                accountLast4 = accountLast4,
+                referenceNumber = null,
+                bankName = bankName,
+                paymentMethodName = "NET_BANKING"
+            )
+        }
+
+        // "Debit/Credit Internal Transfer" (word order differs from "Transfer Internal" below).
+        internalTransferPattern.find(body)?.let { match ->
+            val isDebitTransfer = match.groupValues[1].equals("Debit", ignoreCase = true)
+            val amountMatch = amountSarPattern.find(body)
+            val amount = (amountMatch?.groupValues?.get(1)?.takeIf { it.isNotBlank() }
+                ?: amountMatch?.groupValues?.get(2)?.takeIf { it.isNotBlank() })
+                ?.replace(",", "")?.toDoubleOrNull() ?: return null
+            val accountLast4 = if (isDebitTransfer) {
+                fromAccountDigitsPattern.find(body)?.groupValues?.get(1)
+            } else {
+                transferToPattern.find(body)?.groupValues?.get(1)
+            }
+            val merchant = (if (isDebitTransfer) standingOrderToNamePattern else transferFromNamePattern)
+                .find(body)?.groupValues?.get(1)?.trim()
+                ?.takeIf { it.isNotBlank() && it.length < 80 }
+            return ParsedTransaction(
+                amount = amount,
+                currencyCode = "SAR",
+                type = TransactionDirection.TRANSFER,
                 merchant = merchant,
                 accountLast4 = accountLast4,
                 referenceNumber = null,

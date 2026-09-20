@@ -33,6 +33,7 @@ object TransactionAlertNotification {
     const val CHANNEL_ID = "expense_analyst_alerts"
     const val ACTION_OPEN_ADD_EXPENSE = "com.expenseanalyst.ACTION_OPEN_ADD_EXPENSE"
     const val ACTION_OPEN_EXPENSE_DETAIL = "com.expenseanalyst.ACTION_OPEN_EXPENSE_DETAIL"
+    const val ACTION_OPEN_PENDING_INBOX = "com.expenseanalyst.ACTION_OPEN_PENDING_INBOX"
     const val EXTRA_AMOUNT = "notif_amount"
     const val EXTRA_CURRENCY = "notif_currency"
     const val EXTRA_MERCHANT = "notif_merchant"
@@ -63,6 +64,9 @@ object TransactionAlertNotification {
     private const val LARGE_ICON_SIZE_PX = 192
 
     private var nextNotifId = 2000
+
+    /** Keeps bill notification ids clear of expense ids, which are the expense's own row id. */
+    private const val BILL_NOTIF_ID_OFFSET = 900_000L
 
     /**
      * Posts a notification for an auto-saved expense. Tapping opens the expense detail screen;
@@ -390,6 +394,40 @@ object TransactionAlertNotification {
             CHANNEL_ID, "Transaction Alerts", NotificationManager.IMPORTANCE_HIGH
         ).apply { description = "Alerts when a bank transaction is detected" }
         manager.createNotificationChannel(channel)
+    }
+
+    /**
+     * Posts a notification for a detected bill statement. Unlike a transaction, a bill is NOT
+     * auto-saved — it waits in the Pending Bill Statements inbox for confirmation, so without
+     * this alert the detection is entirely silent and the queue just grows unseen.
+     * Tapping opens that inbox.
+     */
+    fun postForBill(context: Context, pendingId: Long, billerName: String, amount: Double, currencyCode: String) {
+        val manager = context.getSystemService(NotificationManager::class.java) ?: return
+        ensureChannel(manager)
+
+        // Offset so a bill never collides with an expense notification id (which is the expense id).
+        val notifId = (BILL_NOTIF_ID_OFFSET + pendingId).toInt()
+
+        val launchIntent = context.packageManager
+            .getLaunchIntentForPackage(context.packageName)
+            ?.apply {
+                action = ACTION_OPEN_PENDING_INBOX
+                flags = Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP
+            } ?: return
+        val pendingIntent = PendingIntent.getActivity(
+            context, notifId, launchIntent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+
+        val amountStr = if (amount > 0) "%.2f %s".format(amount, currencyCode) else "Amount not detected"
+        postNotification(
+            context = context,
+            notifId = notifId,
+            title = "Bill statement · $amountStr",
+            body = "$billerName · tap to review",
+            pendingIntent = pendingIntent
+        )
     }
 
     private fun postNotification(

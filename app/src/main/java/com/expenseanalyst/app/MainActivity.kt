@@ -128,6 +128,9 @@ class MainActivity : ComponentActivity() {
                     .takeIf { it > 0 } ?: return
                 viewModel.setPendingRoute(NavRoutes.expenseDetail(expenseId))
             }
+            TransactionAlertNotification.ACTION_OPEN_PENDING_INBOX -> {
+                viewModel.setPendingRoute(NavRoutes.PENDING_INBOX)
+            }
             TransactionAlertNotification.ACTION_OPEN_ADD_EXPENSE -> {
                 // Legacy: old notifications still in the tray before this release
                 val amount = intent.getDoubleExtra(TransactionAlertNotification.EXTRA_AMOUNT, 0.0)

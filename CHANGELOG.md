@@ -4,6 +4,41 @@ Format: `[Date] — Summary`
 
 ---
 
+## 2026-09-21 — Bills were being detected but were unreachable
+
+Investigation started from "bills are not getting detected". Detection was never broken: 34 bill
+statements had been detected since June. Two bugs made them invisible, and the parser work alone
+would not have fixed either.
+
+- **Fix (the blocker)**: the "Pending Bill Statements" card is the only route into the inbox in
+  the whole app, and it sat *below* the Bills screen's "No bills yet" early return — which is keyed
+  on *saved* Bills. With no saved bill the link vanished, so a queued statement could never be
+  confirmed into one, so the link never came back. It now renders in the empty state too, with a
+  count badge fed by the previously-unused `PendingNotificationRepository.getCount()`.
+- **Fix**: a detected bill now posts a tray notification (`postForBill`) that taps through to the
+  inbox via the new `ACTION_OPEN_PENDING_INBOX` route. A bill is not auto-saved like a transaction,
+  so detection was previously entirely silent — no banner, no notification, no badge.
+- **Fix**: re-sent bill reminders are deduped on biller + amount within 35 days. Utilities re-send
+  the same statement every few days with only the date wording changed, so the existing exact-body
+  dedup never caught them — 6 real Saudi Energy bills had become 17 queue rows.
+- **Fix**: `BankNameFromSender.resolve()` is now the single source of truth for sender ID →
+  canonical bank name, replacing three drifting copies (`GenericParser`, `GenericStatementParser`,
+  `SmsImportViewModel`). That drift is why one Al Rajhi card was filed under both "Al Rajhi Bank"
+  and "AlRajhiBank", and Emirates NBD under "EmiratesNBD".
+- **Fix**: `AlRajhiStatementParser` treated "date"/"by" as optional after "due", so it matched the
+  earlier "Total amount due: SAR 9353.03" and tried to parse the amount as a date — dropping the
+  real "Due date". (Saudi Energy statements genuinely carry no due date; that null is correct.)
+- **New**: `OneCardStatementParser` for "One Credit Card bill of Rs. X is ready. Pay by <date>",
+  matched on body wording since the sender is a 6-char DLT code.
+- **New**: `AlRajhiParser` handles "Debit/Credit Internal Transfer", the word-order variant of the
+  "Transfer Internal" shape it already knew, reading the account from `From:` and the recipient
+  from `To:`. `CategoryInference` routes "internal transfer" wording to the Transfer category.
+- New tests: `OneCardStatementParserTest` (3), `AlRajhiStatementParserTest` (2),
+  `BankNameFromSenderTest` (4), plus Al Rajhi transfer and internal-transfer category regressions.
+- Version bumped to 0.7.10 (`versionCode` 12).
+
+---
+
 ## 2026-09-20 — Account-attribution bug fixes + SMS sender display (DB v26)
 
 Fixes from a manual audit of mis-mapped accounts across the whole dataset, prompted by the owner

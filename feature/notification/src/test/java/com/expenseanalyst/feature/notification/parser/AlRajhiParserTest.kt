@@ -151,4 +151,16 @@ class AlRajhiParserTest {
         val result = ParserRegistry.parse("AlRajhiBank", body)
         assertEquals("Al Rajhi Bank", result?.bankName)
     }
+
+    @org.junit.jupiter.api.Test
+    fun `parse extracts a Debit Internal Transfer as a transfer from the users own account`() {
+        val body = "Debit Internal Transfer\nFrom:6805\nAmount:SR 4000\nTo:SAMUEL RAJASEKAR\nTo:0221\n26/9/20 18:05"
+        val result = ParserRegistry.parse("AlRajhiBank", body)
+        assertNotNull(result)
+        assertEquals(4000.0, result!!.amount, 0.01)
+        assertEquals(TransactionDirection.TRANSFER, result.type)
+        assertEquals("6805", result.accountLast4)
+        assertEquals("SAMUEL RAJASEKAR", result.merchant)
+        assertEquals("Al Rajhi Bank", result.bankName)
+    }
 }

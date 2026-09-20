@@ -229,7 +229,8 @@ object CategoryInference {
                 findCategory(categories, "Salary")
             bodyLower.contains("neft") || bodyLower.contains("rtgs") ||
                 bodyLower.contains("imps") || bodyLower.contains("sarie") ||
-                bodyLower.contains("fund transfer") || bodyLower.contains("wire transfer") ->
+                bodyLower.contains("fund transfer") || bodyLower.contains("wire transfer") ||
+                bodyLower.contains("internal transfer") ->
                 findCategory(categories, "Transfer")
             bodyLower.contains("atm") || bodyLower.contains("cash withdrawal") ->
                 findCategory(categories, "Transfer")

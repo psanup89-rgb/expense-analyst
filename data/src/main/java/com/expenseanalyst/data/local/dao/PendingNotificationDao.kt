@@ -38,6 +38,25 @@ interface PendingNotificationDao {
     )
     suspend fun findRecentByRawBody(rawBody: String, sinceMillis: Long): PendingNotificationEntity?
 
+    /**
+     * Find a queued BILL for the same biller and amount within [sinceMillis].
+     * Billers re-send the same statement as a reminder every few days with only the date
+     * wording changed, so [findRecentByRawBody] (exact-body match) never catches those.
+     */
+    @Query(
+        """SELECT * FROM pending_notifications
+           WHERE pending_type = 'BILL'
+             AND biller_name = :billerName
+             AND ABS(amount - :amount) < 0.01
+             AND detected_at_millis >= :sinceMillis
+           LIMIT 1"""
+    )
+    suspend fun findRecentBillByBillerAndAmount(
+        billerName: String,
+        amount: Double,
+        sinceMillis: Long
+    ): PendingNotificationEntity?
+
     @Query("DELETE FROM pending_notifications")
     suspend fun deleteAll()
 }

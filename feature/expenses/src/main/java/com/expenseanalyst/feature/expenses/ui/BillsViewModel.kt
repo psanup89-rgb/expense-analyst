@@ -8,6 +8,7 @@ import com.expenseanalyst.domain.model.SourceType
 import com.expenseanalyst.domain.repository.BillRepository
 import com.expenseanalyst.domain.repository.CurrencyRepository
 import com.expenseanalyst.domain.repository.ExpenseRepository
+import com.expenseanalyst.domain.repository.PendingNotificationRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -28,7 +29,8 @@ import javax.inject.Inject
 class BillsViewModel @Inject constructor(
     private val billRepository: BillRepository,
     private val expenseRepository: ExpenseRepository,
-    private val currencyRepository: CurrencyRepository
+    private val currencyRepository: CurrencyRepository,
+    private val pendingNotificationRepository: PendingNotificationRepository
 ) : ViewModel() {
 
     private val _form = MutableStateFlow(BillsUiState())
@@ -55,8 +57,9 @@ class BillsViewModel @Inject constructor(
                 }
                 combine(paymentFlows) { it.toList() }
             }
-        }
-    ) { form, billsWithPayments ->
+        },
+        pendingNotificationRepository.getCount()
+    ) { form, billsWithPayments, pendingStatementCount ->
         val pending = billsWithPayments.filter { it.bill.status != BillStatus.SETTLED }
             .sortedWith(compareBy(nullsLast()) { it.bill.dueDateMillis })
         val settled = billsWithPayments.filter { it.bill.status == BillStatus.SETTLED }
@@ -64,6 +67,7 @@ class BillsViewModel @Inject constructor(
         form.copy(
             pendingBills = pending,
             settledBills = settled,
+            pendingStatementCount = pendingStatementCount,
             isLoading = false
         )
     }.stateIn(

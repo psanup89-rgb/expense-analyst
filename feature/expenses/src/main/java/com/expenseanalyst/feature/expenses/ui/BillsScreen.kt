@@ -125,6 +125,10 @@ fun BillsScreen(
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
                     )
+                    if (uiState.pendingStatementCount > 0) {
+                        Spacer(Modifier.height(24.dp))
+                        PendingStatementsCard(uiState.pendingStatementCount, onPendingBillStatements)
+                    }
                 }
             }
             return@Scaffold
@@ -139,30 +143,7 @@ fun BillsScreen(
         ) {
             item {
                 Spacer(Modifier.height(8.dp))
-                Card(
-                    onClick = onPendingBillStatements,
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer)
-                ) {
-                    Row(
-                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(12.dp)
-                    ) {
-                        Icon(
-                            Icons.Default.Inbox,
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.secondary,
-                            modifier = Modifier.size(20.dp)
-                        )
-                        Text(
-                            "Pending Bill Statements",
-                            style = MaterialTheme.typography.bodyMedium,
-                            fontWeight = FontWeight.Medium,
-                            color = MaterialTheme.colorScheme.onSecondaryContainer
-                        )
-                    }
-                }
+                PendingStatementsCard(uiState.pendingStatementCount, onPendingBillStatements)
             }
             if (uiState.pendingBills.isNotEmpty()) {
                 item {
@@ -507,6 +488,49 @@ private fun AddBillStatusDropdown(selected: BillStatus, onSelected: (BillStatus)
                         expanded = false
                     }
                 )
+            }
+        }
+    }
+}
+
+/**
+ * Entry point to the Pending Bill Statements inbox.
+ *
+ * Rendered in the empty state too, deliberately: it is the only route to that inbox, and it
+ * used to live solely below the "no bills yet" early return. With no saved bill you could not
+ * reach the queue, so you could not confirm a statement into a bill, so the link never
+ * appeared — detected statements piled up unreachable.
+ */
+@Composable
+private fun PendingStatementsCard(count: Int, onClick: () -> Unit) {
+    Card(
+        onClick = onClick,
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer)
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            Icon(
+                Icons.Default.Inbox,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.secondary,
+                modifier = Modifier.size(20.dp)
+            )
+            Text(
+                "Pending Bill Statements",
+                style = MaterialTheme.typography.bodyMedium,
+                fontWeight = FontWeight.Medium,
+                color = MaterialTheme.colorScheme.onSecondaryContainer,
+                modifier = Modifier.weight(1f)
+            )
+            if (count > 0) {
+                Badge(
+                    containerColor = MaterialTheme.colorScheme.error,
+                    contentColor = MaterialTheme.colorScheme.onError
+                ) { Text("$count") }
             }
         }
     }

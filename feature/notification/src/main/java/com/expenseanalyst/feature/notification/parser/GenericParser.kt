@@ -100,38 +100,6 @@ class GenericParser : TransactionParser {
      * Falls back to "Unknown Bank" if no pattern matches.
      * Mirrors the same lookup in SmsImportViewModel.bankDisplayNameFromSender().
      */
-    private fun bankNameFromSender(sender: String): String {
-        val s = sender.uppercase()
-        return when {
-            "HDFC" in s -> "HDFC Bank"
-            "ICICI" in s -> "ICICI Bank"
-            "AXISBK" in s || "AXISBANK" in s -> "Axis Bank"
-            "SBIINB" in s || "SBIPSG" in s || "SBIUPI" in s || "SBI" in s -> "SBI"
-            "KOTAK" in s -> "Kotak Bank"
-            "YESBNK" in s || "YESBANK" in s -> "Yes Bank"
-            "INDUS" in s -> "IndusInd Bank"
-            "PNBSMS" in s || "PUNJAB" in s -> "PNB"
-            "ALRJHI" in s || "ALRAJHI" in s -> "Al Rajhi Bank"
-            "ALINMA" in s -> "Alinma Bank"
-            "STCBNK" in s || "STCPAY" in s -> "STC Bank"
-            "D360" in s -> "Bank D·360"
-            // "EmiratesNBD" (literal app/notification sender name) contains neither "ENBD" nor
-            // "EMIRNBD" as a substring — only the 6-char DLT SMS code "EMIRNBD" does.
-            "EMIRNBD" in s || "ENBD" in s || "EMIRATES" in s -> "Emirates NBD"
-            "IDFCFB" in s || "IDFCFIRST" in s -> "IDFC First Bank"
-            // Real DLT sender codes truncate to 6 chars: "FEDONE" (Federal Bank OneCard) and
-            // "ONECRD", neither of which contains "FEDERAL" or "ONECARD" as a substring.
-            "ONECARD" in s || "ONECRD" in s || "FEDERAL" in s || "FEDONE" in s -> "OneCard"
-            "DBSBNK" in s || "DBS" in s -> "DBS Bank"
-            "CANARA" in s -> "Canara Bank"
-            "BOB" in s || "BANKOFBARODA" in s -> "Bank of Baroda"
-            "UNION" in s -> "Union Bank"
-            "CITI" in s -> "Citi Bank"
-            "AMEX" in s -> "American Express"
-            "PAYTM" in s -> "Paytm"
-            "AIRTEL" in s -> "Airtel Payments Bank"
-            "CLRTRP" in s || "CLEARTRIP" in s -> "Cleartrip"
-            else -> bankName // "Unknown Bank"
-        }
-    }
+    private fun bankNameFromSender(sender: String): String =
+        BankNameFromSender.resolve(sender) ?: bankName
 }

@@ -29,6 +29,13 @@ class PendingNotificationRepositoryImpl @Inject constructor(
     override suspend fun findRecentByRawBody(rawBody: String, sinceMillis: Long): PendingNotification? =
         dao.findRecentByRawBody(rawBody, sinceMillis)?.toDomain()
 
+    override suspend fun findRecentBillByBillerAndAmount(
+        billerName: String,
+        amount: Double,
+        sinceMillis: Long
+    ): PendingNotification? =
+        dao.findRecentBillByBillerAndAmount(billerName, amount, sinceMillis)?.toDomain()
+
     override suspend fun delete(id: Long) {
         dao.deleteById(id)
         // Cancel the system tray notification whose ID equals the pending notification's DB id.

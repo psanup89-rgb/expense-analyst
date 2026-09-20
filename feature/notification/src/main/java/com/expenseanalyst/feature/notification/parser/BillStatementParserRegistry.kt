@@ -14,6 +14,7 @@ object BillStatementParserRegistry {
         EmiratesNbdStatementParser(),
         AlRajhiStatementParser(),
         HdfcStatementParser(),
+        OneCardStatementParser(),
         TamaraStatementParser(),
         SaudiEnergyStatementParser(),
         EjarStatementParser(),
