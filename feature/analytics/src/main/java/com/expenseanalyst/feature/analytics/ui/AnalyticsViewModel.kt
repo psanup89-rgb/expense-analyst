@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.expenseanalyst.domain.model.TransactionType
 import com.expenseanalyst.domain.repository.CurrencyRepository
 import com.expenseanalyst.domain.repository.ExpenseRepository
+import com.expenseanalyst.domain.util.SpendClassifier
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -61,26 +62,15 @@ class AnalyticsViewModel @Inject constructor(
 
         // Totals — refunds (INCOME with category=Refund) are netted out of Total Spent
         // and excluded from Total Income so the dashboard reflects real net spend (issue #12).
-        val refundTotal = active
-            .filter { it.transactionType == TransactionType.INCOME && it.category.name == REFUND_CATEGORY }
-            .sumOf { it.homeAmount ?: it.amount }
-
-        val grossExpense = active
-            .filter { it.transactionType == TransactionType.EXPENSE }
-            .sumOf { it.homeAmount ?: it.amount }
-        val totalExpense = (grossExpense - refundTotal).coerceAtLeast(0.0)
-
-        val totalIncome = active
-            .filter { it.transactionType == TransactionType.INCOME && it.category.name != REFUND_CATEGORY }
-            .sumOf { it.homeAmount ?: it.amount }
-
-        val prevRefundTotal = prevList
-            .filter { !it.isDeleted && it.transactionType == TransactionType.INCOME && it.category.name == REFUND_CATEGORY }
-            .sumOf { it.homeAmount ?: it.amount }
-        val prevGrossExpense = prevList
-            .filter { !it.isDeleted && it.transactionType == TransactionType.EXPENSE }
-            .sumOf { it.homeAmount ?: it.amount }
-        val prevMonthExpense = (prevGrossExpense - prevRefundTotal).coerceAtLeast(0.0)
+        // Aggregations run on SpendClassifier.isSpend rather than a local EXPENSE check, so a
+        // transfer the user marked as sent to someone else counts here exactly as it does on the
+        // home screen's Spent card. The previous month uses the same predicate — otherwise the
+        // month-over-month delta would compare unlike quantities and report a phantom jump.
+        val spend = SpendClassifier.spendBreakdown(active)
+        val refundTotal = spend.refundTotal
+        val totalExpense = spend.net
+        val totalIncome = SpendClassifier.receivedBreakdown(active).net
+        val prevMonthExpense = SpendClassifier.spendBreakdown(prevList.filter { !it.isDeleted }).net
 
         // Days in month for avg
         val daysInMonth = selectedMonth.plus(1, DateTimeUnit.MONTH)
@@ -89,11 +79,11 @@ class AnalyticsViewModel @Inject constructor(
 
         // Category breakdown (EXPENSE only)
         val categoryTotals = active
-            .filter { it.transactionType == TransactionType.EXPENSE }
+            .filter(SpendClassifier::isSpend)
             .groupBy { it.category.id }
             .map { (_, items) ->
                 val cat = items.first().category
-                val total = items.sumOf { it.homeAmount ?: it.amount }
+                val total = items.sumOf(SpendClassifier::homeValue)
                 Triple(cat, total, items.size)
             }
             .sortedByDescending { it.second }
@@ -109,9 +99,29 @@ class AnalyticsViewModel @Inject constructor(
                 categoryName = sample.category.name,
                 iconName = sample.category.iconName,
                 colorHex = sample.category.colorHex,
-                amount = splitPaymentRows.sumOf { it.homeAmount ?: it.amount },
+                amount = splitPaymentRows.sumOf(SpendClassifier::homeValue),
                 percentage = 0f,
-                isExcludedFromTotal = true
+                isExcludedFromTotal = true,
+                drillDownFilter = DrillDownFilter.ByCategory(sample.category.name)
+            )
+        }
+
+        // Transfers between the user's own accounts. Not spending, so excluded from
+        // totalExpense and from the percentage denominator — same treatment as Split Payments
+        // above — but surfaced as its own bucket so the money movement is visible instead of
+        // vanishing. Icon and colour are hardcoded to the seeded Transfer category's rather than
+        // read off a row, because own-transfer rows keep whatever category they were filed
+        // under; that is also why this needs no seeded category of its own.
+        val ownTransferRows = active.filter(SpendClassifier::isOwnTransfer)
+        val ownTransfersSpend = ownTransferRows.takeIf { it.isNotEmpty() }?.let { rows ->
+            CategorySpend(
+                categoryName = OWN_TRANSFERS_BUCKET,
+                iconName = "swap_horiz",
+                colorHex = "#607D8B",
+                amount = rows.sumOf(SpendClassifier::homeValue),
+                percentage = 0f,
+                isExcludedFromTotal = true,
+                drillDownFilter = DrillDownFilter.OwnTransfers
             )
         }
 
@@ -121,15 +131,16 @@ class AnalyticsViewModel @Inject constructor(
                 iconName = cat.iconName,
                 colorHex = cat.colorHex,
                 amount = total,
-                percentage = if (totalExpense > 0) (total / totalExpense * 100f).toFloat() else 0f
+                percentage = if (totalExpense > 0) (total / totalExpense * 100f).toFloat() else 0f,
+                drillDownFilter = DrillDownFilter.ByCategory(cat.name)
             )
-        } + listOfNotNull(splitPaymentsSpend)
+        } + listOfNotNull(splitPaymentsSpend, ownTransfersSpend)
 
         // Daily spend (EXPENSE per day-of-month)
         val dailyMap = active
-            .filter { it.transactionType == TransactionType.EXPENSE }
+            .filter(SpendClassifier::isSpend)
             .groupBy { it.date.toLocalDateTime(timeZone).date.dayOfMonth }
-            .mapValues { (_, items) -> items.sumOf { it.homeAmount ?: it.amount } }
+            .mapValues { (_, items) -> items.sumOf(SpendClassifier::homeValue) }
 
         val dailySpend = (1..daysInMonth).map { day ->
             DailySpend(day = day, amount = dailyMap[day] ?: 0.0)
@@ -137,7 +148,7 @@ class AnalyticsViewModel @Inject constructor(
 
         // Top 5 merchants (EXPENSE only, non-null merchants)
         val merchantTotals = active
-            .filter { it.transactionType == TransactionType.EXPENSE && !it.merchantName.isNullOrBlank() }
+            .filter { SpendClassifier.isSpend(it) && !it.merchantName.isNullOrBlank() }
             .groupBy { it.merchantName!! }
             .map { (name, items) ->
                 MerchantSpend(
@@ -161,10 +172,13 @@ class AnalyticsViewModel @Inject constructor(
         // Drill-down
         val drillDownExpenses = when (drillDown) {
             is DrillDownFilter.Spent -> active
-                .filter { it.transactionType == TransactionType.EXPENSE }
+                .filter(SpendClassifier::isSpend)
                 .sortedByDescending { it.date }
             is DrillDownFilter.Income -> active
-                .filter { it.transactionType == TransactionType.INCOME }
+                .filter(SpendClassifier::isReceived)
+                .sortedByDescending { it.date }
+            is DrillDownFilter.OwnTransfers -> active
+                .filter(SpendClassifier::isOwnTransfer)
                 .sortedByDescending { it.date }
             is DrillDownFilter.ByCategory -> {
                 // Split Payments rows are PAYMENT type, not EXPENSE — scoped to exactly this
@@ -173,13 +187,13 @@ class AnalyticsViewModel @Inject constructor(
                 val includePayment = drillDown.categoryName == SPLIT_PAYMENTS_CATEGORY
                 active.filter {
                     it.category.name == drillDown.categoryName &&
-                        (it.transactionType == TransactionType.EXPENSE ||
+                        (SpendClassifier.isSpend(it) ||
                             (includePayment && it.transactionType == TransactionType.PAYMENT))
                 }.sortedByDescending { it.date }
             }
             is DrillDownFilter.ByMerchant -> active
                 .filter {
-                    it.transactionType == TransactionType.EXPENSE &&
+                    SpendClassifier.isSpend(it) &&
                         it.merchantName == drillDown.merchantName
                 }
                 .sortedByDescending { it.date }
@@ -187,6 +201,7 @@ class AnalyticsViewModel @Inject constructor(
         }
         val drillDownTitle = when (drillDown) {
             is DrillDownFilter.Spent -> "All Expenses"
+            is DrillDownFilter.OwnTransfers -> OWN_TRANSFERS_BUCKET
             is DrillDownFilter.Income -> "All Income"
             is DrillDownFilter.ByCategory -> drillDown.categoryName
             is DrillDownFilter.ByMerchant -> drillDown.merchantName
@@ -237,5 +252,6 @@ class AnalyticsViewModel @Inject constructor(
     private companion object {
         const val REFUND_CATEGORY = "Refund"
         const val SPLIT_PAYMENTS_CATEGORY = "Split Payments"
+        const val OWN_TRANSFERS_BUCKET = "Own Transfers"
     }
 }

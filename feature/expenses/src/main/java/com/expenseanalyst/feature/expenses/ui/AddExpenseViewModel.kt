@@ -19,6 +19,7 @@ import com.expenseanalyst.domain.model.PaymentMethod
 import com.expenseanalyst.domain.model.SourceType
 import com.expenseanalyst.domain.model.Tag
 import com.expenseanalyst.domain.model.TransactionType
+import com.expenseanalyst.domain.model.TransferClassification
 import com.expenseanalyst.domain.repository.AccountRepository
 import com.expenseanalyst.domain.repository.BillRepository
 import com.expenseanalyst.domain.repository.CategoryRepository
@@ -277,6 +278,15 @@ class AddExpenseViewModel @Inject constructor(
         } else {
             _form.update { it.copy(linkedBillId = null, linkedBill = null, availableBills = emptyList()) }
         }
+        // Clearing on leave mirrors the linkedBill handling above: a classification is only
+        // meaningful on a TRANSFER, and a stale one would be written to a non-transfer row.
+        if (type != TransactionType.TRANSFER) {
+            _form.update { it.copy(transferClassification = null) }
+        }
+    }
+
+    fun onTransferClassificationChange(classification: TransferClassification) {
+        _form.update { it.copy(transferClassification = classification) }
     }
     fun onCategorySelect(category: Category) {
         inferenceJob?.cancel()
@@ -518,6 +528,7 @@ class AddExpenseViewModel @Inject constructor(
                     category = state.selectedCategory!!,
                     paymentMethod = state.paymentMethod,
                     transactionType = state.transactionType,
+                    transferClassification = state.transferClassification,
                     date = state.date,
                     merchantName = merchantName,
                     sourceType = sourceType,

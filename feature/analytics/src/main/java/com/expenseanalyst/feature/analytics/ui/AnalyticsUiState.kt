@@ -7,6 +7,13 @@ sealed class DrillDownFilter {
     data object Income : DrillDownFilter()
     data class ByCategory(val categoryName: String) : DrillDownFilter()
     data class ByMerchant(val merchantName: String) : DrillDownFilter()
+
+    /**
+     * Transfers between the user's own accounts. A first-class filter rather than an extension
+     * of [ByCategory]'s Split-Payments special case, because own-transfer rows keep their own
+     * varied categories — the bucket is a classification, not a category name.
+     */
+    data object OwnTransfers : DrillDownFilter()
 }
 
 data class AnalyticsUiState(
@@ -32,12 +39,16 @@ data class CategorySpend(
     val amount: Double,
     val percentage: Float,
     /**
-     * True only for the synthetic "Split Payments" (BNPL) bucket. Its [amount] is deliberately
-     * NOT part of [AnalyticsUiState.totalExpense]'s denominator — per the owner's decision that
-     * these purchases never count toward spend — so [percentage] is meaningless here and the UI
-     * must not render it as a normal progress bar.
+     * True for the synthetic buckets ("Split Payments", "Own Transfers") whose [amount] is
+     * deliberately NOT part of [AnalyticsUiState.totalExpense]'s denominator, so [percentage] is
+     * meaningless here and the UI must not render it as a normal progress bar.
      */
-    val isExcludedFromTotal: Boolean = false
+    val isExcludedFromTotal: Boolean = false,
+    /**
+     * Where a tap on this bar drills to. Defaults to this bucket's own category name, which is
+     * right for every real category; the synthetic buckets override it.
+     */
+    val drillDownFilter: DrillDownFilter = DrillDownFilter.ByCategory(categoryName)
 )
 
 data class DailySpend(

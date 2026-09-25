@@ -1,10 +1,103 @@
 # Expense Analyst — Handoff
 
-**Last updated**: 2026-09-21
-**DB version**: 26
+**Last updated**: 2026-09-22
+**DB version**: 28
 **Build**: `./gradlew clean assembleDebug` ✅
 **Repo**: `https://github.com/psanup89-rgb/expense-analyst` (public)
-**Release**: v0.7.10-debug (GitHub Release with APK)
+**Release**: v0.7.11-debug (GitHub Release with APK)
+
+---
+
+## Session Summary (2026-09-22) — Transfers counted toward nothing
+
+Started as a question about the home card ("is my real spend Spent minus Received?" — no, Spent is
+already net of refunds). The audit found 19 TRANSFER rows totalling SAR 51,896 invisible to every
+total while rendering in the list exactly like real spending.
+
+**Shipped**
+- DB **v27**: nullable `expenses.transfer_classification` + `transfer_recipient_rules` table.
+- `domain/util/SpendClassifier.kt` — single source of truth for "is this spending", now used by
+  the list, Analytics and Budget. Previously hand-rolled three times, which is the root cause.
+- Classification UI: expense detail sheet (with "Always do this for X"), inline buttons in Needs
+  Review for bulk clearing, and chips on the add/edit form.
+- Home card Spent/Received are tappable and open a derivation breakdown, including a "Not counted"
+  section that is the discovery path for the un-backfilled legacy transfers.
+- `TransactionAmountStyle` replaces three verbatim copies of the amount colour/prefix logic.
+- Analytics gains an excluded "Own Transfers" bucket + `DrillDownFilter.OwnTransfers`.
+- 35 new `:domain` tests (`SpendClassifierTest`, `TransferRecipientMatcherTest`, extended
+  `NeedsReviewEvaluatorTest`).
+
+**Verified**
+- Migration proven on the live device DB before any UI work: `user_version=27`, column/table/index
+  present, **0 rows classified**, September gross unchanged at SAR 33,164.83.
+- `./gradlew clean assembleDebug` ✅ · `:domain:test` 108 tests, 1 pre-existing unrelated failure
+  (`CreateEmiFromExpenseUseCaseTest > invoke calculates correct installment with interest`) ·
+  `:feature:notification:testDebugUnitTest` ✅
+
+**Verified on device (2026-09-22)**
+- Upgrade is a no-op: Spent SAR 28,557.07 / Received SAR 10,243.62 identical before and after.
+- Breakdown sheet reproduces the card exactly (33,164.83 − 4,607.76 = 28,557.07).
+- Classifying the SAR 4,000 transfer EXTERNAL moved Spent to exactly SAR 32,557.07 (+4,000.00);
+  OWN_ACCOUNT moved it back to 28,557.07.
+- Row styling: EXTERNAL renders red `-`, OWN_ACCOUNT blue-grey `⇄ · Own transfer`, unclassified
+  `⇄ · Tap to classify`. Day subtotals follow.
+- Analytics grows "Own Transfers · SAR 4,000.00 · Not counted in total spent" with no bar and no
+  percentage; its drill-down lists exactly that row.
+- Rule saved with exact key `SAMUEL RAJASEKAR`; the two older `SAMUEL R` rows stayed untouched,
+  confirming forward-only.
+- **The mapper trap (R1) is clear**: Edit → Save round-trips the row through the full-row
+  `updateExpense`; `updated_at` advanced and `transfer_classification` survived as EXTERNAL.
+
+**Fixed during verification — the Review link was a dead end**
+The breakdown sheet advertised "Unclassified transfers (N) · Review", but tapping through showed a
+list that did not contain them: legacy rows carry no persisted reason and were never backfilled.
+`getNeedsReviewExpenses`/`getNeedsReviewCount` now also match
+`transaction_type = 'TRANSFER' AND transfer_classification IS NULL` **in SQL**, so the list, its
+header count and the nav badge cannot disagree. This is not the forbidden display-time reason
+recompute — it is a structural predicate on stored columns that stays accurate forever, unlike
+MISSING_MERCHANT which stops being detectable once the blank merchant is backfilled. The per-row
+"Mark done" control is hidden for an unclassified transfer, since clearing `needs_review` would
+not remove it from the list and the control would silently do nothing. Count went 209 → 226.
+
+**Still unverified**
+- Auto-classification of a *newly captured* transfer from a remembered rule — needs a real SMS to
+  arrive; the code path mirrors the bulk-import one and is covered by `TransferRecipientMatcher`
+  tests, but has not been exercised end to end.
+- Budget actuals — the Budget screen is behind a biometric gate.
+- The "another review reason survives" branch had no matching data (all 19 legacy transfers have
+  empty reason lists), so it is covered by `NeedsReviewEvaluator.remove` unit tests instead; the
+  filtering was extracted out of the DAO specifically to make it testable without Room.
+
+**Loans (DB v28) — verified on device (2026-09-26)**
+- Linked the SAR 4,000 transfer via "Start a new loan" and the INR 102,104 row via "Repayment
+  of…" (the sheet offered both directions for that row because its direction was never recorded).
+- Spent dropped by exactly SAR 4,000 (38,400.33 → 34,400.33); Received unchanged at 10,243.62.
+- Spent sheet: "Loans lent out (1) · SAR 4,000.00" under Not counted; Refunds back to the genuine
+  SAR 0.18. Received sheet: "Loan repayments (1) · SAR 4,607.58 — not income".
+- Edit→Save on a linked row keeps `loan_id` (mapper trap clear).
+- **Bug found and fixed during verification**: linking an outgoing leg adds it to the loan's
+  principal, but unlinking didn't subtract it, so unlink→relink doubled the loan. Unlink is now
+  symmetric; verified the cycle on device (principal 4,000 → 0 → 4,000, card back to 34,400.33).
+
+**Open data question**: the INR 500,000 that came in on 24 Feb (id 483, "SAMUEL R") was a
+repayment of a loan lent earlier. No outgoing leg exists in the app — history starts 2026-01-01
+and nothing before 24 Feb names Samuel or sums to ~INR 500,000 — so it needs a loan created by
+hand in Loans & Lending with the original principal/date/currency, then the row linked as a
+repayment. Do not guess these values.
+
+**Deliberately not done**
+- No backfill of the 19 legacy transfers (owner's decision); the breakdown sheet is the substitute.
+- No auto-detection of inbound transfers — `EXTERNAL_IN` is manual-only but the schema is ready.
+- No rules-management screen; "Forget rule for X" in the classify sheet is the minimum substitute.
+- Budget's refund netting still differs from the Spent card — pre-existing, orthogonal.
+- `ktlintCheck`/`detekt` are listed in CLAUDE.md but **not actually wired into the Gradle build**
+  (`Task 'ktlintCheck' not found`). Pre-existing gap, surfaced by this session, not introduced.
+
+**Open user-side item**
+An incoming remittance leg (SAMUEL R, INR 102,104 ≈ SAR 4,607.58, 20 Sep) is currently filed as
+INCOME + Refund, which subtracts that amount from September's Spent. Refund is load-bearing in the
+spend math — it is meant to cancel a matching expense. A self-transfer's inbound leg belongs in
+`EXTERNAL_IN` instead. Left as-is pending the owner's call.
 
 ---
 

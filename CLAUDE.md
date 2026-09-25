@@ -55,7 +55,7 @@ These rules apply at all times, without exception.
 
 ## Database
 
-- **Room** — entities in `data/local/entity/`. **Current version: 26**. All migrations inline in `ExpenseAnalystDatabase.kt`.
+- **Room** — entities in `data/local/entity/`. **Current version: 28**. All migrations inline in `ExpenseAnalystDatabase.kt`.
 - **`categories.name` is not unique** (no indices on that table) — `INSERT OR IGNORE` cannot dedupe by name. Use UPDATE-then-`INSERT … WHERE NOT EXISTS` for any category a user may already have created (`MIGRATION_20_21`).
 - Dates: **UTC epoch milliseconds** (`Long`). Display converts via `TimeZone.currentSystemDefault()`
 - **Soft delete** — `isDeleted: Boolean` flag. Never hard-delete.
@@ -63,7 +63,7 @@ These rules apply at all times, without exception.
 - `Expense` has: `merchantName` (primary, mandatory in UI), `description` (optional user notes), `accountId`, `rawSmsBody`
 - `TransactionType`: `EXPENSE | INCOME | TRANSFER | PAYMENT`
 - `AccountType`: `SAVINGS | CURRENT | CREDIT_CARD | DEBIT_CARD | FOREX_CARD | WALLET | OTHER`
-- 14 entities: Expense, Category, EmiGroup, CurrencyRate, **Account**, **MerchantRule**, **PendingNotification**, **Bill**, **Tag**, **ExpenseTagCrossRef**, **SalaryEntry**, **PlannedExpense**, **LentItem**, **MerchantRuleTagCrossRef**
+- 15 entities: Expense, Category, EmiGroup, CurrencyRate, **Account**, **MerchantRule**, **PendingNotification**, **Bill**, **Tag**, **ExpenseTagCrossRef**, **SalaryEntry**, **PlannedExpense**, **LentItem**, **MerchantRuleTagCrossRef**, **TransferRecipientRule**
 - Pre-seeded categories: Food & Drinks, Transport, Shopping, Bills, Entertainment, Health, Education, Groceries, Rent, Salary, Transfer, Other, **Refund**, **Fuel**, **Leisure**, **Split Payments**
 
 ---
@@ -73,7 +73,7 @@ These rules apply at all times, without exception.
 - `@HiltViewModel` on all ViewModels
 - Each module has a `di/` package with `@Module` classes
 - `@AndroidEntryPoint` on `MainActivity` and `TransactionNotificationService`
-- 13 repository interfaces in `:domain`: Expense, Category, Currency, EMI, Onboarding, **Account**, **MerchantRule**, **PendingNotification**, **AppPreferences**, **Bill**, **Tag**, **MerchantSearch**, **Budget**
+- 14 repository interfaces in `:domain`: Expense, Category, Currency, EMI, Onboarding, **Account**, **MerchantRule**, **PendingNotification**, **AppPreferences**, **Bill**, **Tag**, **MerchantSearch**, **Budget**, **TransferRecipientRule**
 
 ---
 
@@ -141,6 +141,15 @@ These rules apply at all times, without exception.
 - **`ParserRegistry.parse()` skips OTP/verification-code messages** (`\bOTP\b`, "one time password", "verification code") before trying any parser — a bank's OTP text often restates the transaction amount for context ("Enter OTP to authorize SAR 649.00 at noon"), and without this guard several parsers' generic amount-matching happily parsed it as a *second*, duplicate expense alongside the real purchase-confirmation SMS.
 - **A bank parser's `canParse()` should never rely on a generic, bank-agnostic body fingerprint** (amount + "purchase"/"debited"/"credited" + "balance"/"amount") as an OR-alternative alongside its sender check — `AlRajhiParser` used to have one, and since it's registered early in `ParserRegistry`, it silently stole real Emirates NBD and D360 Bank messages whenever their sender didn't literally match "alrajhi". If a bank parser needs a body-only fallback (for when sender detection might miss), it must be a fingerprint specific enough to that bank's actual wording (Al Rajhi's kept ones: "MOI Payments", "Standing Order", "Bill Payment"+Biller/Service:, "Credit/Debit Transfer Internal") — never a shape any bank's SMS could produce.
 - **Unresolved-bank accounts collapse onto one single "Unknown Account"** (DB v26, `MIGRATION_25_26`): `AccountRepositoryImpl.findOrCreate` always passes `lastFour = null` when `bankName == "Unknown Bank"`, so every unidentifiable SMS lands on the same account instead of fragmenting into a new "Unknown Bank *XXXX" row per distinct last-4 digit the parser happened to extract.
+- **`domain/util/SpendClassifier.kt` is the single source of truth for "does this row count as spending"** — used by `ExpenseListViewModel`, `AnalyticsViewModel` and `BudgetViewModel`. Each used to hand-roll `transactionType == EXPENSE` independently, which is how 19 TRANSFER rows worth SAR 51,896 ended up invisible to every total at once while still rendering as red minus-amounts in the list. Neither `:feature:expenses` nor `:feature:analytics` has a test source set, so totals math **must** live in `:domain` to be testable at all. `SpendBreakdown`/`ReceivedBreakdown` also feed the home-card breakdown sheets, so the sheet can never disagree with the figure it explains.
+- **A TRANSFER counts toward a total only once classified** (`Expense.transferClassification`, DB v27). `EXTERNAL` counts as Spent, `OWN_ACCOUNT` never counts, `EXTERNAL_IN` counts as Received, **null counts toward nothing** — which is the pre-classification behaviour, so upgrades move no historical figure. Existing rows were deliberately not backfilled; they're discovered through the Spent breakdown sheet's "Not counted" section.
+- **`TransferClassification.EXTERNAL_IN` exists because parsers emit `TransactionDirection.TRANSFER` for *incoming* transfers too** (`AlRajhiParser`'s "Credit Internal Transfer" / "Credit Transfer Internal", `StcBankParser`'s transfer branch), and direction is discarded at the `ParsedTransaction` boundary — a stored row cannot tell inbound from outbound. It is manual-only; auto-classification never produces it. Auto-detecting inbound transfers is an open follow-up.
+- **Transfer classification is remembered per recipient in `transfer_recipient_rules`, NOT in `merchant_rules`.** That table's `category_id` is NOT NULL (remembering a recipient would force picking a category and then apply it to every future row from that name), its `merchant_pattern` is uniquely indexed and upserted with REPLACE (a later category rule for the same name would destroy the transfer memory), and `MerchantRuleMatcher` is case-insensitive *substring containment* — correct for brands, dangerous for person names, where a "RAJ" rule would claim "RAJASEKAR" and "RAJESH". `domain/util/TransferRecipientMatcher` matches on an exact normalised key instead. Rules apply forward-only.
+- **`ExpenseDao.classifyTransfer` recomputes the persisted review reasons, and that is correct.** Review reasons must never be recomputed at *display* time (a blank merchant is backfilled with the bank name before persisting), but classifying is an explicit user mutation. It drops only `UNCLASSIFIED_TRANSFER` and clears `needs_review` only if no other reason survives.
+- **`ExpenseMapper` must carry `transfer_classification` in BOTH directions.** `ExpenseListViewModel.repairExpenseConversions()` runs on every launch and `NeedsReviewViewModel.markReviewed` both round-trip rows through the full-row `updateExpense`; an omission in `toEntity` silently reverts every classification the user has made, and no unit test catches it.
+- **Needs Review scope is `needs_review = 1` OR an unclassified TRANSFER**, matched in SQL in *both* `getNeedsReviewExpenses` and `getNeedsReviewCount` so the list, its header count and the bottom-nav badge cannot disagree. The transfer clause is not the forbidden display-time reason recompute — it is a structural predicate on stored columns that stays accurate forever, unlike `MISSING_MERCHANT`, which stops being detectable once the blank merchant is backfilled with the bank name. Without it the Spent breakdown's "Review" link was a dead end for exactly the rows it advertised. "Mark done" is hidden on those rows because clearing the flag would not remove them from the list.
+- **A row with `Expense.loanId` set is a loan leg and counts toward neither Spent nor Received, whatever its type** (DB v28, `expenses.loan_id`). `SpendClassifier.isLoanLeg` is checked *first* in every predicate, because a leg can arrive as a transfer, an expense or income depending on how the bank reported it. The link is on the expense, not on `LentItem`, because one loan can be lent in several transfers and repaid in several — `lent_items` has only one `linked_expense_id`/`settlement_expense_id` each. The loan keeps its **own principal**: lending can predate the app's history, so a loan must be able to exist and receive repayments with no recorded outgoing row. Direction of a leg comes from `isLoanRepayment` (INCOME, or a transfer stamped `EXTERNAL_IN` by `ExpenseDao.linkLoanLeg`).
+- **Never model a loan repayment as a Refund.** Refund-category INCOME nets against *Spent*, so it subtracts money that was never spent. `LoanDetailViewModel.markSettled` used to do exactly this and also silently no-op'd when no "Refund" category existed. `ExpenseMapper` must carry `loan_id` in both directions for the same reason as `transfer_classification`.
 - See `docs/NOTIFICATION_PARSING.md` for SOP on adding new parsers
 
 ---
@@ -160,7 +169,7 @@ These rules apply at all times, without exception.
 app/src/main/              → MainActivity, NavGraph, DI wiring, MainBottomNav
 core/src/main/             → Theme, reusable components, CurrencyFormatter, DateTimeUtil, CurrencyCatalog
 domain/src/main/           → Models, repository interfaces, use cases, CurrencyConversion
-data/src/main/             → Room DB (12 entities/DAOs, v15), repositories, CurrencyApiService, SeedCurrencyRates
+data/src/main/             → Room DB (15 entities, v28), repositories, CurrencyApiService, SeedCurrencyRates
 feature/expenses/          → Expense list, add, edit, detail screens + ViewModels
 feature/emi/               → EMI create, list, detail screens + ViewModels
 feature/notification/      → NotificationListenerService, parsers, banner UI

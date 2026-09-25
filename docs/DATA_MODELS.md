@@ -2,9 +2,9 @@
 
 ## Database: Room (SQLite)
 - Database class: `ExpenseAnalystDatabase`
-- **Current schema version: `22`**
+- **Current schema version: `28`**
 - Room schema export is enabled under `data/schemas/`
-- All migrations are inline in `ExpenseAnalystDatabase.kt` (v1→v2→...→v22)
+- All migrations are inline in `ExpenseAnalystDatabase.kt` (v1→v2→...→v28)
 - Home currency preference is stored separately in DataStore, not in Room
 
 ---
@@ -41,6 +41,9 @@ Primary table for all transactions (manual and auto-parsed).
 | updated_at_utc_millis | INTEGER | NOT NULL | Last update timestamp |
 | is_reimbursable | INTEGER | NOT NULL, DEFAULT 0 | Added in v21→v22. Marks an expense as expected to be paid back. Independent status flag — no effect on any total; the reimbursement itself is expected to arrive as its own separately-detected `INCOME` expense. See Settings → Reimbursements. |
 | reimbursed_date_millis | INTEGER | NULLABLE | Added in v21→v22. Null while pending; set when the user manually marks the expense reimbursed. Ignored unless `is_reimbursable = 1`. |
+| refund_original_expense_id | INTEGER | NULLABLE | Added in v24→v25. On a Refund-category INCOME row, the id of the EXPENSE it was auto-matched to (`RefundMatcher`). |
+| transfer_classification | TEXT | NULLABLE | Added in v26→v27. Only meaningful on TRANSFER rows: `EXTERNAL` (counts as Spent), `OWN_ACCOUNT` (never counts), `EXTERNAL_IN` (counts as Received, manual-only). **Null = unclassified, counted in neither total** — the pre-v27 behaviour, so no historical figure moved. Decoded tolerantly (unknown value → null). |
+| loan_id | INTEGER | NULLABLE, no FK | Added in v27→v28. Set when the row is one leg of a loan in `lent_items` (money lent out, or a repayment). **A loan leg counts toward neither Spent nor Received, whatever its type.** Many rows can share one loan. No FK/index: loans are soft-deleted, and the table is small. |
 
 **Indices:**
 - `idx_expenses_date` on `date_utc_millis` (date range queries)
@@ -214,6 +217,19 @@ Planned expense items per month for budget comparison. Added in DB migration v14
 | is_deleted | INTEGER | NOT NULL, DEFAULT 0 | Soft delete flag |
 | created_at_millis | INTEGER | NOT NULL | Record creation timestamp |
 
+### transfer_recipient_rules
+Remembered transfer classification per recipient name. Added in v26→v27.
+
+| Column | Type | Constraints | Description |
+|--------|------|-------------|-------------|
+| id | INTEGER | PK, autoGenerate | |
+| recipient_key | TEXT | NOT NULL, UNIQUE | Normalised name: trimmed, upper-cased, internal whitespace collapsed (`TransferRecipientMatcher.normalize`). Matched by **exact equality**, not substring. |
+| recipient_display_name | TEXT | NOT NULL | Name as originally captured, for display |
+| classification | TEXT | NOT NULL | `TransferClassification` name |
+| created_at_utc_millis | INTEGER | NOT NULL | |
+
+**Index**: `idx_transfer_recipient_rules_key` (UNIQUE) on `recipient_key`. Kept separate from `merchant_rules` because that table's `category_id` is NOT NULL, its pattern is upserted with REPLACE, and its substring matching is wrong for person names. Rules apply forward-only.
+
 ### lent_items
 Money lent to others (Loans/Lent tracking). Added in DB migration v17→v18.
 
@@ -221,7 +237,7 @@ Money lent to others (Loans/Lent tracking). Added in DB migration v17→v18.
 |--------|------|-------------|-------------|
 | id | INTEGER | PK, autoGenerate | |
 | person_name | TEXT | NOT NULL | Who the money was lent to |
-| amount | REAL | NOT NULL | Original amount lent |
+| amount | REAL | NOT NULL | Principal lent. Stored on the loan rather than derived from linked legs, because lending can predate the app's history. Linking/unlinking an outgoing leg in the loan's own currency adds/subtracts its amount; legs in another currency leave it alone. |
 | currency_code | TEXT | NOT NULL | ISO 4217 code |
 | home_amount | REAL | NULLABLE | Converted amount in home currency |
 | description | TEXT | NOT NULL | Notes on the loan |
@@ -229,8 +245,8 @@ Money lent to others (Loans/Lent tracking). Added in DB migration v17→v18.
 | status | TEXT | NOT NULL | `PENDING` or `SETTLED` |
 | settled_amount | REAL | NULLABLE | Amount actually settled (may differ from `amount`) |
 | settled_date_millis | INTEGER | NULLABLE | Date settled |
-| linked_expense_id | INTEGER | FK → expenses.id, NULLABLE | Original expense the loan was created from, if any |
-| settlement_expense_id | INTEGER | FK → expenses.id, NULLABLE | INCOME+Refund expense created on settlement (nets out of monthly totals) |
+| linked_expense_id | INTEGER | FK → expenses.id, NULLABLE | First outgoing expense the loan was started from, if any. Informational only — the authoritative link is `expenses.loan_id`, because a loan can be lent in several transactions. |
+| settlement_expense_id | INTEGER | FK → expenses.id, NULLABLE | **Legacy, no longer written.** Settling used to create an INCOME+Refund row, which wrongly subtracted the repayment from Spent. Since v28 repayments are real transactions linked via `expenses.loan_id`. |
 | reminder_datetime_millis | INTEGER | NULLABLE | WorkManager reminder trigger time |
 | is_deleted | INTEGER | NOT NULL, DEFAULT 0 | Soft delete flag |
 | created_at_millis | INTEGER | NOT NULL | Record creation timestamp |
@@ -366,6 +382,12 @@ enum class AccountType(val label: String) {
     SAVINGS("Savings"), CURRENT("Current"),
     CREDIT_CARD("Credit Card"), DEBIT_CARD("Debit Card"), FOREX_CARD("Forex Card"),
     WALLET("Wallet"), OTHER("Account")
+}
+
+enum class TransferClassification {
+    EXTERNAL,     // sent to someone else → counts as Spent
+    OWN_ACCOUNT,  // between the user's own accounts → never counts
+    EXTERNAL_IN   // received from someone else → counts as Received (manual-only)
 }
 
 enum class SourceType {

@@ -18,6 +18,7 @@ import com.expenseanalyst.data.local.dao.LentItemDao
 import com.expenseanalyst.data.local.dao.PlannedExpenseDao
 import com.expenseanalyst.data.local.dao.SalaryDao
 import com.expenseanalyst.data.local.dao.TagDao
+import com.expenseanalyst.data.local.dao.TransferRecipientRuleDao
 import com.expenseanalyst.data.local.entity.AccountEntity
 import com.expenseanalyst.data.local.entity.BillEntity
 import com.expenseanalyst.data.local.entity.CategoryEntity
@@ -32,6 +33,7 @@ import com.expenseanalyst.data.local.entity.PendingNotificationEntity
 import com.expenseanalyst.data.local.entity.PlannedExpenseEntity
 import com.expenseanalyst.data.local.entity.SalaryEntryEntity
 import com.expenseanalyst.data.local.entity.TagEntity
+import com.expenseanalyst.data.local.entity.TransferRecipientRuleEntity
 
 
 @Database(
@@ -49,9 +51,10 @@ import com.expenseanalyst.data.local.entity.TagEntity
         SalaryEntryEntity::class,
         PlannedExpenseEntity::class,
         LentItemEntity::class,
-        MerchantRuleTagCrossRef::class
+        MerchantRuleTagCrossRef::class,
+        TransferRecipientRuleEntity::class
     ],
-    version = 26,
+    version = 28,
     exportSchema = true
 )
 abstract class ExpenseAnalystDatabase : RoomDatabase() {
@@ -67,6 +70,7 @@ abstract class ExpenseAnalystDatabase : RoomDatabase() {
     abstract fun salaryDao(): SalaryDao
     abstract fun plannedExpenseDao(): PlannedExpenseDao
     abstract fun lentItemDao(): LentItemDao
+    abstract fun transferRecipientRuleDao(): TransferRecipientRuleDao
 
     companion object {
         const val DATABASE_NAME = "expense_analyst.db"
@@ -508,13 +512,70 @@ abstract class ExpenseAnalystDatabase : RoomDatabase() {
             }
         }
 
+        /**
+         * Transfer classification.
+         *
+         * `expenses.transfer_classification` is nullable and deliberately NOT backfilled: null
+         * means "unclassified", which is excluded from every total — exactly the behaviour that
+         * predated this column. So no historical Spent/Received figure moves on upgrade. Rows
+         * are instead surfaced through the Spent breakdown sheet and, for newly captured ones,
+         * ReviewReason.UNCLASSIFIED_TRANSFER.
+         *
+         * `transfer_recipient_rules` remembers a classification per recipient name so future
+         * transfers to that name classify themselves. Kept out of `merchant_rules` because that
+         * table's category_id is NOT NULL (remembering a recipient would force picking a
+         * category and then apply it to every future row from that name), its merchant_pattern
+         * is uniquely indexed and upserted with REPLACE (a later category rule for the same name
+         * would destroy the transfer memory), and MerchantRuleMatcher's substring semantics are
+         * wrong for person names — a "RAJ" pattern would claim "RAJASEKAR" and "RAJESH".
+         *
+         * The index name and columns must stay identical to TransferRecipientRuleEntity's
+         * @Entity(indices = ...) declaration, or Room's schema validation throws on open.
+         */
+        private val MIGRATION_26_27 = object : Migration(26, 27) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE expenses ADD COLUMN transfer_classification TEXT")
+                db.execSQL(
+                    """
+                    CREATE TABLE IF NOT EXISTS transfer_recipient_rules (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                        recipient_key TEXT NOT NULL,
+                        recipient_display_name TEXT NOT NULL,
+                        classification TEXT NOT NULL,
+                        created_at_utc_millis INTEGER NOT NULL
+                    )
+                    """.trimIndent()
+                )
+                db.execSQL(
+                    "CREATE UNIQUE INDEX IF NOT EXISTS idx_transfer_recipient_rules_key " +
+                        "ON transfer_recipient_rules (recipient_key)"
+                )
+            }
+        }
+
+        /**
+         * Loan legs. `expenses.loan_id` is nullable and deliberately has no foreign key or index:
+         * a loan is soft-deleted rather than removed, so there is no cascade to define, and the
+         * table is small enough that a per-loan lookup needs no index. Nothing is backfilled — a
+         * null loan_id is every existing row's correct value.
+         *
+         * The link lives on the expense rather than on `lent_items` because one loan can be lent
+         * in several transfers and repaid in several; `lent_items.linked_expense_id` /
+         * `settlement_expense_id` can each hold only one.
+         */
+        private val MIGRATION_27_28 = object : Migration(27, 28) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE expenses ADD COLUMN loan_id INTEGER")
+            }
+        }
+
         fun buildDatabase(context: Context): ExpenseAnalystDatabase {
             return Room.databaseBuilder(
                 context.applicationContext,
                 ExpenseAnalystDatabase::class.java,
                 DATABASE_NAME
             )
-                .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13, MIGRATION_13_14, MIGRATION_14_15, MIGRATION_15_16, MIGRATION_16_17, MIGRATION_17_18, MIGRATION_18_19, MIGRATION_19_20, MIGRATION_20_21, MIGRATION_21_22, MIGRATION_22_23, MIGRATION_23_24, MIGRATION_24_25, MIGRATION_25_26)
+                .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13, MIGRATION_13_14, MIGRATION_14_15, MIGRATION_15_16, MIGRATION_16_17, MIGRATION_17_18, MIGRATION_18_19, MIGRATION_19_20, MIGRATION_20_21, MIGRATION_21_22, MIGRATION_22_23, MIGRATION_23_24, MIGRATION_24_25, MIGRATION_25_26, MIGRATION_26_27, MIGRATION_27_28)
                 .addCallback(SeedDatabaseCallback())
                 .build()
         }

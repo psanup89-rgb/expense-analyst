@@ -4,24 +4,18 @@ import android.content.Context
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.expenseanalyst.domain.model.Expense
 import com.expenseanalyst.domain.model.LentStatus
-import com.expenseanalyst.domain.model.PaymentMethod
-import com.expenseanalyst.domain.model.SourceType
-import com.expenseanalyst.domain.model.TransactionType
-import com.expenseanalyst.domain.repository.CategoryRepository
 import com.expenseanalyst.domain.repository.ExpenseRepository
 import com.expenseanalyst.domain.repository.LentRepository
+import com.expenseanalyst.domain.util.SpendClassifier
 import com.expenseanalyst.feature.loans.service.LentReminderScheduler
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
-import kotlinx.datetime.Clock
 import javax.inject.Inject
 
 @HiltViewModel
@@ -29,8 +23,7 @@ class LoanDetailViewModel @Inject constructor(
     savedStateHandle: SavedStateHandle,
     @ApplicationContext private val context: Context,
     private val lentRepository: LentRepository,
-    private val expenseRepository: ExpenseRepository,
-    private val categoryRepository: CategoryRepository
+    private val expenseRepository: ExpenseRepository
 ) : ViewModel() {
 
     private val loanId: Long = checkNotNull(savedStateHandle["loanId"])
@@ -40,6 +33,11 @@ class LoanDetailViewModel @Inject constructor(
 
     init {
         load()
+        viewModelScope.launch {
+            expenseRepository.getExpensesByLoan(loanId).collect { legs ->
+                _uiState.update { it.copy(legs = legs) }
+            }
+        }
     }
 
     private fun load() {
@@ -60,32 +58,19 @@ class LoanDetailViewModel @Inject constructor(
         val item = _uiState.value.item ?: return
         _uiState.update { it.copy(isSaving = true, showSettleDialog = false) }
         viewModelScope.launch {
-            val refundCategory = categoryRepository.getCategories()
-                .firstOrNull()
-                ?.find { it.name == "Refund" }
-
-            val settlementExpenseId = refundCategory?.let { category ->
-                val settlement = Expense(
-                    amount = item.amount,
-                    currencyCode = item.currencyCode,
-                    homeAmount = item.homeAmount,
-                    exchangeRate = null,
-                    description = "Repayment from ${item.personName}",
-                    category = category,
-                    paymentMethod = PaymentMethod.CASH,
-                    transactionType = TransactionType.INCOME,
-                    date = Clock.System.now(),
-                    merchantName = item.personName,
-                    sourceType = SourceType.MANUAL
-                )
-                expenseRepository.addExpense(settlement)
-            }
-
+            // Settling used to fabricate an INCOME row in the Refund category for the full amount.
+            // That was wrong twice over: it subtracted money from Spent that was never in Spent
+            // (Refund income nets against spending), and it silently did nothing when no category
+            // named "Refund" existed. Repayments are now real transactions the user links to the
+            // loan from their own detail screen, and linked legs stay out of both totals. This
+            // just records the loan as closed, using what was actually repaid when it is known.
+            val repaid = uiState.value.legs
+                .filter { SpendClassifier.isLoanRepayment(it) }
+                .sumOf { SpendClassifier.homeValue(it) }
             val settled = item.copy(
                 status = LentStatus.SETTLED,
                 settledDateMillis = System.currentTimeMillis(),
-                settledAmount = item.amount,
-                settlementExpenseId = settlementExpenseId,
+                settledAmount = if (repaid > 0.0) repaid else item.amount,
                 reminderDatetimeMillis = null
             )
             lentRepository.updateLentItem(settled)

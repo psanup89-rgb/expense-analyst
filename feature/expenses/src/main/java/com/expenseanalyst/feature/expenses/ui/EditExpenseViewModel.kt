@@ -11,6 +11,7 @@ import com.expenseanalyst.domain.model.Expense
 import com.expenseanalyst.domain.model.PaymentMethod
 import com.expenseanalyst.domain.model.Tag
 import com.expenseanalyst.domain.model.TransactionType
+import com.expenseanalyst.domain.model.TransferClassification
 import com.expenseanalyst.domain.repository.AccountRepository
 import com.expenseanalyst.domain.repository.BillRepository
 import com.expenseanalyst.domain.repository.CategoryRepository
@@ -89,6 +90,7 @@ class EditExpenseViewModel @Inject constructor(
                 amountInput = expense.amount.toBigDecimal().stripTrailingZeros().toPlainString(),
                 currencyCode = expense.currencyCode,
                 transactionType = expense.transactionType,
+                transferClassification = expense.transferClassification,
                 selectedCategory = expense.category,
                 paymentMethod = expense.paymentMethod,
                 date = expense.date,
@@ -148,6 +150,13 @@ class EditExpenseViewModel @Inject constructor(
         } else {
             _form.update { it.copy(linkedBillId = null, linkedBill = null, availableBills = emptyList()) }
         }
+        if (type != TransactionType.TRANSFER) {
+            _form.update { it.copy(transferClassification = null) }
+        }
+    }
+
+    fun onTransferClassificationChange(classification: TransferClassification) {
+        _form.update { it.copy(transferClassification = classification) }
     }
     fun onCategorySelect(category: Category) {
         _form.update { it.copy(selectedCategory = category, isCategorySheetVisible = false) }
@@ -327,6 +336,7 @@ class EditExpenseViewModel @Inject constructor(
                     category = state.selectedCategory!!,
                     paymentMethod = state.paymentMethod,
                     transactionType = state.transactionType,
+                    transferClassification = state.transferClassification,
                     date = state.date,
                     merchantName = state.merchantName.trim().ifEmpty { null },
                     tags = state.selectedTags,

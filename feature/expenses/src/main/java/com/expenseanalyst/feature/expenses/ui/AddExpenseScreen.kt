@@ -110,6 +110,7 @@ import com.expenseanalyst.domain.model.PaymentMethod
 import com.expenseanalyst.domain.model.SourceType
 import com.expenseanalyst.domain.model.Tag
 import com.expenseanalyst.domain.model.TransactionType
+import com.expenseanalyst.domain.model.TransferClassification
 import com.expenseanalyst.domain.usecase.InferenceSource
 import androidx.compose.material.icons.filled.LinkOff
 import androidx.compose.material.icons.filled.ReceiptLong
@@ -135,6 +136,7 @@ fun AddExpenseScreen(
         onBack = onBack,
         onAmountChange = viewModel::onAmountChange,
         onTransactionTypeChange = viewModel::onTransactionTypeChange,
+        onTransferClassificationChange = viewModel::onTransferClassificationChange,
         onCategorySelect = viewModel::onCategorySelect,
         onShowCategorySheet = viewModel::showCategorySheet,
         onDismissCategorySheet = viewModel::dismissCategorySheet,
@@ -185,7 +187,7 @@ fun AddExpenseScreen(
     )
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
 internal fun AddExpenseContent(
     uiState: AddExpenseUiState,
@@ -197,6 +199,7 @@ internal fun AddExpenseContent(
     onBack: () -> Unit,
     onAmountChange: (String) -> Unit,
     onTransactionTypeChange: (TransactionType) -> Unit,
+    onTransferClassificationChange: (TransferClassification) -> Unit,
     onCategorySelect: (Category) -> Unit,
     onShowCategorySheet: () -> Unit,
     onDismissCategorySheet: () -> Unit,
@@ -863,6 +866,26 @@ internal fun AddExpenseContent(
                                 shape = SegmentedButtonDefaults.itemShape(index = 3, count = 4),
                                 colors = SegmentedButtonDefaults.colors(activeContainerColor = Color(0xFF7C5CBF).copy(alpha = 0.15f), activeContentColor = Color(0xFF7C5CBF))
                             ) { Text("Payment", style = MaterialTheme.typography.labelLarge) }
+                        }
+                        // A transfer needs to say where it went, or it counts toward neither
+                        // Spent nor Received. Three options because money can also arrive by
+                        // transfer — see TransferClassification's KDoc.
+                        if (uiState.transactionType == TransactionType.TRANSFER) {
+                            Spacer(Modifier.height(10.dp))
+                            FlowRow(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                TransferClassification.entries.forEach { option ->
+                                    FilterChip(
+                                        selected = uiState.transferClassification == option,
+                                        onClick = { onTransferClassificationChange(option) },
+                                        label = {
+                                            Text(option.label, style = MaterialTheme.typography.labelMedium)
+                                        }
+                                    )
+                                }
+                            }
                         }
                         Spacer(Modifier.height(16.dp))
                         Row(verticalAlignment = Alignment.CenterVertically) {

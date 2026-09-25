@@ -75,6 +75,8 @@ import com.expenseanalyst.core.util.categoryIconVector
 import com.expenseanalyst.domain.model.Expense
 import com.expenseanalyst.domain.model.PaymentMethod
 import com.expenseanalyst.domain.model.TransactionType
+import com.expenseanalyst.domain.util.ReceivedBreakdown
+import com.expenseanalyst.domain.util.SpendBreakdown
 
 @Composable
 fun ExpenseListScreen(
@@ -82,6 +84,7 @@ fun ExpenseListScreen(
     onImportFromSms: () -> Unit,
     onExpenseClick: (Long) -> Unit,
     onViewAnalytics: () -> Unit = {},
+    onReviewUnclassified: () -> Unit = {},
     viewModel: ExpenseListViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
@@ -112,7 +115,8 @@ fun ExpenseListScreen(
         onDeleteExpense = viewModel::deleteExpense,
         onPrevMonth = viewModel::prevMonth,
         onNextMonth = viewModel::nextMonth,
-        onAllMonths = viewModel::selectAllMonths
+        onAllMonths = viewModel::selectAllMonths,
+        onReviewUnclassified = onReviewUnclassified
     )
 }
 
@@ -131,9 +135,13 @@ private fun ExpenseListContent(
     onDeleteExpense: (Long) -> Unit,
     onPrevMonth: () -> Unit,
     onNextMonth: () -> Unit,
-    onAllMonths: () -> Unit
+    onAllMonths: () -> Unit,
+    onReviewUnclassified: () -> Unit
 ) {
     var showAddOptions by remember { mutableStateOf(false) }
+    // Ephemeral UI state, same as showAddOptions — the figures themselves already live on the
+    // UiState, so the sheet only needs to know which one to render.
+    var breakdownSheet by remember { mutableStateOf<BreakdownKind?>(null) }
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
         contentWindowInsets = androidx.compose.foundation.layout.WindowInsets(0, 0, 0, 0),
@@ -193,6 +201,8 @@ private fun ExpenseListContent(
                         onNext = onNextMonth,
                         onAllMonths = onAllMonths,
                         onViewAnalytics = onViewAnalytics,
+                        onSpentClick = { breakdownSheet = BreakdownKind.SPENT },
+                        onReceivedClick = { breakdownSheet = BreakdownKind.RECEIVED },
                         modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp)
                     )
                 }
@@ -300,7 +310,7 @@ private fun ExpenseListContent(
                         item(key = group.header) {
                             DateGroupHeader(
                                 header = group.header,
-                                total = group.dayDebitTotal,
+                                total = group.daySpendTotal,
                                 currencyCode = uiState.homeCurrencyCode,
                                 modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 4.dp)
                             )
@@ -339,6 +349,18 @@ private fun ExpenseListContent(
                 onImportFromSms = { showAddOptions = false; onImportFromSms() }
             )
         }
+
+        breakdownSheet?.let { kind ->
+            TotalsBreakdownSheet(
+                kind = kind,
+                monthLabel = uiState.selectedYearMonth?.label ?: "All months",
+                currencyCode = uiState.homeCurrencyCode,
+                spend = uiState.spendBreakdown,
+                received = uiState.receivedBreakdown,
+                onDismiss = { breakdownSheet = null },
+                onReviewUnclassified = { breakdownSheet = null; onReviewUnclassified() }
+            )
+        }
     }
     } // end Scaffold
 }
@@ -354,6 +376,8 @@ private fun MonthlySummaryCard(
     onNext: () -> Unit,
     onAllMonths: () -> Unit,
     onViewAnalytics: () -> Unit = {},
+    onSpentClick: () -> Unit,
+    onReceivedClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     Card(
@@ -421,9 +445,14 @@ private fun MonthlySummaryCard(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
-                Column {
+                Column(
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(10.dp))
+                        .clickable(onClick = onSpentClick)
+                        .padding(horizontal = 6.dp, vertical = 4.dp)
+                ) {
                     Text(
-                        text = "Spent",
+                        text = "Spent  ⓘ",
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -435,9 +464,15 @@ private fun MonthlySummaryCard(
                         color = Color(0xFFFF5555)
                     )
                 }
-                Column(horizontalAlignment = Alignment.End) {
+                Column(
+                    horizontalAlignment = Alignment.End,
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(10.dp))
+                        .clickable(onClick = onReceivedClick)
+                        .padding(horizontal = 6.dp, vertical = 4.dp)
+                ) {
                     Text(
-                        text = "Received",
+                        text = "Received  ⓘ",
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -501,14 +536,9 @@ fun ExpenseCard(
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val isIncome = expense.transactionType == TransactionType.INCOME
-    val isPayment = expense.transactionType == TransactionType.PAYMENT
-    val amountColor = when {
-        isIncome -> MaterialTheme.colorScheme.primary
-        isPayment -> Color(0xFF7C5CBF)
-        else -> Color(0xFFFF5555)
-    }
-    val amountPrefix = if (isIncome) "+" else "-"
+    val style = transactionAmountStyle(expense)
+    val amountColor = style.color
+    val amountPrefix = style.prefix
 
     Card(
         modifier = modifier
@@ -547,11 +577,24 @@ fun ExpenseCard(
                     overflow = TextOverflow.Ellipsis
                 )
                 Spacer(Modifier.height(2.dp))
-                Text(
-                    text = "${expense.category.name} · ${DateTimeUtil.formatTime(expense.date)}",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        text = "${expense.category.name} · ${DateTimeUtil.formatTime(expense.date)}",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    // Transfers carry a qualifier here ("Sent", "Own transfer", "Tap to
+                    // classify"), since the amount alone can no longer say which kind it is.
+                    style.note?.let { note ->
+                        Text(
+                            text = " · $note",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = style.noteColor ?: MaterialTheme.colorScheme.onSurfaceVariant,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
+                }
             }
 
             Column(horizontalAlignment = Alignment.End) {
@@ -701,6 +744,172 @@ private fun EmptyExpenseState(modifier: Modifier = Modifier) {
             text = "Tap + to add your first expense",
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.outline
+        )
+    }
+}
+
+internal enum class BreakdownKind { SPENT, RECEIVED }
+
+/**
+ * Explains how the Spent or Received figure on the summary card was arrived at.
+ *
+ * Every number comes straight from the breakdown already computed for the card, so the sheet
+ * can never disagree with the figure it is explaining. The "Not counted" section is the point
+ * of the whole thing: it makes own-account and still-unclassified transfers visible and
+ * quantified instead of silently absent, and gives the unclassified ones a route to the Review
+ * screen — which is how the pre-existing backlog gets discovered, since old rows were
+ * deliberately not backfilled into the review queue.
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun TotalsBreakdownSheet(
+    kind: BreakdownKind,
+    monthLabel: String,
+    currencyCode: String,
+    spend: SpendBreakdown,
+    received: ReceivedBreakdown,
+    onDismiss: () -> Unit,
+    onReviewUnclassified: () -> Unit
+) {
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
+        containerColor = MaterialTheme.colorScheme.surfaceContainerLow
+    ) {
+        Column(modifier = Modifier.padding(start = 24.dp, end = 24.dp, bottom = 32.dp)) {
+            Text(
+                text = if (kind == BreakdownKind.SPENT) "How Spent was calculated"
+                else "How Received was calculated",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold
+            )
+            Text(
+                text = monthLabel,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Spacer(Modifier.height(16.dp))
+
+            if (kind == BreakdownKind.SPENT) {
+                BreakdownRow("Expenses", spend.expenseCount, spend.expenseTotal, "+", currencyCode)
+                BreakdownRow(
+                    "Transfers to others", spend.externalTransferCount,
+                    spend.externalTransferTotal, "+", currencyCode
+                )
+                BreakdownRow("Refunds", spend.refundCount, spend.refundTotal, "\u2212", currencyCode)
+                BreakdownTotal("Spent", spend.net, currencyCode)
+
+                if (spend.ownTransferCount > 0 || spend.unclassifiedTransferCount > 0 || spend.loanOutCount > 0) {
+                    Spacer(Modifier.height(20.dp))
+                    Text(
+                        text = "NOT COUNTED",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Spacer(Modifier.height(6.dp))
+                    if (spend.loanOutCount > 0) {
+                        BreakdownRow(
+                            "Loans lent out", spend.loanOutCount,
+                            spend.loanOutTotal, "", currencyCode, muted = true,
+                            caption = "Money lent, not spent"
+                        )
+                    }
+                    if (spend.ownTransferCount > 0) {
+                        BreakdownRow(
+                            "Own-account transfers", spend.ownTransferCount,
+                            spend.ownTransferTotal, "", currencyCode, muted = true,
+                            caption = "Moved between your accounts"
+                        )
+                    }
+                    if (spend.unclassifiedTransferCount > 0) {
+                        BreakdownRow(
+                            "Unclassified transfers", spend.unclassifiedTransferCount,
+                            spend.unclassifiedTransferTotal, "", currencyCode, muted = true,
+                            caption = "Not yet marked as yours or someone else's"
+                        )
+                        TextButton(onClick = onReviewUnclassified) { Text("Review") }
+                    }
+                }
+            } else {
+                BreakdownRow("Income", received.incomeCount, received.incomeTotal, "+", currencyCode)
+                BreakdownRow(
+                    "Transfers received", received.transferInCount,
+                    received.transferInTotal, "+", currencyCode
+                )
+                BreakdownTotal("Received", received.net, currencyCode)
+
+                if (received.refundCount > 0 || received.loanRepaidCount > 0) {
+                    Spacer(Modifier.height(20.dp))
+                    Text(
+                        text = "NOT COUNTED",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Spacer(Modifier.height(6.dp))
+                    BreakdownRow(
+                        "Loan repayments", received.loanRepaidCount, received.loanRepaidTotal, "",
+                        currencyCode, muted = true, caption = "Your own money coming back, not income"
+                    )
+                    BreakdownRow(
+                        "Refunds", received.refundCount, received.refundTotal, "",
+                        currencyCode, muted = true, caption = "Netted out of Spent instead"
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun BreakdownRow(
+    label: String,
+    count: Int,
+    amount: Double,
+    sign: String,
+    currencyCode: String,
+    muted: Boolean = false,
+    caption: String? = null
+) {
+    if (count == 0) return
+    val color = if (muted) MaterialTheme.colorScheme.onSurfaceVariant
+    else MaterialTheme.colorScheme.onSurface
+    Row(
+        modifier = Modifier.fillMaxWidth().padding(vertical = 5.dp),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.Top
+    ) {
+        Column(modifier = Modifier.weight(1f)) {
+            Text("$label ($count)", style = MaterialTheme.typography.bodyMedium, color = color)
+            caption?.let {
+                Text(
+                    text = it,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        }
+        Spacer(Modifier.width(12.dp))
+        Text(
+            text = (if (sign.isEmpty()) "" else "$sign ") +
+                CurrencyFormatter.format(amount, currencyCode),
+            style = MaterialTheme.typography.bodyMedium,
+            color = color
+        )
+    }
+}
+
+@Composable
+private fun BreakdownTotal(label: String, amount: Double, currencyCode: String) {
+    androidx.compose.material3.HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween
+    ) {
+        Text(label, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+        Text(
+            text = CurrencyFormatter.format(amount, currencyCode),
+            style = MaterialTheme.typography.titleSmall,
+            fontWeight = FontWeight.Bold
         )
     }
 }

@@ -3,6 +3,8 @@ package com.expenseanalyst.feature.expenses.ui
 import com.expenseanalyst.domain.model.Category
 import com.expenseanalyst.domain.model.Expense
 import com.expenseanalyst.domain.model.PaymentMethod
+import com.expenseanalyst.domain.util.ReceivedBreakdown
+import com.expenseanalyst.domain.util.SpendBreakdown
 
 data class YearMonth(val year: Int, val month: Int) {
     val label: String = "${MONTH_NAMES[month]} $year"
@@ -26,6 +28,10 @@ data class ExpenseListUiState(
     val canGoNext: Boolean = false,
     val monthTotalDebit: Double = 0.0,
     val monthTotalCredit: Double = 0.0,
+    /** Components of [monthTotalDebit], for the "how Spent was calculated" sheet. */
+    val spendBreakdown: SpendBreakdown = SpendBreakdown(),
+    /** Components of [monthTotalCredit], for the "how Received was calculated" sheet. */
+    val receivedBreakdown: ReceivedBreakdown = ReceivedBreakdown(),
     val isLoading: Boolean = true,
     val error: String? = null,
     val accountDisplayNames: Map<Long, String> = emptyMap(),
@@ -35,5 +41,6 @@ data class ExpenseListUiState(
 data class ExpenseGroup(
     val header: String,
     val expenses: List<Expense>,
-    val dayDebitTotal: Double
+    /** Sum of rows that count as spending — see SpendClassifier.isSpend. */
+    val daySpendTotal: Double
 )

@@ -139,6 +139,14 @@ fun LoanDetailScreen(
 
                     HorizontalDivider()
 
+                    LoanLegsSection(
+                        legs = uiState.legs,
+                        principal = item.amount,
+                        principalCurrency = item.currencyCode
+                    )
+
+                    HorizontalDivider()
+
                     if (item.status == LentStatus.PENDING) {
                         Button(
                             onClick = viewModel::showSettleDialog,
@@ -180,7 +188,7 @@ fun LoanDetailScreen(
         AlertDialog(
             onDismissRequest = viewModel::hideSettleDialog,
             title = { Text("Mark as Settled") },
-            text = { Text("This will record a repayment income transaction. The loan will be removed from your pending totals.") },
+            text = { Text("This closes the loan. It does not create a transaction — link the actual repayment from its own detail screen so it stays out of your Received total.") },
             confirmButton = {
                 Button(onClick = viewModel::markSettled) { Text("Settle") }
             },
@@ -194,7 +202,7 @@ fun LoanDetailScreen(
         AlertDialog(
             onDismissRequest = viewModel::hideDeleteDialog,
             title = { Text("Delete Loan") },
-            text = { Text("This will remove this loan record. Any linked settlement income will not be deleted.") },
+            text = { Text("This will remove this loan record. Transactions linked to it are not deleted, and stay excluded from Spent and Received until you unlink them.") },
             confirmButton = {
                 Button(onClick = viewModel::delete) { Text("Delete") }
             },
@@ -238,5 +246,53 @@ private fun DetailRow(label: String, value: String) {
             fontWeight = FontWeight.Medium,
             modifier = Modifier.weight(0.6f)
         )
+    }
+}
+
+/**
+ * The transactions linked to a loan, grouped into money lent out and money repaid. A loan can be
+ * lent in several transfers and repaid in several, and its principal is stored independently of
+ * these rows — so a loan whose lending predates the app's history still shows its repayments.
+ * Totals are in the home currency because the two sides are often in different currencies.
+ */
+@Composable
+private fun LoanLegsSection(
+    legs: List<com.expenseanalyst.domain.model.Expense>,
+    principal: Double,
+    principalCurrency: String
+) {
+    val dateFormat = SimpleDateFormat("dd MMM yyyy", Locale.getDefault())
+    val lent = legs.filter { !com.expenseanalyst.domain.util.SpendClassifier.isLoanRepayment(it) }
+    val repaid = legs.filter { com.expenseanalyst.domain.util.SpendClassifier.isLoanRepayment(it) }
+
+    Text("Linked transactions", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
+    if (legs.isEmpty()) {
+        Text(
+            text = "None yet. Open a transaction and choose \"Link to loan\" to attach money lent out or a repayment. " +
+                "Recorded principal: $principalCurrency ${"%.2f".format(principal)}.",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        return
+    }
+    listOf("Lent out" to lent, "Repaid" to repaid).forEach { (label, rows) ->
+        if (rows.isEmpty()) return@forEach
+        Text(label, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        rows.forEach { leg ->
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Text(
+                    text = dateFormat.format(Date(leg.date.toEpochMilliseconds())),
+                    style = MaterialTheme.typography.bodyMedium
+                )
+                Text(
+                    text = "${leg.currencyCode} ${"%.2f".format(leg.amount)}",
+                    style = MaterialTheme.typography.bodyMedium,
+                    fontWeight = FontWeight.Medium
+                )
+            }
+        }
     }
 }

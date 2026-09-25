@@ -9,6 +9,7 @@ import com.expenseanalyst.data.local.dao.EmiGroupDao
 import com.expenseanalyst.data.local.dao.ExpenseDao
 import com.expenseanalyst.data.local.dao.BillDao
 import com.expenseanalyst.data.local.dao.MerchantRuleDao
+import com.expenseanalyst.data.local.dao.TransferRecipientRuleDao
 import com.expenseanalyst.data.local.dao.PendingNotificationDao
 import com.expenseanalyst.data.local.dao.LentItemDao
 import com.expenseanalyst.data.local.dao.PlannedExpenseDao
@@ -64,6 +65,11 @@ object DatabaseModule {
     @Provides
     fun provideMerchantRuleDao(database: ExpenseAnalystDatabase): MerchantRuleDao {
         return database.merchantRuleDao()
+    }
+
+    @Provides
+    fun provideTransferRecipientRuleDao(database: ExpenseAnalystDatabase): TransferRecipientRuleDao {
+        return database.transferRecipientRuleDao()
     }
 
     @Provides

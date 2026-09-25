@@ -15,12 +15,14 @@ import com.expenseanalyst.domain.repository.CurrencyRepository
 import com.expenseanalyst.domain.repository.ExpenseRepository
 import com.expenseanalyst.domain.repository.MerchantRuleRepository
 import com.expenseanalyst.domain.repository.PendingNotificationRepository
+import com.expenseanalyst.domain.repository.TransferRecipientRuleRepository
 import com.expenseanalyst.domain.util.BillMatcher
 import com.expenseanalyst.domain.util.CategoryInference
 import com.expenseanalyst.domain.util.CurrencyConversion
 import com.expenseanalyst.domain.util.MerchantRuleMatcher
 import com.expenseanalyst.domain.util.NeedsReviewEvaluator
 import com.expenseanalyst.domain.util.RefundMatcher
+import com.expenseanalyst.domain.util.TransferRecipientMatcher
 import com.expenseanalyst.feature.notification.parser.ParsedTransaction
 import com.expenseanalyst.feature.notification.parser.TransactionDirection
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -58,6 +60,7 @@ class PendingNotificationManager @Inject constructor(
     private val billRepository: BillRepository,
     private val categoryRepository: CategoryRepository,
     private val merchantRuleRepository: MerchantRuleRepository,
+    private val transferRecipientRuleRepository: TransferRecipientRuleRepository,
     private val accountRepository: AccountRepository,
     private val currencyRepository: CurrencyRepository,
     private val appPreferencesRepository: AppPreferencesRepository
@@ -167,6 +170,22 @@ class PendingNotificationManager @Inject constructor(
                 TransactionDirection.TRANSFER -> TransactionType.TRANSFER
             }
 
+            // ── Transfer classification from the remembered recipient rule ──
+            // Keyed on the recipient NAME, not the account: for an outgoing transfer the row's
+            // accountId is the SOURCE (already the user's own account) and the destination
+            // exists only as the merchant name. Forward-only by design — creating a rule never
+            // touches rows already captured, so no historical total shifts retroactively.
+            // EXTERNAL_IN is never produced here: it can only come from a rule the user set by
+            // hand, because the parsers discard inbound/outbound direction for transfers.
+            val transferClassification = if (transactionType == TransactionType.TRANSFER) {
+                TransferRecipientMatcher.findRule(
+                    normalized.merchant,
+                    transferRecipientRuleRepository.getRules().first()
+                )?.classification
+            } else {
+                null
+            }
+
             // ── Refund matching: for a Refund-category INCOME, find the original expense it
             // refunds (same amount+currency, within RefundMatcher's window) and inherit its
             // account/payment method instead of guessing from this SMS's own sparse wording ──
@@ -192,7 +211,9 @@ class PendingNotificationManager @Inject constructor(
                 merchantName = normalized.merchant,
                 categoryName = category.name,
                 paymentMethod = effectivePaymentMethod,
-                accountLastFour = refundMatch?.accountLastFour ?: normalized.accountLast4
+                accountLastFour = refundMatch?.accountLastFour ?: normalized.accountLast4,
+                transactionType = transactionType,
+                transferClassification = transferClassification
             )
             val needsReview = reviewReasons.isNotEmpty()
 
@@ -215,7 +236,8 @@ class PendingNotificationManager @Inject constructor(
                 needsReview = needsReview,
                 reviewReasons = reviewReasons,
                 tags = matchedRule?.tags ?: emptyList(),
-                refundOriginalExpenseId = refundMatch?.id
+                refundOriginalExpenseId = refundMatch?.id,
+                transferClassification = transferClassification
             )
             val conversion = CurrencyConversion.resolve(stubExpense, homeCurrencyCode, ratesByCode)
             val savedExpense = stubExpense.copy(

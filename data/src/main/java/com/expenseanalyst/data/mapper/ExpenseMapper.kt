@@ -6,6 +6,7 @@ import com.expenseanalyst.domain.model.Expense
 import com.expenseanalyst.domain.model.PaymentMethod
 import com.expenseanalyst.domain.model.SourceType
 import com.expenseanalyst.domain.model.TransactionType
+import com.expenseanalyst.domain.model.TransferClassification
 import com.expenseanalyst.domain.util.NeedsReviewEvaluator
 import kotlinx.datetime.Instant
 
@@ -36,7 +37,13 @@ fun ExpenseWithCategory.toDomain() = Expense(
     reviewReasons = NeedsReviewEvaluator.decode(expense.needsReviewReasons),
     isReimbursable = expense.isReimbursable,
     reimbursedDate = expense.reimbursedDateMillis?.let { Instant.fromEpochMilliseconds(it) },
-    refundOriginalExpenseId = expense.refundOriginalExpenseId
+    refundOriginalExpenseId = expense.refundOriginalExpenseId,
+    // Decoded tolerantly rather than with a bare valueOf (unlike the enums above): this column
+    // is user-set and nullable, so an unrecognised value must degrade to "unclassified" instead
+    // of crashing the whole list. Same posture as NeedsReviewEvaluator.decode.
+    transferClassification = expense.transferClassification
+        ?.let { runCatching { TransferClassification.valueOf(it) }.getOrNull() },
+    loanId = expense.loanId
 )
 
 fun Expense.toEntity(createdAt: Long, updatedAt: Long) = ExpenseEntity(
@@ -66,5 +73,12 @@ fun Expense.toEntity(createdAt: Long, updatedAt: Long) = ExpenseEntity(
     needsReviewReasons = NeedsReviewEvaluator.encode(reviewReasons),
     isReimbursable = isReimbursable,
     reimbursedDateMillis = reimbursedDate?.toEpochMilliseconds(),
-    refundOriginalExpenseId = refundOriginalExpenseId
+    refundOriginalExpenseId = refundOriginalExpenseId,
+    // MUST stay in sync with toDomain above. repairExpenseConversions() and markReviewed() both
+    // round-trip every row through this mapper via the full-row updateExpense, so an omission
+    // here silently reverts every classification the user has made on the next app launch.
+    transferClassification = transferClassification?.name,
+    // Same rule as transferClassification above: omitting this here silently unlinks every loan
+    // leg on the next full-row updateExpense (repairExpenseConversions runs on every launch).
+    loanId = loanId
 )

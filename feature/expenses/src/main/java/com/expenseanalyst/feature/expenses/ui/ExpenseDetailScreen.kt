@@ -22,6 +22,7 @@ import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.KeyboardArrowDown
@@ -30,12 +31,15 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
+import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.ListItem
+import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedButton
@@ -71,9 +75,12 @@ import com.expenseanalyst.domain.model.Category
 import com.expenseanalyst.domain.model.Expense
 import com.expenseanalyst.domain.model.MerchantRule
 import com.expenseanalyst.domain.model.Bill
+import com.expenseanalyst.domain.model.LentItem
+import com.expenseanalyst.domain.util.SpendClassifier
 import com.expenseanalyst.domain.model.SourceType
 import com.expenseanalyst.domain.model.Tag
 import com.expenseanalyst.domain.model.TransactionType
+import com.expenseanalyst.domain.model.TransferClassification
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -137,6 +144,43 @@ fun ExpenseDetailScreen(
                 onSave = { category, tags -> viewModel.saveRule(dialogPattern, category, tags) },
                 onDismiss = viewModel::dismissRuleDialog
             )
+        }
+    }
+
+    if (uiState.showLoanSheet) {
+        val expense = uiState.expense
+        if (expense != null) {
+            ModalBottomSheet(
+                onDismissRequest = viewModel::dismissLoanSheet,
+                sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
+                containerColor = MaterialTheme.colorScheme.surfaceContainerLow
+            ) {
+                LoanLinkSheet(
+                    expense = expense,
+                    pendingLoans = uiState.pendingLoans,
+                    onStartLoan = viewModel::startLoanFromThisRow,
+                    onLink = viewModel::linkToLoan
+                )
+            }
+        }
+    }
+
+    if (uiState.showTransferSheet) {
+        val expense = uiState.expense
+        if (expense != null) {
+            ModalBottomSheet(
+                onDismissRequest = viewModel::dismissTransferSheet,
+                sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
+                containerColor = MaterialTheme.colorScheme.surfaceContainerLow
+            ) {
+                TransferClassificationSheet(
+                    recipientName = expense.merchantName?.takeIf { it.isNotBlank() },
+                    current = expense.transferClassification,
+                    hasExistingRule = uiState.existingTransferRule != null,
+                    onSelect = viewModel::classifyTransfer,
+                    onForgetRule = viewModel::forgetTransferRule
+                )
+            }
         }
     }
 
@@ -206,6 +250,11 @@ fun ExpenseDetailScreen(
                 onConvertToEmi = { onConvertToEmi(uiState.expense!!.id) },
                 onSetRule = viewModel::showRuleDialog,
                 onDeleteRule = viewModel::deleteRule,
+                transferRuleName = uiState.existingTransferRule?.recipientDisplayName,
+                onClassifyTransfer = viewModel::showTransferSheet,
+                linkedLoan = uiState.linkedLoan,
+                onLinkLoan = viewModel::showLoanSheet,
+                onUnlinkLoan = viewModel::unlinkFromLoan,
                 onLinkBill = viewModel::showLinkBillSheet,
                 onViewBill = onViewBill,
                 modifier = Modifier.padding(padding)
@@ -222,6 +271,11 @@ private fun ExpenseDetailContent(
     linkedBillId: Long?,
     hasOpenBills: Boolean,
     homeCurrency: String,
+    transferRuleName: String?,
+    onClassifyTransfer: () -> Unit,
+    linkedLoan: LentItem?,
+    onLinkLoan: () -> Unit,
+    onUnlinkLoan: () -> Unit,
     onConvertToEmi: () -> Unit,
     onSetRule: () -> Unit,
     onDeleteRule: () -> Unit,
@@ -230,14 +284,9 @@ private fun ExpenseDetailContent(
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
-    val isIncome = expense.transactionType == TransactionType.INCOME
-    val isPayment = expense.transactionType == TransactionType.PAYMENT
-    val amountColor = when {
-        isIncome -> MaterialTheme.colorScheme.primary
-        isPayment -> Color(0xFF7C5CBF)
-        else -> Color(0xFFFF5555)
-    }
-    val amountPrefix = if (isIncome) "+" else "-"
+    val style = transactionAmountStyle(expense)
+    val amountColor = style.color
+    val amountPrefix = style.prefix
 
     Column(
         modifier = modifier
@@ -359,7 +408,7 @@ private fun ExpenseDetailContent(
                 DetailDivider()
                 DetailRow("Source", expense.sourceType.name.replace("_", " "))
                 // Bill link row — only visible for PAYMENT type
-                if (isPayment) {
+                if (expense.transactionType == TransactionType.PAYMENT) {
                     DetailDivider()
                     Row(
                         modifier = Modifier
@@ -402,6 +451,117 @@ private fun ExpenseDetailContent(
                 }
                 // Auto-category rule row (for all auto-imported expenses; use merchant or description as pattern)
                 val rulePattern = (expense.merchantName?.takeIf { it.isNotBlank() } ?: expense.description.takeIf { it.isNotBlank() })
+                // Loan link. A row attached to a loan counts toward neither Spent nor Received,
+                // whatever its type. PAYMENT rows (card/bill settlement) are never loan legs.
+                if (expense.transactionType != TransactionType.PAYMENT) {
+                    DetailDivider()
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable(onClick = if (expense.loanId == null) onLinkLoan else ({}))
+                            .padding(vertical = 10.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = "Loan",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            if (expense.loanId != null) {
+                                val side = if (SpendClassifier.isLoanRepayment(expense)) "Repayment" else "Lent out"
+                                Text(
+                                    text = "$side · ${linkedLoan?.personName ?: "loan #${expense.loanId}"}",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    fontWeight = FontWeight.Medium
+                                )
+                                Text(
+                                    text = "Not counted in Spent or Received",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            } else {
+                                Text(
+                                    text = "Not linked",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                        }
+                        Spacer(Modifier.width(8.dp))
+                        if (expense.loanId != null) {
+                            TextButton(
+                                onClick = onUnlinkLoan,
+                                contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 8.dp, vertical = 0.dp),
+                                colors = ButtonDefaults.textButtonColors(contentColor = Color(0xFFFF5555))
+                            ) { Text("Unlink", style = MaterialTheme.typography.labelMedium) }
+                        } else {
+                            TextButton(
+                                onClick = onLinkLoan,
+                                contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 8.dp, vertical = 0.dp)
+                            ) { Text("Link to loan", style = MaterialTheme.typography.labelMedium) }
+                        }
+                    }
+                }
+
+                // Transfer classification — the only place a single row's classification can
+                // be set or overridden. Above the auto-category rule row because for a transfer
+                // this is the more consequential setting: it decides whether the row counts
+                // toward Spent at all.
+                if (expense.transactionType == TransactionType.TRANSFER) {
+                    DetailDivider()
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable(onClick = onClassifyTransfer)
+                            .padding(vertical = 10.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = "Transfer type",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            Text(
+                                text = expense.transferClassification?.label ?: "Not classified",
+                                style = MaterialTheme.typography.bodySmall,
+                                fontWeight = FontWeight.Medium,
+                                color = if (expense.transferClassification == null) {
+                                    Color(0xFFF57C00)
+                                } else {
+                                    MaterialTheme.colorScheme.onSurface
+                                }
+                            )
+                            if (expense.transferClassification == null) {
+                                Text(
+                                    text = "Counts toward neither Spent nor Received until set",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            } else if (transferRuleName != null) {
+                                Text(
+                                    text = "Remembered for $transferRuleName",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                        }
+                        Spacer(Modifier.width(8.dp))
+                        TextButton(
+                            onClick = onClassifyTransfer,
+                            contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 8.dp, vertical = 0.dp)
+                        ) {
+                            Text(
+                                text = if (expense.transferClassification == null) "Set" else "Change",
+                                style = MaterialTheme.typography.labelMedium
+                            )
+                        }
+                    }
+                }
+
                 if (rulePattern != null &&
                     expense.sourceType in setOf(SourceType.SMS_AUTO, SourceType.NOTIFICATION_AUTO)
                 ) {
@@ -722,3 +882,190 @@ private fun TagsDetailRow(tags: List<com.expenseanalyst.domain.model.Tag>) {
         }
     }
 }
+
+/**
+ * Lets the user say what a transfer actually was. Three options rather than two because the
+ * parsers emit TransactionDirection.TRANSFER for incoming internal transfers as well, and that
+ * direction is discarded before the row is stored — without "Received from someone else" the
+ * user would be forced to label money arriving as money spent.
+ *
+ * "Always do this" defaults to on: transfers recur to the same handful of people, so
+ * remembering is the expected behaviour rather than an opt-in. Forgetting is offered here too,
+ * because there is no rules-management screen and a rule would otherwise be write-only.
+ */
+@Composable
+private fun TransferClassificationSheet(
+    recipientName: String?,
+    current: TransferClassification?,
+    hasExistingRule: Boolean,
+    onSelect: (TransferClassification, Boolean) -> Unit,
+    onForgetRule: () -> Unit
+) {
+    var remember by remember { mutableStateOf(true) }
+
+    Column(modifier = Modifier.padding(bottom = 28.dp)) {
+        Text(
+            text = "Transfer type",
+            style = MaterialTheme.typography.titleMedium,
+            fontWeight = FontWeight.Bold,
+            modifier = Modifier.padding(start = 24.dp, end = 24.dp, bottom = 4.dp)
+        )
+        Text(
+            text = "An unclassified transfer counts toward neither Spent nor Received.",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(start = 24.dp, end = 24.dp, bottom = 12.dp)
+        )
+
+        TransferOptionRow(
+            option = TransferClassification.EXTERNAL,
+            supporting = "Counts toward Spent",
+            selected = current == TransferClassification.EXTERNAL,
+            onClick = { onSelect(TransferClassification.EXTERNAL, remember) }
+        )
+        TransferOptionRow(
+            option = TransferClassification.OWN_ACCOUNT,
+            supporting = "Not spending — shown separately in Analytics",
+            selected = current == TransferClassification.OWN_ACCOUNT,
+            onClick = { onSelect(TransferClassification.OWN_ACCOUNT, remember) }
+        )
+        TransferOptionRow(
+            option = TransferClassification.EXTERNAL_IN,
+            supporting = "Counts toward Received",
+            selected = current == TransferClassification.EXTERNAL_IN,
+            onClick = { onSelect(TransferClassification.EXTERNAL_IN, remember) }
+        )
+
+        if (recipientName != null) {
+            HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
+            if (hasExistingRule) {
+                TextButton(
+                    onClick = onForgetRule,
+                    modifier = Modifier.padding(horizontal = 16.dp),
+                    colors = ButtonDefaults.textButtonColors(contentColor = Color(0xFFFF5555))
+                ) {
+                    Text("Forget rule for $recipientName")
+                }
+            } else {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable { remember = !remember }
+                        .padding(horizontal = 24.dp, vertical = 4.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Checkbox(checked = remember, onCheckedChange = { remember = it })
+                    Spacer(Modifier.width(4.dp))
+                    Text(
+                        text = "Always do this for $recipientName",
+                        style = MaterialTheme.typography.bodyMedium
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun TransferOptionRow(
+    option: TransferClassification,
+    supporting: String,
+    selected: Boolean,
+    onClick: () -> Unit
+) {
+    ListItem(
+        headlineContent = { Text(option.label) },
+        supportingContent = { Text(supporting) },
+        trailingContent = {
+            if (selected) {
+                Icon(
+                    Icons.Default.Check,
+                    contentDescription = "Selected",
+                    tint = MaterialTheme.colorScheme.primary
+                )
+            }
+        },
+        colors = ListItemDefaults.colors(containerColor = Color.Transparent),
+        modifier = Modifier.clickable(onClick = onClick)
+    )
+}
+
+/**
+ * Attaches a row to a loan. Which directions are offered depends on what the row can be:
+ * an INCOME row can only be a repayment, an EXPENSE only money lent out, and a TRANSFER that
+ * hasn't been given a direction yet — the parsers discard it — can be either.
+ */
+@Composable
+private fun LoanLinkSheet(
+    expense: Expense,
+    pendingLoans: List<LentItem>,
+    onStartLoan: () -> Unit,
+    onLink: (LentItem, Boolean) -> Unit
+) {
+    val canBeLentOut = when (expense.transactionType) {
+        TransactionType.INCOME -> false
+        TransactionType.TRANSFER -> expense.transferClassification != TransferClassification.EXTERNAL_IN
+        else -> true
+    }
+    val canBeRepayment = when (expense.transactionType) {
+        TransactionType.INCOME -> true
+        TransactionType.TRANSFER -> expense.transferClassification != TransferClassification.EXTERNAL
+        else -> false
+    }
+    val person = expense.merchantName?.takeIf { it.isNotBlank() }
+
+    Column(modifier = Modifier.padding(bottom = 28.dp)) {
+        Text(
+            text = "Link to loan",
+            style = MaterialTheme.typography.titleMedium,
+            fontWeight = FontWeight.Bold,
+            modifier = Modifier.padding(start = 24.dp, end = 24.dp, bottom = 4.dp)
+        )
+        Text(
+            text = "A linked transaction counts toward neither Spent nor Received. A loan can be lent " +
+                "and repaid in several transactions, and in different currencies.",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(start = 24.dp, end = 24.dp, bottom = 12.dp)
+        )
+
+        if (canBeLentOut) {
+            if (person != null) {
+                ListItem(
+                    headlineContent = { Text("Start a new loan to $person") },
+                    supportingContent = { Text("This transaction is the money lent out") },
+                    colors = ListItemDefaults.colors(containerColor = Color.Transparent),
+                    modifier = Modifier.clickable(onClick = onStartLoan)
+                )
+            }
+            pendingLoans.forEach { loan ->
+                ListItem(
+                    headlineContent = { Text("Lent out — add to ${loan.personName}'s loan") },
+                    supportingContent = { Text("${loan.currencyCode} ${"%.2f".format(loan.amount)} · another instalment lent") },
+                    colors = ListItemDefaults.colors(containerColor = Color.Transparent),
+                    modifier = Modifier.clickable { onLink(loan, false) }
+                )
+            }
+        }
+        if (canBeRepayment) {
+            pendingLoans.forEach { loan ->
+                ListItem(
+                    headlineContent = { Text("Repayment of ${loan.personName}'s loan") },
+                    supportingContent = { Text("${loan.currencyCode} ${"%.2f".format(loan.amount)} lent") },
+                    colors = ListItemDefaults.colors(containerColor = Color.Transparent),
+                    modifier = Modifier.clickable { onLink(loan, true) }
+                )
+            }
+            if (pendingLoans.isEmpty()) {
+                Text(
+                    text = "No pending loans. Add one from Settings → Loans & Lending (with the amount " +
+                        "originally lent), then come back to link this repayment.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp)
+                )
+            }
+        }
+    }
+}
+

@@ -9,6 +9,7 @@ import com.expenseanalyst.domain.repository.CurrencyRepository
 import com.expenseanalyst.domain.repository.ExpenseRepository
 import com.expenseanalyst.domain.util.AmountSearchParser
 import com.expenseanalyst.domain.util.CurrencyConversion
+import com.expenseanalyst.domain.util.SpendClassifier
 import com.expenseanalyst.domain.usecase.GetCategoriesUseCase
 import com.expenseanalyst.domain.usecase.GetExpensesUseCase
 import com.expenseanalyst.domain.usecase.SoftDeleteExpenseUseCase
@@ -82,20 +83,15 @@ class ExpenseListViewModel @Inject constructor(
             active
         }
 
-        // Summary totals for selected period.
-        // Refunds are stored as INCOME with category=Refund; per issue #12 they should
-        // reduce the Spent total (true net spend) rather than inflate the Received card.
-        val refundTotal = monthFiltered
-            .filter { it.transactionType == TransactionType.INCOME && it.category.name == REFUND_CATEGORY }
-            .sumOf { it.homeAmount ?: 0.0 }
-        val grossDebit = monthFiltered
-            .filter { it.transactionType == TransactionType.EXPENSE }
-            .sumOf { it.homeAmount ?: 0.0 }
-        val monthDebit = (grossDebit - refundTotal).coerceAtLeast(0.0)
-        val monthCredit = monthFiltered
-            .filter { it.transactionType == TransactionType.INCOME && it.category.name != REFUND_CATEGORY }
-            .sumOf { it.homeAmount ?: 0.0 }
-        // PAYMENT type (credit card/bill payments) excluded from both totals — it's settling existing debt
+        // Summary totals for the selected period. All of this now lives in SpendClassifier
+        // (:domain) so it is unit-testable and so the list, Analytics and Budget cannot drift
+        // apart again — that drift is how TRANSFER rows ended up invisible to every total.
+        // The breakdowns are kept on the UiState so the "how was this calculated" sheets read
+        // the same numbers the card does rather than recomputing them.
+        val spend = SpendClassifier.spendBreakdown(monthFiltered)
+        val received = SpendClassifier.receivedBreakdown(monthFiltered)
+        val monthDebit = spend.net
+        val monthCredit = received.net
 
         // Apply category, payment method, and search filters
         val filtered = monthFiltered
@@ -138,8 +134,8 @@ class ExpenseListViewModel @Inject constructor(
                 ExpenseGroup(
                     header = header,
                     expenses = list.sortedByDescending { it.date },
-                    dayDebitTotal = list.filter { it.transactionType == TransactionType.EXPENSE }
-                        .sumOf { it.homeAmount ?: 0.0 }
+                    daySpendTotal = list.filter(SpendClassifier::isSpend)
+                        .sumOf(SpendClassifier::homeValue)
                 )
             }
 
@@ -154,6 +150,8 @@ class ExpenseListViewModel @Inject constructor(
             canGoNext = canGoNext,
             monthTotalDebit = monthDebit,
             monthTotalCredit = monthCredit,
+            spendBreakdown = spend,
+            receivedBreakdown = received,
             isLoading = false,
             pendingDeleteId = pendingDeleteId
         )
@@ -210,7 +208,6 @@ class ExpenseListViewModel @Inject constructor(
 
     companion object {
         private const val UNDO_TIMEOUT_MS = 4_000L
-        private const val REFUND_CATEGORY = "Refund"
     }
 
     private suspend fun repairExpenseConversions() {

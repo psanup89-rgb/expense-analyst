@@ -124,7 +124,10 @@ fun AnalyticsScreen(
                                     cat = cat,
                                     currencyCode = uiState.homeCurrencyCode,
                                     onClick = {
-                                        viewModel.setDrillDown(DrillDownFilter.ByCategory(cat.categoryName))
+                                        // The bucket decides where it drills to: the synthetic
+                                        // Own Transfers bucket is a classification, not a
+                                        // category, so ByCategory would return nothing for it.
+                                        viewModel.setDrillDown(cat.drillDownFilter)
                                     }
                                 )
                                 if (i < uiState.categoryBreakdown.lastIndex) {

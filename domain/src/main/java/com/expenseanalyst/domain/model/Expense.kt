@@ -44,5 +44,21 @@ data class Expense(
      * Points at the original expense's id. Null on every non-refund expense, and on a refund
      * whose original purchase couldn't be found. See RefundMatcher's KDoc for the matching rule.
      */
-    val refundOriginalExpenseId: Long? = null
+    val refundOriginalExpenseId: Long? = null,
+    /**
+     * Only meaningful when [transactionType] is [TransactionType.TRANSFER]. Null means the user
+     * hasn't said whether this transfer went to their own account or to someone else, and an
+     * unclassified transfer is excluded from every total — see
+     * [com.expenseanalyst.domain.util.SpendClassifier].
+     */
+    val transferClassification: TransferClassification? = null,
+    /**
+     * Set when this row is one leg of a tracked loan — money lent out, or a repayment coming back.
+     * A loan leg counts toward neither Spent nor Received, whatever its [transactionType]: lending
+     * isn't spending and repayment isn't income. Many rows can share one loan (a loan may be lent
+     * in several transfers and repaid in several), which is why the link lives on the expense row
+     * rather than as a single `linkedExpenseId` on the loan. See
+     * [com.expenseanalyst.domain.util.SpendClassifier.isLoanLeg].
+     */
+    val loanId: Long? = null
 )

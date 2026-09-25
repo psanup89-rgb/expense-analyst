@@ -6,6 +6,7 @@ import com.expenseanalyst.data.local.dao.TagDao
 import com.expenseanalyst.data.mapper.toDomain
 import com.expenseanalyst.data.mapper.toEntity
 import com.expenseanalyst.domain.model.Expense
+import com.expenseanalyst.domain.model.TransferClassification
 import com.expenseanalyst.domain.repository.ExpenseRepository
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
@@ -122,6 +123,27 @@ class ExpenseRepositoryImpl @Inject constructor(
         expenseDao.reclassifyAsSplitPayment(
             id = id,
             categoryId = categoryId,
+            updatedAt = DateTimeUtil.nowMillis()
+        )
+
+    override fun getExpensesByLoan(loanId: Long): Flow<List<Expense>> =
+        expenseDao.getExpensesByLoanId(loanId).map { list -> list.map { it.toDomain() } }
+
+    override suspend fun linkToLoan(id: Long, loanId: Long, isRepayment: Boolean): Int =
+        expenseDao.linkLoanLeg(
+            id = id,
+            loanId = loanId,
+            classification = (if (isRepayment) TransferClassification.EXTERNAL_IN else TransferClassification.EXTERNAL).name,
+            updatedAt = DateTimeUtil.nowMillis()
+        )
+
+    override suspend fun unlinkFromLoan(id: Long): Int =
+        expenseDao.setLoanId(id = id, loanId = null, updatedAt = DateTimeUtil.nowMillis())
+
+    override suspend fun classifyTransfer(id: Long, classification: TransferClassification): Int =
+        expenseDao.classifyTransfer(
+            id = id,
+            classification = classification.name,
             updatedAt = DateTimeUtil.nowMillis()
         )
 }

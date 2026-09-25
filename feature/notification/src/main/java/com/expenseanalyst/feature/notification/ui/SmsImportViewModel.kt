@@ -16,10 +16,13 @@ import com.expenseanalyst.domain.repository.CategoryRepository
 import com.expenseanalyst.domain.repository.CurrencyRepository
 import com.expenseanalyst.domain.repository.ExpenseRepository
 import com.expenseanalyst.domain.repository.MerchantRuleRepository
+import com.expenseanalyst.domain.repository.TransferRecipientRuleRepository
 import com.expenseanalyst.domain.repository.MerchantSearchRepository
 import com.expenseanalyst.domain.util.CategoryInference
 import com.expenseanalyst.domain.util.CurrencyConversion
 import com.expenseanalyst.domain.util.MerchantRuleMatcher
+import com.expenseanalyst.domain.util.ReviewReason
+import com.expenseanalyst.domain.util.TransferRecipientMatcher
 import com.expenseanalyst.domain.util.RefundMatcher
 import com.expenseanalyst.feature.notification.parser.BankNameFromSender
 import com.expenseanalyst.feature.notification.parser.BillStatementParserRegistry
@@ -47,6 +50,7 @@ class SmsImportViewModel @Inject constructor(
     private val currencyRepository: CurrencyRepository,
     private val accountRepository: AccountRepository,
     private val merchantRuleRepository: MerchantRuleRepository,
+    private val transferRecipientRuleRepository: TransferRecipientRuleRepository,
     private val merchantSearchRepository: MerchantSearchRepository,
     private val appPreferencesRepository: AppPreferencesRepository
 ) : ViewModel() {
@@ -100,6 +104,7 @@ class SmsImportViewModel @Inject constructor(
 
             // Load user-defined merchant rules for intelligent categorization
             val merchantRules = merchantRuleRepository.getRules().first()
+            val transferRules = transferRecipientRuleRepository.getRules().first()
 
             // Load home currency and rates for conversion
             val homeCurrencyCode = currencyRepository.getHomeCurrency().first()
@@ -249,6 +254,21 @@ class SmsImportViewModel @Inject constructor(
                 val effectivePaymentMethod = refundMatch?.paymentMethod ?: paymentMethod
                 val effectiveAccountId = refundMatch?.accountId ?: resolvedAccountId
 
+                // Transfer classification from the remembered recipient rule. Mirrors the
+                // live-capture lookup in PendingNotificationManager.enqueue() — keep the two in
+                // sync, along with the TransactionDirection -> TransactionType mapping above.
+                val transferClassification = if (transactionType == TransactionType.TRANSFER) {
+                    TransferRecipientMatcher.findRule(parsed.merchant, transferRules)?.classification
+                } else {
+                    null
+                }
+                val transferReviewReasons =
+                    if (transactionType == TransactionType.TRANSFER && transferClassification == null) {
+                        listOf(ReviewReason.UNCLASSIFIED_TRANSFER)
+                    } else {
+                        emptyList()
+                    }
+
                 // Build a stub expense to run CurrencyConversion.resolve()
                 val stubExpense = Expense(
                     amount = parsed.amount,
@@ -266,7 +286,15 @@ class SmsImportViewModel @Inject constructor(
                     accountId = effectiveAccountId,
                     rawSmsBody = sms.body,
                     tags = matchedRule?.tags ?: emptyList(),
-                    refundOriginalExpenseId = refundMatch?.id
+                    refundOriginalExpenseId = refundMatch?.id,
+                    // Bulk import deliberately sets needsReview ONLY for an unclassified
+                    // transfer. Every other review reason is left alone here: this path has
+                    // never set the flag, and switching it on wholesale would flag hundreds of
+                    // rows at once on a full-history import. Do not "fix" this asymmetry
+                    // without deciding what that import should look like.
+                    transferClassification = transferClassification,
+                    needsReview = transferReviewReasons.isNotEmpty(),
+                    reviewReasons = transferReviewReasons
                 )
                 val conversion = CurrencyConversion.resolve(stubExpense, homeCurrencyCode, ratesByCode)
 

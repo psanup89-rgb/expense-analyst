@@ -4,6 +4,7 @@ import com.expenseanalyst.data.repository.AccountRepositoryImpl
 import com.expenseanalyst.data.repository.BillRepositoryImpl
 import com.expenseanalyst.data.repository.BudgetRepositoryImpl
 import com.expenseanalyst.data.repository.MerchantRuleRepositoryImpl
+import com.expenseanalyst.data.repository.TransferRecipientRuleRepositoryImpl
 import com.expenseanalyst.data.repository.MerchantSearchRepositoryImpl
 import com.expenseanalyst.data.repository.PendingNotificationRepositoryImpl
 import com.expenseanalyst.data.repository.AppPreferencesRepositoryImpl
@@ -18,6 +19,7 @@ import com.expenseanalyst.domain.repository.AccountRepository
 import com.expenseanalyst.domain.repository.BillRepository
 import com.expenseanalyst.domain.repository.BudgetRepository
 import com.expenseanalyst.domain.repository.MerchantRuleRepository
+import com.expenseanalyst.domain.repository.TransferRecipientRuleRepository
 import com.expenseanalyst.domain.repository.MerchantSearchRepository
 import com.expenseanalyst.domain.repository.PendingNotificationRepository
 import com.expenseanalyst.domain.repository.AppPreferencesRepository
@@ -69,6 +71,12 @@ abstract class RepositoryModule {
     @Binds
     @Singleton
     abstract fun bindMerchantRuleRepository(impl: MerchantRuleRepositoryImpl): MerchantRuleRepository
+
+    @Binds
+    @Singleton
+    abstract fun bindTransferRecipientRuleRepository(
+        impl: TransferRecipientRuleRepositoryImpl
+    ): TransferRecipientRuleRepository
 
     @Binds
     @Singleton

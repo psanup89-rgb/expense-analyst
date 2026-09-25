@@ -8,6 +8,7 @@ import com.expenseanalyst.domain.model.PaymentMethod
 import com.expenseanalyst.domain.model.SourceType
 import com.expenseanalyst.domain.model.Tag
 import com.expenseanalyst.domain.model.TransactionType
+import com.expenseanalyst.domain.model.TransferClassification
 import com.expenseanalyst.domain.usecase.InferenceSource
 import kotlinx.datetime.Instant
 
@@ -20,6 +21,8 @@ data class AddExpenseUiState(
     val isCurrencyPickerVisible: Boolean = false,
     val currencySearchQuery: String = "",
     val transactionType: TransactionType = TransactionType.EXPENSE,
+    /** Only meaningful when [transactionType] is TRANSFER; null means unclassified. */
+    val transferClassification: TransferClassification? = null,
     val selectedCategory: Category? = null,
     val isCategorySheetVisible: Boolean = false,
     val paymentMethod: PaymentMethod = PaymentMethod.UPI,

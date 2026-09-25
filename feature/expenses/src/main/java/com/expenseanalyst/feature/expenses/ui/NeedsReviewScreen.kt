@@ -18,6 +18,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.RateReview
 import androidx.compose.material3.Card
+import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -39,6 +40,9 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.expenseanalyst.core.util.CurrencyFormatter
+import com.expenseanalyst.domain.model.TransferClassification
+import com.expenseanalyst.domain.util.ReviewReason
+import com.expenseanalyst.domain.util.SpendClassifier
 import com.expenseanalyst.core.util.DateTimeUtil
 import com.expenseanalyst.domain.model.Expense
 import com.expenseanalyst.domain.model.TransactionType
@@ -123,7 +127,8 @@ fun NeedsReviewScreen(
                         expense = expense,
                         homeCurrencyCode = homeCurrencyCode,
                         onClick = { onExpenseClick(expense.id) },
-                        onMarkDone = { viewModel.markReviewed(expense.id) }
+                        onMarkDone = { viewModel.markReviewed(expense.id) },
+                        onClassifyTransfer = { viewModel.classifyTransfer(expense.id, it) }
                     )
                 }
                 item { Spacer(Modifier.height(88.dp)) }
@@ -137,16 +142,12 @@ private fun NeedsReviewCard(
     expense: Expense,
     homeCurrencyCode: String,
     onClick: () -> Unit,
-    onMarkDone: () -> Unit
+    onMarkDone: () -> Unit,
+    onClassifyTransfer: (TransferClassification) -> Unit
 ) {
-    val isIncome = expense.transactionType == TransactionType.INCOME
-    val isPayment = expense.transactionType == TransactionType.PAYMENT
-    val amountColor = when {
-        isIncome -> MaterialTheme.colorScheme.primary
-        isPayment -> Color(0xFF7C5CBF)
-        else -> Color(0xFFFF5555)
-    }
-    val amountPrefix = if (isIncome) "+" else "-"
+    val style = transactionAmountStyle(expense)
+    val amountColor = style.color
+    val amountPrefix = style.prefix
 
     Card(
         onClick = onClick,
@@ -182,10 +183,19 @@ private fun NeedsReviewCard(
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
-                if (expense.reviewReasons.isNotEmpty()) {
+                val reasonLabels = expense.reviewReasons.map { it.label }
+                    .ifEmpty {
+                        // A pre-classification transfer has no persisted reason; say why it's here.
+                        if (SpendClassifier.isUnclassifiedTransfer(expense)) {
+                            listOf(ReviewReason.UNCLASSIFIED_TRANSFER.label)
+                        } else {
+                            emptyList()
+                        }
+                    }
+                if (reasonLabels.isNotEmpty()) {
                     Spacer(Modifier.height(2.dp))
                     Text(
-                        text = "Missing: ${expense.reviewReasons.joinToString(", ") { it.label }}",
+                        text = "Missing: ${reasonLabels.joinToString(", ")}",
                         style = MaterialTheme.typography.labelSmall,
                         color = Color(0xFFF57C00),
                         maxLines = 1,
@@ -208,13 +218,47 @@ private fun NeedsReviewCard(
                     )
                 }
             }
-            IconButton(onClick = onMarkDone, modifier = Modifier.size(36.dp)) {
-                Icon(
-                    Icons.Default.CheckCircle,
-                    contentDescription = "Mark as reviewed",
-                    tint = MaterialTheme.colorScheme.outline,
-                    modifier = Modifier.size(22.dp)
-                )
+            // Hidden for an unclassified transfer: clearing needs_review wouldn't remove it
+            // from this list (it qualifies structurally, not by the flag), so the control would
+            // silently do nothing. Classifying is the resolution — see the buttons below.
+            if (!SpendClassifier.isUnclassifiedTransfer(expense)) {
+                IconButton(onClick = onMarkDone, modifier = Modifier.size(36.dp)) {
+                    Icon(
+                        Icons.Default.CheckCircle,
+                        contentDescription = "Mark as reviewed",
+                        tint = MaterialTheme.colorScheme.outline,
+                        modifier = Modifier.size(22.dp)
+                    )
+                }
+            }
+        }
+
+        // Inline classification for unclassified transfers, so the backlog can be cleared from
+        // this screen instead of opening every row. "Mark done" above stays as-is: it clears the
+        // flag without classifying, and the row correctly stays out of every total.
+        // Keyed on the row's actual state, not on the persisted reason list: rows captured
+        // before classification existed carry no reason but still need classifying.
+        if (SpendClassifier.isUnclassifiedTransfer(expense)) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(start = 44.dp, end = 14.dp, bottom = 10.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                FilledTonalButton(
+                    onClick = { onClassifyTransfer(TransferClassification.EXTERNAL) },
+                    modifier = Modifier.weight(1f),
+                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp)
+                ) {
+                    Text("To someone", style = MaterialTheme.typography.labelMedium)
+                }
+                FilledTonalButton(
+                    onClick = { onClassifyTransfer(TransferClassification.OWN_ACCOUNT) },
+                    modifier = Modifier.weight(1f),
+                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp)
+                ) {
+                    Text("My account", style = MaterialTheme.typography.labelMedium)
+                }
             }
         }
     }

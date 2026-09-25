@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.expenseanalyst.domain.model.PlannedExpense
 import com.expenseanalyst.domain.model.SalaryEntry
 import com.expenseanalyst.domain.model.TransactionType
+import com.expenseanalyst.domain.util.SpendClassifier
 import com.expenseanalyst.domain.repository.BudgetRepository
 import com.expenseanalyst.domain.repository.CategoryRepository
 import com.expenseanalyst.domain.repository.CurrencyRepository
@@ -76,7 +77,10 @@ class BudgetViewModel @Inject constructor(
                     Instant.fromEpochMilliseconds(endMillis)
                 )
             ) { salary, planned, income, allExpenses ->
-                val actual = allExpenses.filter { it.transactionType == TransactionType.EXPENSE }
+                // SpendClassifier, not a local transactionType check, so Budget actuals agree
+                // with the Spent card — a transfer the user marked as sent to someone else is
+                // real spending and belongs here.
+                val actual = allExpenses.filter(SpendClassifier::isSpend)
                 val plannedCategoryIds = planned.map { it.categoryId }.toSet()
 
                 val comparisons = planned.groupBy { it.categoryId }.map { (catId, items) ->

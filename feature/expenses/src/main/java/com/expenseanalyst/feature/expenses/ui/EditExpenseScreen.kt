@@ -33,6 +33,7 @@ fun EditExpenseScreen(
         onBack = onBack,
         onAmountChange = viewModel::onAmountChange,
         onTransactionTypeChange = viewModel::onTransactionTypeChange,
+        onTransferClassificationChange = viewModel::onTransferClassificationChange,
         onCategorySelect = viewModel::onCategorySelect,
         onShowCategorySheet = viewModel::showCategorySheet,
         onDismissCategorySheet = viewModel::dismissCategorySheet,

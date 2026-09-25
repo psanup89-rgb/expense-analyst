@@ -84,7 +84,8 @@ fun AppNavGraph(
                     onAddExpense = { navController.navigate(NavRoutes.ADD_EXPENSE) },
                     onImportFromSms = { navController.navigate(NavRoutes.SMS_IMPORT) },
                     onExpenseClick = { id -> navController.navigate(NavRoutes.expenseDetail(id)) },
-                    onViewAnalytics = { navController.navigate(NavRoutes.ANALYTICS) }
+                    onViewAnalytics = { navController.navigate(NavRoutes.ANALYTICS) },
+                    onReviewUnclassified = { navController.navigate(NavRoutes.NEEDS_REVIEW) }
                 )
                 NotificationBanner(
                     onEdit = { expenseId ->

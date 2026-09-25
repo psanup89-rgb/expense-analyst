@@ -4,6 +4,70 @@ Format: `[Date] — Summary`
 
 ---
 
+## 2026-09-22 — Transfers counted toward nothing; Spent/Received now explain themselves
+
+Started from "does Spent minus Received give my actual spend?". It does not — Spent is already
+net of refunds and Received is separate income. But the audit surfaced a real hole: **19 TRANSFER
+rows totalling SAR 51,896 were invisible to every total** (Spent, Received, day subtotals,
+Analytics, Budget) while the list rendered them red with a minus sign, identical to real spending.
+
+- **Feature**: a transfer is now classified as *sent to someone else* (counts toward Spent),
+  *moved to my own account* (never counts, shown separately in Analytics) or *received from
+  someone else* (counts toward Received). Set from the expense detail screen, inline in Needs
+  Review, or on the add/edit form. DB v27 adds a nullable `expenses.transfer_classification`.
+- **Not backfilled, deliberately.** Null keeps the pre-existing behaviour — excluded from every
+  total — so no historical figure moved on upgrade. Existing rows are discovered through the new
+  Spent breakdown sheet, which shows them counted and one tap from the Review screen.
+- **Remembered per recipient** (`transfer_recipient_rules`, DB v27). Classifying SAMUEL RAJASEKAR
+  once auto-classifies future transfers to that name. Forward-only: creating a rule never touches
+  rows already captured. Kept out of `merchant_rules` because its `category_id` is NOT NULL, its
+  pattern is uniquely indexed and upserted with REPLACE, and its matcher is substring containment
+  — a "RAJ" rule would claim "RAJASEKAR" and "RAJESH". `TransferRecipientMatcher` matches exactly.
+- **Third option exists because parsers emit TRANSFER for incoming transfers too**
+  (`AlRajhiParser`'s "Credit Internal Transfer", `StcBankParser`'s transfer branch), and direction
+  is discarded at the `ParsedTransaction` boundary. Without `EXTERNAL_IN` the user would be forced
+  to label money arriving as money spent. It is manual-only — auto-classification never sets it.
+- **New `domain/util/SpendClassifier.kt` is now the single source of truth for "is this
+  spending".** `ExpenseListViewModel`, `AnalyticsViewModel` and `BudgetViewModel` each hand-rolled
+  `transactionType == EXPENSE` independently, which is exactly how TRANSFER became invisible
+  everywhere at once. Neither `:feature:expenses` nor `:feature:analytics` has a test source set,
+  so this also makes the totals math testable for the first time.
+- **New**: tapping Spent or Received on the home card opens a breakdown explaining the figure,
+  including a "Not counted" section for own-account and unclassified transfers. This also finally
+  surfaces the refund-nets-out-of-Spent behaviour, which had been invisible since issue #12.
+- **Fix**: a transfer no longer renders identically to an expense. `TransactionAmountStyle`
+  replaces three verbatim copies of the colour/prefix logic (list, needs-review, detail).
+- **Fix**: Analytics' previous-month figure uses the same predicate as the current month, so the
+  month-over-month delta can't report a phantom jump. Budget actuals now match the Spent card.
+- **Fix**: the Needs Review list and badge now also include any unclassified transfer, matched in
+  SQL alongside the persisted `needs_review` flag. Without this the breakdown sheet's "Review"
+  link was a dead end — legacy transfers carry no persisted reason and were never backfilled, so
+  tapping through showed a list that didn't contain them. The per-row "Mark done" control is
+  hidden for those rows, since clearing the flag wouldn't remove them from the list.
+- **Feature (DB v28)**: loans. A transaction can be linked to a loan as money lent out or a
+  repayment, and a linked leg counts toward **neither** Spent nor Received, whatever its type.
+  Triggered by a lend-and-repay round trip with one person (SAR 4,000 out, INR 102,104 back) that
+  the totals treated as spending plus a Refund. A loan can be lent and repaid in several
+  transactions and in different currencies, so the link is `expenses.loan_id` (many rows per loan)
+  rather than the single `linked_expense_id`/`settlement_expense_id` on `lent_items`. The loan
+  keeps its own principal, because lending can predate the app's history (it starts 2026-01-01).
+- **Fix**: unlinking an outgoing loan leg now subtracts it from the loan's principal, mirroring
+  linking. Found on device: unlink→relink silently doubled the loan.
+- **Fix**: "Mark as settled" on a loan no longer fabricates an INCOME row in the Refund category
+  for the full amount. That subtracted money from Spent that was never in Spent, and silently
+  did nothing if no category named "Refund" existed. Repayments are now real transactions the
+  user links to the loan.
+- **Data**: moved the INR 102,104 inbound leg out of the Refund category (it was subtracting
+  SAR 4,607.58 from September's Spent) to an unclassified transfer, pending loan linking.
+- **Data**: manually added a SAR 4,000 Al Rajhi transfer from 20 Sep that predated v0.7.10's
+  "Debit Internal Transfer" parse branch and so was never captured.
+
+Note for the user: an incoming remittance leg had been marked Refund, which was subtracting
+SAR 4,607.58 from September's Spent. Refund is load-bearing in the spend math and should be kept
+for genuine merchant refunds; a self-transfer's inbound leg belongs in `EXTERNAL_IN`.
+
+---
+
 ## 2026-09-21 — Bills were being detected but were unreachable
 
 Investigation started from "bills are not getting detected". Detection was never broken: 34 bill
