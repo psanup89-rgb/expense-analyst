@@ -43,7 +43,8 @@ fun ExpenseWithCategory.toDomain() = Expense(
     // of crashing the whole list. Same posture as NeedsReviewEvaluator.decode.
     transferClassification = expense.transferClassification
         ?.let { runCatching { TransferClassification.valueOf(it) }.getOrNull() },
-    loanId = expense.loanId
+    loanId = expense.loanId,
+    bnplPurchaseId = expense.bnplPurchaseId
 )
 
 fun Expense.toEntity(createdAt: Long, updatedAt: Long) = ExpenseEntity(
@@ -80,5 +81,7 @@ fun Expense.toEntity(createdAt: Long, updatedAt: Long) = ExpenseEntity(
     transferClassification = transferClassification?.name,
     // Same rule as transferClassification above: omitting this here silently unlinks every loan
     // leg on the next full-row updateExpense (repairExpenseConversions runs on every launch).
-    loanId = loanId
+    loanId = loanId,
+    // Same full-row round-trip rule as transferClassification and loanId above.
+    bnplPurchaseId = bnplPurchaseId
 )

@@ -245,4 +245,40 @@ class EmiratesNbdParserTest {
         assertEquals("4388", result.accountLast4)
         assertEquals("UBR* PENDING.UBER.COM", result.merchant)
     }
+
+    // The By/At layout (real wording, numbers changed). AlRajhiParser's generic fingerprint used
+    // to catch these; once it was removed they reached this parser with no merchant or card.
+    @Test
+    fun `parse online purchase in the By-At layout`() {
+        val body = """
+            Online Purchase
+            By: XX1234;Visa
+            Amount: SAR 117.58
+            At: Temu.com
+            Remaining limit : SAR 12,345.67
+            On: 2026-09-26 21:45:35
+        """.trimIndent()
+
+        val result = ParserRegistry.parse("", body)
+        assertNotNull(result)
+        assertEquals("Emirates NBD", result!!.bankName)
+        assertEquals(117.58, result.amount, 0.01)
+        assertEquals("SAR", result.currencyCode)
+        assertEquals(TransactionDirection.DEBIT, result.type)
+        assertEquals("Temu.com", result.merchant)
+        assertEquals("1234", result.accountLast4)
+        assertEquals("CREDIT_CARD", result.paymentMethodName)
+    }
+
+    @Test
+    fun `parse foreign-currency purchase in the By-At layout`() {
+        val body = "Online Purchase\nBy: XX1234;Visa\nAmount: USD 5.64\nAt: DIGITALOCEAN.COM\n" +
+            "Remaining limit : SAR 12,345.67\nOn: 2026-09-01 10:00:00"
+
+        val result = parser.parse("", body)
+        assertNotNull(result)
+        assertEquals("USD", result!!.currencyCode)
+        assertEquals("DIGITALOCEAN.COM", result.merchant)
+        assertEquals("1234", result.accountLast4)
+    }
 }

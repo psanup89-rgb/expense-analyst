@@ -76,4 +76,39 @@ class ParserRegistryTest {
         val result = ParserRegistry.parse("EmiratesNBD", body)
         assertEquals("Emirates NBD", result?.bankName)
     }
+
+    // ── Cross-bank normalisation (Sep 2026 Misc audit; synthetic numbers) ──
+
+    @org.junit.jupiter.api.Test
+    fun `paying a card bill through CRED is a payment, not spending`() {
+        val body = "Sent Rs.5000.00\nFrom HDFC Bank A/C *1234\nTo CRED Club\nOn 01/09/26\nRef 123456789012\nNot You?"
+        assertEquals(TransactionDirection.PAYMENT, ParserRegistry.parse("VM-HDFCBK", body)?.type)
+    }
+
+    @org.junit.jupiter.api.Test
+    fun `a card bill payment arriving on the card is a payment, not income`() {
+        val axis = "Payment of INR 500 has been received towards your Axis Bank Credit Card XX1234 on 01-09-26 - Axis Bank"
+        assertEquals(TransactionDirection.PAYMENT, ParserRegistry.parse("AX-AXISBK", axis)?.type)
+        val refund = "Refund of Rs.9.00 from GOOGLE PLAY received on your Federal Bank One Credit Card."
+        val r = ParserRegistry.parse("AX-OneCrd", refund)
+        if (r != null) assertEquals(TransactionDirection.CREDIT, r.type)
+    }
+
+    @org.junit.jupiter.api.Test
+    fun `messages that move no money are not transactions`() {
+        assertNull(ParserRegistry.parse("AX-AXISBK", "INR 500.00 is due for payment on 05-09-26 towards Axis Bank CC no. XX1234. INR 500 will be debited from Axis Bank A/c no. XX5678 via auto debit."))
+        assertNull(ParserRegistry.parse("VM-PHONPE", "ETERNAL LIMITED has requested money from you on PhonePe.Rs.254.0 will be debited from your account on approving the request"))
+        assertNull(ParserRegistry.parse("STC", "Hello, Kindy note that your balance is almost consumed. Reply 1 to get Advance Balance of 5 SR for 6 SAR"))
+    }
+
+    @org.junit.jupiter.api.Test
+    fun `merchant names never carry card digits, helplines or ACH references`() {
+        assertNull(ParserRegistry.sanitizeMerchant("your card ending 1234"))
+        assertNull(ParserRegistry.sanitizeMerchant("7300000000"))
+        assertEquals("Googleplay", ParserRegistry.sanitizeMerchant("Googleplay using your Federal Bank One Credit Card xx12"))
+        assertEquals("Groww", ParserRegistry.sanitizeMerchant("ACH D- Groww-0000ZACR1X7JMCHUKH261520728"))
+        assertEquals("INDIANESIGN", ParserRegistry.sanitizeMerchant("ACH D- TP ACH INDIANESIGN-2320147606"))
+        assertEquals("HDFC BANK LTD", ParserRegistry.sanitizeMerchant("ACH D- HDFC BANK LTD-474718509"))
+        assertEquals("AGODACO13223300", ParserRegistry.sanitizeMerchant("AGODACO13223300"))
+    }
 }

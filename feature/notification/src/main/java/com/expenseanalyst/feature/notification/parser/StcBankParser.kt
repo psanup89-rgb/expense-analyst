@@ -10,6 +10,9 @@ package com.expenseanalyst.feature.notification.parser
  *   "SAR 200.00 received in your STC Pay account from Ahmed. Ref: TXN789012"
  * Sample (internal outward transfer):
  *   "Internal outward transfer Amount:100.00SAR To:NUMEER KOORIMMANNIL Acc:5183* At:14/04/26 15:48"
+ *   "Acc:" is the RECIPIENT's account, never the user's — STC messages carry no own-account
+ *   digits, so accountLast4 is always null and every STC row lands on the one STC account.
+ *   Reading "Acc:" as ours created a separate "STC Bank *XXXX" account per transfer recipient.
  * Sample (prepaid services):
  *   "stc prepaid services payment\nAmount: 86.25 SAR\nAt: 01/05/26 20:28"
  */
@@ -24,7 +27,6 @@ class StcBankParser : TransactionParser {
     private val fromPattern = Regex("""(?i)(?:from)\s+([A-Za-z0-9 _\-&.]+?)(?:\s*[.\s](?:ref|$))""")
     // "Internal outward transfer" format: "To:RECIPIENT NAME Acc:XXXX"
     private val transferToPattern = Regex("""(?i)To:\s*([A-Za-z][A-Za-z ]+?)(?:\s+Acc:|\s*${'$'})""")
-    private val transferAccPattern = Regex("""(?i)Acc:\s*(\d{3,4})""")
 
     override fun canParse(sender: String, body: String): Boolean =
         senderPattern.containsMatchIn(sender)
@@ -51,8 +53,6 @@ class StcBankParser : TransactionParser {
         } else {
             fromPattern.find(body)?.groupValues?.get(1)?.trim()
         }
-        val accountLast4 = transferAccPattern.find(body)?.groupValues?.get(1)
-
         return ParsedTransaction(
             amount = amount,
             currencyCode = "SAR",
@@ -60,7 +60,7 @@ class StcBankParser : TransactionParser {
                    else if (isDebit) TransactionDirection.DEBIT
                    else TransactionDirection.CREDIT,
             merchant = merchant?.takeIf { it.isNotBlank() && it.length < 60 },
-            accountLast4 = accountLast4,
+            accountLast4 = null, // see KDoc: "Acc:" is the recipient's
             referenceNumber = ref,
             bankName = bankName,
             paymentMethodName = PaymentMethodDetector.detect(body) ?: "WALLET"

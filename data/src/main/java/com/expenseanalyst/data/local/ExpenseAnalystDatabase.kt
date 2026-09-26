@@ -54,7 +54,7 @@ import com.expenseanalyst.data.local.entity.TransferRecipientRuleEntity
         MerchantRuleTagCrossRef::class,
         TransferRecipientRuleEntity::class
     ],
-    version = 28,
+    version = 31,
     exportSchema = true
 )
 abstract class ExpenseAnalystDatabase : RoomDatabase() {
@@ -569,13 +569,69 @@ abstract class ExpenseAnalystDatabase : RoomDatabase() {
             }
         }
 
+        /**
+         * Ledger re-theme: Transport's seeded icon moves from a car to a bus, so it no longer
+         * shares a glyph with a user-created "Vehicle"-style category (the real device had exactly
+         * that pair). Guarded on the seeded default *and* the old icon, so a Transport the user
+         * already re-iconed, or renamed, is left alone.
+         */
+        private val MIGRATION_28_29 = object : Migration(28, 29) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    "UPDATE categories SET icon_name = 'directions_bus' " +
+                        "WHERE name = 'Transport' AND icon_name = 'directions_car' AND is_default = 1"
+                )
+            }
+        }
+
+        /**
+         * BNPL instalment links. `bnpl_purchase_id` points a Tabby/Tamara card charge at the
+         * Split Payments purchase record it pays for. Nullable, no FK or index (small table,
+         * soft-deleted parents, same reasoning as loan_id). Nothing is backfilled here —
+         * BnplReconciler links existing charges on the next launch, because matching needs the
+         * parser and the amount rules, which don't belong in SQL.
+         */
+        private val MIGRATION_29_30 = object : Migration(29, 30) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE expenses ADD COLUMN bnpl_purchase_id INTEGER")
+            }
+        }
+
+        /**
+         * Investments, EMI and People — the categories the Sep 2026 Misc audit found missing
+         * (SIP debits, a home-loan ACH, UPI payments to individuals). All three count toward
+         * Spent like any category. Same UPDATE-then-conditional-INSERT shape as MIGRATION_20_21,
+         * for the same reason: categories.name has no unique index, and a user may already have
+         * a category of that name.
+         */
+        private val MIGRATION_30_31 = object : Migration(30, 31) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                listOf(
+                    arrayOf("investments", "Investments", "trending_up", "#43A047"),
+                    arrayOf("emi", "EMI", "account_balance", "#6D4C41"),
+                    arrayOf("people", "People", "groups", "#EC407A")
+                ).forEach { (match, name, icon, color) ->
+                    db.execSQL(
+                        "UPDATE categories SET icon_name = '$icon' " +
+                            "WHERE LOWER(name) = '$match' AND icon_name = 'more_horiz'"
+                    )
+                    db.execSQL(
+                        "INSERT INTO categories (name, icon_name, color_hex, is_default, sort_order) " +
+                            "SELECT '$name', '$icon', '$color', 1, " +
+                            "(SELECT COALESCE(MAX(sort_order), -1) + 1 FROM categories) " +
+                            "WHERE NOT EXISTS (SELECT 1 FROM categories WHERE LOWER(name) = '$match')"
+                    )
+                }
+            }
+        }
+
         fun buildDatabase(context: Context): ExpenseAnalystDatabase {
             return Room.databaseBuilder(
                 context.applicationContext,
                 ExpenseAnalystDatabase::class.java,
                 DATABASE_NAME
             )
-                .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13, MIGRATION_13_14, MIGRATION_14_15, MIGRATION_15_16, MIGRATION_16_17, MIGRATION_17_18, MIGRATION_18_19, MIGRATION_19_20, MIGRATION_20_21, MIGRATION_21_22, MIGRATION_22_23, MIGRATION_23_24, MIGRATION_24_25, MIGRATION_25_26, MIGRATION_26_27, MIGRATION_27_28)
+                .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13, MIGRATION_13_14, MIGRATION_14_15, MIGRATION_15_16, MIGRATION_16_17, MIGRATION_17_18, MIGRATION_18_19, MIGRATION_19_20, MIGRATION_20_21, MIGRATION_21_22, MIGRATION_22_23, MIGRATION_23_24, MIGRATION_24_25, MIGRATION_25_26, MIGRATION_26_27, MIGRATION_27_28, MIGRATION_28_29, MIGRATION_29_30, MIGRATION_30_31)
                 .addCallback(SeedDatabaseCallback())
                 .build()
         }
@@ -586,7 +642,7 @@ abstract class ExpenseAnalystDatabase : RoomDatabase() {
             super.onCreate(db)
             val defaultCategories = listOf(
                 "('Food & Drinks', 'restaurant', '#FF5722', 1, 0)",
-                "('Transport', 'directions_car', '#2196F3', 1, 1)",
+                "('Transport', 'directions_bus', '#2196F3', 1, 1)",
                 "('Shopping', 'shopping_bag', '#E91E63', 1, 2)",
                 "('Bills', 'receipt_long', '#FF9800', 1, 3)",
                 "('Entertainment', 'movie', '#9C27B0', 1, 4)",
@@ -601,7 +657,10 @@ abstract class ExpenseAnalystDatabase : RoomDatabase() {
                 "('Refund', 'currency_exchange', '#26C6DA', 1, 13)",
                 "('Fuel', 'local_gas_station', '#C62828', 1, 14)",
                 "('Leisure', 'beach_access', '#00897B', 1, 15)",
-                "('Split Payments', 'credit_card', '#5C6BC0', 1, 16)"
+                "('Split Payments', 'credit_card', '#5C6BC0', 1, 16)",
+                "('Investments', 'trending_up', '#43A047', 1, 17)",
+                "('EMI', 'account_balance', '#6D4C41', 1, 18)",
+                "('People', 'groups', '#EC407A', 1, 19)"
             )
             defaultCategories.forEach { values ->
                 db.execSQL("INSERT INTO categories (name, icon_name, color_hex, is_default, sort_order) VALUES $values")

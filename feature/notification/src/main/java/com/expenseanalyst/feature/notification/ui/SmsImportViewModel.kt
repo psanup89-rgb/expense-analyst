@@ -28,6 +28,7 @@ import com.expenseanalyst.feature.notification.parser.BankNameFromSender
 import com.expenseanalyst.feature.notification.parser.BillStatementParserRegistry
 import com.expenseanalyst.feature.notification.parser.ParsedTransaction
 import com.expenseanalyst.feature.notification.parser.ParserRegistry
+import com.expenseanalyst.feature.notification.service.BnplReconciler
 import com.expenseanalyst.feature.notification.parser.TransactionDirection
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -51,6 +52,7 @@ class SmsImportViewModel @Inject constructor(
     private val accountRepository: AccountRepository,
     private val merchantRuleRepository: MerchantRuleRepository,
     private val transferRecipientRuleRepository: TransferRecipientRuleRepository,
+    private val bnplReconciler: BnplReconciler,
     private val merchantSearchRepository: MerchantSearchRepository,
     private val appPreferencesRepository: AppPreferencesRepository
 ) : ViewModel() {
@@ -119,10 +121,13 @@ class SmsImportViewModel @Inject constructor(
             // Primary key: rawSmsBody hash (exact SMS match).
             // Fallback key: amount + day + merchant (for expenses without rawSmsBody).
             // Include NOTIFICATION_AUTO so previously live-confirmed expenses block re-import.
-            val fullSnapshot = expenseRepository.getExpensesSnapshot()
+            // includeDeleted: a message whose expense was deleted must not come back on re-import
+            // (soft delete is the user saying "not this one"). Refund matching below filters
+            // deleted rows itself.
+            val fullSnapshot = expenseRepository.getExpensesSnapshot(includeDeleted = true)
             // For refund matching below — starts with originals already claimed by a
             // previously-saved refund, and grows as this loop matches more within the batch.
-            val claimedRefundOriginalIds = fullSnapshot.mapNotNullTo(mutableSetOf()) { it.refundOriginalExpenseId }
+            val claimedRefundOriginalIds = fullSnapshot.filter { !it.isDeleted }.mapNotNullTo(mutableSetOf()) { it.refundOriginalExpenseId }
             val existingSmsAuto = fullSnapshot
                 .filter { it.sourceType == SourceType.SMS_AUTO || it.sourceType == SourceType.NOTIFICATION_AUTO }
             val existingBodyKeys = existingSmsAuto
@@ -196,7 +201,8 @@ class SmsImportViewModel @Inject constructor(
                 // Category inference — Tier 1+2 (instant), Tier 3 web search (cached per merchant)
                 val category = CategoryInference.infer(
                     merchantName, parsed.bankName, categories,
-                    smsBody = sms.body, merchantRules = merchantRules
+                    smsBody = sms.body, merchantRules = merchantRules,
+                    upiDebit = parsed.type == TransactionDirection.DEBIT && parsed.paymentMethodName == "UPI"
                 ) ?: (if (isPlacesEnabled) {
                     webSearchCache.getOrPut(merchantName) {
                         val catName = merchantSearchRepository.searchMerchantCategory(merchantName)
@@ -243,7 +249,7 @@ class SmsImportViewModel @Inject constructor(
                 // refunds and inherit its account/payment method — same rule as live capture,
                 // see PendingNotificationManager and RefundMatcher's KDoc.
                 val refundMatch = if (transactionType == TransactionType.INCOME && category.name == "Refund") {
-                    val candidates = fullSnapshot.filter { it.id !in claimedRefundOriginalIds }
+                    val candidates = fullSnapshot.filter { !it.isDeleted && it.id !in claimedRefundOriginalIds }
                     RefundMatcher.findMatch(
                         refundAmount = parsed.amount,
                         refundCurrencyCode = parsed.currencyCode,
@@ -309,7 +315,11 @@ class SmsImportViewModel @Inject constructor(
                 )
             }
 
-            withContext(Dispatchers.IO) { expenseRepository.addExpenses(toSave) }
+            withContext(Dispatchers.IO) {
+                expenseRepository.addExpenses(toSave)
+                // Imported Tabby/Tamara confirmations and card charges: count each purchase once.
+                runCatching { bnplReconciler.reconcile() }
+            }
 
             // Batch-save any new merchant→category discoveries from Tier 3 web search
             webSearchCache.forEach { (merchant, category) ->

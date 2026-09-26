@@ -25,7 +25,12 @@ object CategoryInference {
             "hardees", "popeyes", "shake shack", "krispy kreme", "nandos", "fuddruckers",
             "texas roadhouse", "chilis", "outback", "fridays", "applebees", "tim hortons",
             "din tai fung", "sushi", "shawarma", "bakery", "kitchen", "grill", "grills",
-            "dining", "meals", "eatout", "takeaway", "takeout"
+            "dining", "meals", "eatout", "takeaway", "takeout",
+            // Seen in real history (Sep 2026 Misc audit). "eternal limited" is Zomato's
+            // parent company, which is how its UPI collect requests are named.
+            "yammak", "eternal limited", "cheesecake", "cups n cakes", "andhra mess",
+            "ananda bhavan", "biriyani", "cream story", "creamery", "ice cream",
+            "hardcastle", "welcomhotel"
         ),
         // Fuel MUST precede Transport, which owned these keywords until now.
         // It sits AFTER Food deliberately: Food's "cafe" intercepts "Shell Beach Cafe"
@@ -40,6 +45,11 @@ object CategoryInference {
             "petrol", "fuel", "diesel", "gas station", "shell", "bp ", "caltex",
             "total energies", "totalenergies", "atlas oil", "oilibya", "jax"
         ),
+        // Vehicle upkeep and traffic fines. Before Transport so "car wash" isn't a taxi; not a
+        // seeded category, so it falls back to Transport (see [fallbacks]).
+        "Vehicle" to listOf(
+            "traffic violation", "car wash", "car spa", "car care", "tyre", "caarwing"
+        ),
         "Transport" to listOf(
             // India
             "uber", "ola", "rapido", "metro",
@@ -50,7 +60,9 @@ object CategoryInference {
             "careem", "jeeny", "saptco", "hafilat", "salik", "nol card",
             // Global
             "airline", "airways", "airport", "flight", "train fare", "bus fare",
-            "parking", "toll"
+            "parking", "toll",
+            // Card descriptors: Uber bills as "UBR* PENDING"
+            "ubr*", "parkplus", "park plus", "agoda", "etraveli", "booking.com"
         ),
         "Shopping" to listOf(
             // India
@@ -64,7 +76,12 @@ object CategoryInference {
             // Global
             "h&m", "zara", "forever 21", "shein", "temu", "aliexpress",
             "mango", "pull and bear", "massimo dutti", "swarovski", "aldo",
-            "charles keith", "virgin megastore", "lulu fashion", "lifestyle"
+            "charles keith", "virgin megastore", "lulu fashion", "lifestyle",
+            "decathlon", "miniso", "raymond", "dailyobjects", "house of craftsmen", "nobero",
+            "mymuse", "samsung", "landmark",
+            // Arabic shop names, as Tamara's confirmation gives them (Pan Home, eXtra, Home
+            // Centre, Jarir, IKEA; not bare "نون" — it sits inside ordinary words)
+            "بان هوم", "اكسترا", "هوم سنتر", "جرير", "ايكيا"
         ),
         "Bills" to listOf(
             // India
@@ -76,6 +93,10 @@ object CategoryInference {
             "ooredoo", "oredoo", "dewa", "sewa", "aadc", "addc", "kahramaa",
             "sadad", "fatoorah", "salik recharge", "istimara", "baladiya",
             // General
+            "saudi electricity", "tnpdcl", "tamil nadu power", "commissionerate",
+            // Software subscriptions (the user files these under Bills)
+            "openai", "anthropic", "claude.ai", "digitalocean", "godaddy", "google cloud",
+            "gamma.app",
             "electricity bill", "water bill", "gas bill", "utility", "postpaid",
             "telephone", "internet bill", "insurance", "takaful", "tawuniya",
             "medgulf", "municipality", "bill payment"
@@ -102,9 +123,12 @@ object CategoryInference {
             "carrefour", "geant", "union coop", "spinneys", "waitrose",
             "al meera", "west zone", "nesto", "safari market", "abc market",
             "choithrams", "organic market",
+            "keemart", "lulu", "minimart", "mini mart", "baqala",
             // Global
             "supermarket", "hypermarket", "grocery"
         ),
+        // Ejar is the Saudi rental-contract platform rent is paid through
+        "Rent" to listOf("ejar", "rent payment", "house rent", "nobroker"),
         // Leisure MUST precede Entertainment. It takes the real-world outings that
         // Entertainment used to own; Entertainment keeps the digital subscriptions.
         // "disneyland" is listed here explicitly because Entertainment still holds
@@ -120,7 +144,8 @@ object CategoryInference {
             // Global
             "cinema", "theme park", "water park", "adventure", "concert", "event ticket",
             "bowling", "escape room", "laser tag", "soft play", "funland", "disneyland",
-            "aquarium", "museum", "paintball", "trampoline", "karting"
+            "aquarium", "museum", "paintball", "trampoline", "karting",
+            "cinepolis", "amc cinema", "amc riyad", "emaar entertainment", "diriyah gate"
         ),
         "Entertainment" to listOf(
             // India
@@ -138,6 +163,13 @@ object CategoryInference {
             "edx", "linkedin learning", "testbook", "gradeup", "british council",
             "ielts", "toefl", "training", "workshop", "certification"
         ),
+        // SIP debits arrive as "ACH D- Groww-<ref>" / "TP ACH INDIANESIGN"; smallcase is
+        // truncated to "MONTHLYSMALLCAS" by the bank
+        "Investments" to listOf(
+            "groww", "zerodha", "upstox", "kuvera", "indianesign", "indian clearing",
+            "mutual fund", "smallcas"
+        ),
+        "EMI" to listOf("home loan", "housing loan", "loan emi", "car loan", "personal loan"),
         "Refund" to listOf("refund", "reversal", "cashback", "cash back", "reimburs"),
         "Salary" to listOf("salary", "payroll", "stipend"),
         "Transfer" to listOf(
@@ -158,6 +190,7 @@ object CategoryInference {
      */
     private val fallbacks = mapOf(
         "Fuel" to "Transport",
+        "Vehicle" to "Transport",
         "Leisure" to "Entertainment"
     )
 
@@ -178,7 +211,8 @@ object CategoryInference {
         bankName: String?,
         categories: List<Category>,
         smsBody: String? = null,
-        merchantRules: List<MerchantRule> = emptyList()
+        merchantRules: List<MerchantRule> = emptyList(),
+        upiDebit: Boolean = false
     ): Category? {
         // Step 1: User-defined rules (highest priority)
         MerchantRuleMatcher.findMatch(merchant, merchantRules)
@@ -209,9 +243,19 @@ object CategoryInference {
         // e.g. "Food" rule matches "Food & Drinks" if user appended to the default name.
         // If neither the rule's category nor its fallback resolves, continue scanning rather
         // than bailing out — a deleted category shouldn't sink the whole lookup.
+        // Banks cut card descriptors short ("HUNGERSTA", "SAUDI ELE", "LIFE STYL"), so a
+        // merchant that is the start of a keyword also matches. Compared without spaces or
+        // punctuation; 7+ characters so a bare "Google" can't claim "google cloud".
+        val compactMerchant = merchant.orEmpty().lowercase().filter { it.isLetterOrDigit() }
+        fun isTruncationOf(keyword: String): Boolean {
+            if (compactMerchant.length < 7) return false
+            val compactKeyword = keyword.filter { it.isLetterOrDigit() }
+            return compactKeyword.length > compactMerchant.length && compactKeyword.startsWith(compactMerchant)
+        }
+
         if (searchText.isNotBlank()) {
             for ((categoryName, keywords) in rules) {
-                if (keywords.any { searchText.contains(it) }) {
+                if (keywords.any { searchText.contains(it) || isTruncationOf(it) }) {
                     findCategory(categories, categoryName)?.let { return it }
                     fallbacks[categoryName]
                         ?.let { fallbackName -> findCategory(categories, fallbackName) }
@@ -220,11 +264,19 @@ object CategoryInference {
             }
         }
 
+        // Step 3b: a UPI payment to an individual. After keywords, so a brand always wins.
+        if (PersonNameDetector.looksLikePerson(merchant, upiDebit)) {
+            findCategory(categories, "People")?.let { return it }
+        }
+
         // Step 4: fallback — check SMS body for other payment-type signals (refund already
         // handled in Step 2)
         val bodyLower = smsBody?.lowercase() ?: return null
         return when {
-            bodyLower.contains("salary") || bodyLower.contains("payroll") ||
+            // AlRajhiParser names these "MOI Payment"; the fine is only in the body
+            bodyLower.contains("traffic violation") ->
+                findCategory(categories, "Vehicle") ?: findCategory(categories, "Transport")
+            bodyLower.contains("salary")|| bodyLower.contains("payroll") ||
                 bodyLower.contains("stipend") ->
                 findCategory(categories, "Salary")
             bodyLower.contains("neft") || bodyLower.contains("rtgs") ||

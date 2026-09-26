@@ -8,6 +8,10 @@ package com.expenseanalyst.feature.notification.parser
  *   "POS Purchase (Apple Pay)\nCard: Visa card XX4388\nAmount: SAR 36.00\nMerchant: STARBUCKS-S876\nIn: SAUDI ARABIA\nRemaining limit SAR 18,117.95\nOn: 2026-03-28 15:54:43"
  * Sample (Online):
  *   "Online Purchase (Apple Pay)\nCard: Credit card XX4388\nMerchant: Temu.com\nAmount: SAR 14.36\nOn: 2026-03-24 02:14:13\nRemaining limit SAR 18,172.95"
+ * Sample (Online, "By/At" layout — card on "By:", merchant on "At:"):
+ *   "Online Purchase\nBy: XX1234;Visa\nAmount: SAR 117.58\nAt: Temu.com\nRemaining limit : SAR 12,345.67\nOn: 2026-09-26 21:45:35"
+ *   Until 20 Sep 2026 these were silently parsed by AlRajhiParser's generic body fingerprint
+ *   (removed for stealing other banks' messages); this parser must read them itself.
  * Sample (Credit card payment credited):
  *   "Credit Card: Credited\nCard : XX4388;Credit Card Visa\nAmount: SAR 39.00\nBalance: SAR 18,156.95\nDate: 29-03-2026"
  * Sample (POS Reversal):
@@ -38,8 +42,13 @@ class EmiratesNbdParser : TransactionParser {
     private val creditedCardPattern = Regex("""(?i)Card\s*:\s*XX(\d{4})""")
     private val paymentMethodParenPattern = Regex("""\(([^)]+)\)""")
     private val cardPattern = Regex("""(?i)Card:\s*(?:Visa|Credit|Debit|Mastercard|Mada|Amex)?\s*card\s*XX(\d{4})""")
+    // "By: XX1234;Visa" — the By/At layout
+    private val byCardPattern = Regex("""(?i)\bBy:\s*XX(\d{4})""")
     private val amountPattern = Regex("""(?i)Amount:\s*([A-Z]{3})\s*([\d,]+\.?\d*)""")
-    private val merchantPattern = Regex("""(?i)Merchant:\s*(.+)""")
+    // "Merchant: STARBUCKS" or, in the By/At layout, "At: Temu.com"
+    private val merchantPattern = Regex("""(?i)\b(?:Merchant|At):\s*(.+)""")
+    // Only a credit card has a limit; debit messages report a balance
+    private val remainingLimitPattern = Regex("""(?i)Remaining\s+limit""")
 
     override fun canParse(sender: String, body: String): Boolean =
         senderPattern.containsMatchIn(sender) || bodyFingerprintPattern.containsMatchIn(body)
@@ -52,6 +61,7 @@ class EmiratesNbdParser : TransactionParser {
             Regex("""(?i)Card:\s*(?:Credit|Visa|Mastercard|Amex)\s+card""").containsMatchIn(body) -> "CREDIT_CARD"
             Regex("""(?i)Card:\s*Debit\s+card""").containsMatchIn(body) -> "DEBIT_CARD"
             Regex("""(?i)Card:\s*Mada\s+card""").containsMatchIn(body) -> "DEBIT_CARD"
+            remainingLimitPattern.containsMatchIn(body) -> "CREDIT_CARD"
             else -> null
         }
     }
@@ -105,7 +115,7 @@ class EmiratesNbdParser : TransactionParser {
         val merchant = merchantPattern.find(body)?.groupValues?.get(1)?.trim()
             ?.takeIf { it.isNotBlank() && it.length < 60 }
 
-        val accountLast4 = cardPattern.find(body)?.groupValues?.get(1)
+        val accountLast4 = (cardPattern.find(body) ?: byCardPattern.find(body))?.groupValues?.get(1)
 
         // Detect payment method: wallet overlay first, then infer from card type in body
         val detectedPaymentMethod = PaymentMethodDetector.detect(body)

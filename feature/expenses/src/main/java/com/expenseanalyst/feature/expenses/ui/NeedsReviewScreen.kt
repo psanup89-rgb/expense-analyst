@@ -1,5 +1,6 @@
 package com.expenseanalyst.feature.expenses.ui
 
+import com.expenseanalyst.core.theme.expenseColors
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -162,7 +163,7 @@ private fun NeedsReviewCard(
             Icon(
                 Icons.Default.RateReview,
                 contentDescription = null,
-                tint = Color(0xFFF57C00),
+                tint = MaterialTheme.expenseColors.review,
                 modifier = Modifier.size(22.dp)
             )
             Column(modifier = Modifier.weight(1f)) {
@@ -197,7 +198,7 @@ private fun NeedsReviewCard(
                     Text(
                         text = "Missing: ${reasonLabels.joinToString(", ")}",
                         style = MaterialTheme.typography.labelSmall,
-                        color = Color(0xFFF57C00),
+                        color = MaterialTheme.expenseColors.review,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
                     )

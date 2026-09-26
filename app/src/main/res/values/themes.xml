@@ -3,6 +3,6 @@
     <style name="Theme.ExpenseAnalyst" parent="android:Theme.Material.NoActionBar">
         <item name="android:statusBarColor">@android:color/transparent</item>
         <item name="android:navigationBarColor">@android:color/transparent</item>
-        <item name="android:windowBackground">#121212</item>
+        <item name="android:windowBackground">#11100E</item>
     </style>
 </resources>

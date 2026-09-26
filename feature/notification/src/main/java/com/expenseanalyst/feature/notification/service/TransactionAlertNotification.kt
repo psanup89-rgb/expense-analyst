@@ -7,6 +7,7 @@ import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
 import android.graphics.Bitmap
+import com.expenseanalyst.core.util.CurrencyFormatter
 import com.expenseanalyst.core.util.categoryIconVector
 import android.graphics.Canvas
 import android.graphics.Color
@@ -60,6 +61,14 @@ object TransactionAlertNotification {
     /** How long the post-reply confirmation stays in the shade before the system removes it. */
     private const val NOTE_CONFIRM_TIMEOUT_MS = 4_000L
 
+    // Ledger palette, as ARGB ints — notifications are built outside Compose, so they can't read
+    // the theme. Keep in step with core/theme/Color.kt.
+    private const val LEDGER_ACCENT = 0xFFD6F25C.toInt()
+    private const val BADGE_DISC = 0xFF1D1C18.toInt()
+    private const val BADGE_RING = 0xFF45423A.toInt()
+    private const val BADGE_IVORY = 0xFFEEE9DF.toInt()
+    private const val BADGE_MUTED = 0xFFA39E93.toInt()
+
     /** Pixel size of the rasterized category badge passed to [NotificationCompat.Builder.setLargeIcon]. */
     private const val LARGE_ICON_SIZE_PX = 192
 
@@ -72,26 +81,32 @@ object TransactionAlertNotification {
      * Posts a notification for an auto-saved expense. Tapping opens the expense detail screen;
      * the "Add note" action accepts an inline reply that is written to the expense description.
      */
-    fun postForExpense(context: Context, parsed: ParsedTransaction, expenseId: Long, category: Category) {
+    fun postForExpense(
+        context: Context,
+        parsed: ParsedTransaction,
+        expenseId: Long,
+        category: Category,
+        needsReview: Boolean = false,
+        monthToDate: String? = null
+    ) {
         val manager = context.getSystemService(NotificationManager::class.java) ?: return
         ensureChannel(manager)
 
         val notifId = expenseId.toInt().coerceAtLeast(1)
 
-        val direction = when (parsed.type) {
-            TransactionDirection.DEBIT -> "Saved"
-            TransactionDirection.TRANSFER -> "Transfer saved"
-            else -> "Income saved"
-        }
-        val amountStr = "%.2f %s".format(parsed.amount, parsed.currencyCode)
-        val title = "$direction · $amountStr"
-        val bodyText = parsed.merchant?.takeIf { it.isNotBlank() }
-            ?: parsed.bankName.takeIf { it != "Unknown Bank" }
-            ?: "Tap to review"
+        // Money first, in the app's own format; see NotificationCopy for the rules.
+        val title = NotificationCopy.expenseTitle(
+            formattedAmount = CurrencyFormatter.format(parsed.amount, parsed.currencyCode),
+            merchant = parsed.merchant?.takeIf { it.isNotBlank() }
+                ?: parsed.bankName.takeIf { it != "Unknown Bank" },
+            incoming = parsed.type == TransactionDirection.CREDIT
+        )
+        val bodyText = NotificationCopy.expenseBody(category.name, parsed.bankName, needsReview)
 
         postWithNoteAction(
             context, notifId, expenseId, title, bodyText,
-            category.colorHex, category.iconName, category.name
+            category.colorHex, category.iconName, category.name,
+            expandedExtra = monthToDate
         )
     }
 
@@ -229,10 +244,13 @@ object TransactionAlertNotification {
         body: String,
         categoryColorHex: String?,
         categoryIconName: String?,
-        categoryName: String?
+        categoryName: String?,
+        expandedExtra: String? = null
     ) {
         val icon = categoryLargeIcon(context, categoryColorHex, categoryIconName, categoryName)
         val builder = baseBuilder(context, title, body, contentIntentFor(context, expenseId, notifId), icon)
+        // Expanded view adds the month's context; the collapsed line stays short.
+        expandedExtra?.let { builder.setStyle(NotificationCompat.BigTextStyle().bigText("$body\n$it")) }
         buildNoteAction(context, notifId, expenseId, title, body, categoryColorHex, categoryIconName, categoryName)
             ?.let(builder::addAction)
         notify(context, notifId, builder.build())
@@ -327,6 +345,7 @@ object TransactionAlertNotification {
         largeIcon: Bitmap? = null
     ): NotificationCompat.Builder = NotificationCompat.Builder(context, CHANNEL_ID)
         .setSmallIcon(R.drawable.ic_notification)
+        .setColor(LEDGER_ACCENT)
         .setContentTitle(title)
         .setContentText(body)
         .setContentIntent(contentIntent)
@@ -349,37 +368,62 @@ object TransactionAlertNotification {
         iconName: String?,
         categoryName: String?
     ): Bitmap {
+        // Ledger badge, matching core/ui/CategoryBadge: warm-black disc, hairline ring, ivory
+        // outline glyph, and the category colour reduced to a small softened dot.
         val size = LARGE_ICON_SIZE_PX
         val bitmap = Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888)
         val canvas = Canvas(bitmap)
+        val c = size / 2f
 
-        val bgColor = colorHex?.let { runCatching { Color.parseColor(it) }.getOrNull() } ?: Color.GRAY
-        val circlePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = bgColor }
-        canvas.drawCircle(size / 2f, size / 2f, size / 2f, circlePaint)
+        val disc = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = BADGE_DISC }
+        canvas.drawCircle(c, c, c, disc)
+        val ring = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            style = Paint.Style.STROKE
+            strokeWidth = size * 0.012f
+            color = BADGE_RING
+        }
+        canvas.drawCircle(c, c, c - ring.strokeWidth, ring)
 
         if (!iconName.isNullOrBlank()) {
-            val inset = size * 0.22f
+            val glyph = size * 0.5f
             ImageVectorRasterizer.draw(
                 canvas = canvas,
                 vector = categoryIconVector(iconName),
-                left = inset,
-                top = inset,
-                sizePx = size - 2 * inset,
-                color = Color.WHITE
+                left = (size - glyph) / 2f,
+                top = (size - glyph) / 2f,
+                sizePx = glyph,
+                color = BADGE_IVORY
             )
         } else {
             val letter = categoryName?.trim()?.firstOrNull()?.uppercaseChar()?.toString() ?: "?"
             val textPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-                color = Color.WHITE
+                color = BADGE_IVORY
                 textAlign = Paint.Align.CENTER
                 textSize = size * 0.42f
                 typeface = Typeface.DEFAULT_BOLD
             }
-            val baselineY = size / 2f - (textPaint.descent() + textPaint.ascent()) / 2f
-            canvas.drawText(letter, size / 2f, baselineY, textPaint)
+            val baselineY = c - (textPaint.descent() + textPaint.ascent()) / 2f
+            canvas.drawText(letter, c, baselineY, textPaint)
         }
 
+        val dotColor = colorHex?.let { hex ->
+            runCatching { Color.parseColor(if (hex.startsWith("#")) hex else "#$hex") }.getOrNull()
+        }
+        if (dotColor != null) {
+            val softened = blend(dotColor, BADGE_MUTED, 0.35f)
+            val r = size * 0.09f
+            val cx = size * 0.79f
+            val cy = size * 0.79f
+            canvas.drawCircle(cx, cy, r + size * 0.02f, disc)
+            canvas.drawCircle(cx, cy, r, Paint(Paint.ANTI_ALIAS_FLAG).apply { color = softened })
+        }
         return bitmap
+    }
+
+    /** Linear blend of two ARGB colours; mirrors `categoryDotColor` in core/ui/CategoryBadge. */
+    private fun blend(from: Int, to: Int, t: Float): Int {
+        fun ch(shift: Int) = (((from shr shift) and 0xFF) * (1 - t) + ((to shr shift) and 0xFF) * t).toInt()
+        return (0xFF shl 24) or (ch(16) shl 16) or (ch(8) shl 8) or ch(0)
     }
 
     private fun notify(context: Context, notifId: Int, notification: Notification) {
@@ -423,12 +467,12 @@ object TransactionAlertNotification {
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
 
-        val amountStr = if (amount > 0) "%.2f %s".format(amount, currencyCode) else "Amount not detected"
+        val amountStr = if (amount > 0) CurrencyFormatter.format(amount, currencyCode) else "amount not detected"
         postNotification(
             context = context,
             notifId = notifId,
-            title = "Bill statement · $amountStr",
-            body = "$billerName · tap to review",
+            title = "Bill · $amountStr · ${NotificationCopy.displayMerchant(billerName) ?: billerName}",
+            body = "Detected from SMS — confirm to add it",
             pendingIntent = pendingIntent
         )
     }
@@ -442,6 +486,7 @@ object TransactionAlertNotification {
     ) {
         val notification = NotificationCompat.Builder(context, CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_notification)
+            .setColor(LEDGER_ACCENT)
             .setContentTitle(title)
             .setContentText(body)
             .setContentIntent(pendingIntent)

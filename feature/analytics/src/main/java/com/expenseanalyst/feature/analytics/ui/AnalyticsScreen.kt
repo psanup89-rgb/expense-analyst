@@ -1,5 +1,6 @@
 package com.expenseanalyst.feature.analytics.ui
 
+import com.expenseanalyst.core.theme.expenseColors
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -53,9 +54,8 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.expenseanalyst.core.theme.NeonGreen
-import com.expenseanalyst.core.theme.NeonRed
-import com.expenseanalyst.core.theme.NeonYellow
+import com.expenseanalyst.core.ui.CategoryBadge
+import com.expenseanalyst.core.ui.categoryDotColor
 import com.expenseanalyst.core.util.CurrencyFormatter
 import com.expenseanalyst.core.util.DateTimeUtil
 import com.expenseanalyst.core.util.categoryIconVector
@@ -89,7 +89,7 @@ fun AnalyticsScreen(
                 modifier = Modifier.fillMaxSize().padding(innerPadding),
                 contentAlignment = Alignment.Center
             ) {
-                CircularProgressIndicator(color = NeonGreen)
+                CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
             }
         } else {
             LazyColumn(
@@ -257,14 +257,14 @@ private fun SummaryRow(
         SummaryCard(
             label = "Spent",
             value = CurrencyFormatter.format(uiState.totalExpense, uiState.homeCurrencyCode),
-            valueColor = NeonYellow,
+            valueColor = MaterialTheme.expenseColors.spend,
             onClick = onSpentClick,
             modifier = Modifier.weight(1f)
         )
         SummaryCard(
             label = "Income",
             value = CurrencyFormatter.format(uiState.totalIncome, uiState.homeCurrencyCode),
-            valueColor = NeonGreen,
+            valueColor = MaterialTheme.expenseColors.received,
             onClick = onIncomeClick,
             modifier = Modifier.weight(1f)
         )
@@ -285,12 +285,12 @@ private fun SummaryRow(
             }
             delta > 0 -> {
                 deltaText = "+$delta%"
-                deltaColor = NeonRed
+                deltaColor = MaterialTheme.expenseColors.spend
                 deltaIcon = Icons.AutoMirrored.Filled.TrendingUp
             }
             delta < 0 -> {
                 deltaText = "$delta%"
-                deltaColor = NeonGreen
+                deltaColor = MaterialTheme.expenseColors.received
                 deltaIcon = Icons.AutoMirrored.Filled.TrendingDown
             }
             else -> {
@@ -403,12 +403,8 @@ private fun SectionCard(
 
 @Composable
 private fun CategoryBar(cat: CategorySpend, currencyCode: String, onClick: () -> Unit) {
-    val barColor = try {
-        val hex = if (cat.colorHex.startsWith("#")) cat.colorHex else "#${cat.colorHex}"
-        Color(android.graphics.Color.parseColor(hex))
-    } catch (e: Exception) {
-        NeonGreen
-    }
+    // The category's colour, softened into the Ledger palette — same dot colour the badge uses.
+    val barColor = categoryDotColor(cat.colorHex, MaterialTheme.colorScheme.onSurfaceVariant)
 
     Row(
         modifier = Modifier
@@ -417,13 +413,13 @@ private fun CategoryBar(cat: CategorySpend, currencyCode: String, onClick: () ->
             .padding(vertical = 4.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Icon(
-            imageVector = categoryIconVector(cat.iconName),
+        CategoryBadge(
+            iconName = cat.iconName,
+            colorHex = cat.colorHex,
             contentDescription = cat.categoryName,
-            tint = barColor,
-            modifier = Modifier.size(20.dp)
+            size = 36.dp
         )
-        Spacer(Modifier.width(8.dp))
+        Spacer(Modifier.width(12.dp))
         Column(Modifier.weight(1f)) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -474,6 +470,7 @@ private fun CategoryBar(cat: CategorySpend, currencyCode: String, onClick: () ->
 @Composable
 private fun DailyBarChart(dailySpend: List<DailySpend>) {
     val maxAmount = dailySpend.maxOfOrNull { it.amount }?.takeIf { it > 0 } ?: 1.0
+    val barColor = MaterialTheme.colorScheme.primary
 
     Canvas(
         modifier = Modifier
@@ -493,7 +490,7 @@ private fun DailyBarChart(dailySpend: List<DailySpend>) {
                 val left = index * slotWidth + gap / 2f
                 val top = size.height - barHeight
                 drawRoundRect(
-                    color = NeonGreen,
+                    color = barColor,
                     topLeft = Offset(left, top),
                     size = Size(barWidth, barHeight),
                     cornerRadius = CornerRadius(3.dp.toPx())
@@ -553,7 +550,7 @@ private fun MerchantRow(rank: Int, merchant: MerchantSpend, currencyCode: String
             text = CurrencyFormatter.format(merchant.amount, currencyCode),
             style = MaterialTheme.typography.bodyMedium,
             fontWeight = FontWeight.SemiBold,
-            color = NeonYellow
+            color = MaterialTheme.expenseColors.spend
         )
     }
 }
@@ -622,16 +619,9 @@ private fun DrillDownExpenseRow(
     currencyCode: String,
     onClick: () -> Unit
 ) {
-    val catColor = try {
-        val hex = if (expense.category.colorHex.startsWith("#")) expense.category.colorHex
-        else "#${expense.category.colorHex}"
-        Color(android.graphics.Color.parseColor(hex))
-    } catch (e: Exception) {
-        NeonGreen
-    }
 
     val isCredit = expense.transactionType == TransactionType.INCOME
-    val amountColor = if (isCredit) NeonGreen else NeonYellow
+    val amountColor = if (isCredit) MaterialTheme.expenseColors.received else MaterialTheme.expenseColors.spend
     val amountPrefix = if (isCredit) "+" else "-"
     val displayAmount = expense.homeAmount ?: expense.amount
 
@@ -647,21 +637,12 @@ private fun DrillDownExpenseRow(
             .padding(vertical = 10.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        // Category icon circle
-        Box(
-            modifier = Modifier
-                .size(38.dp)
-                .clip(CircleShape)
-                .background(catColor.copy(alpha = 0.18f)),
-            contentAlignment = Alignment.Center
-        ) {
-            Icon(
-                imageVector = categoryIconVector(expense.category.iconName),
-                contentDescription = null,
-                tint = catColor,
-                modifier = Modifier.size(18.dp)
-            )
-        }
+        CategoryBadge(
+            iconName = expense.category.iconName,
+            colorHex = expense.category.colorHex,
+            contentDescription = null,
+            size = 38.dp
+        )
 
         Spacer(Modifier.width(12.dp))
 

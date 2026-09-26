@@ -1,5 +1,6 @@
 package com.expenseanalyst.feature.settings.ui
 
+import com.expenseanalyst.core.theme.expenseColors
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -105,7 +106,7 @@ fun TagDetailScreen(
                             "Spent ${CurrencyFormatter.format(uiState.spentTotal, uiState.homeCurrencyCode)}",
                             style = MaterialTheme.typography.titleLarge,
                             fontWeight = FontWeight.Bold,
-                            color = Color(0xFFFF5555)
+                            color = MaterialTheme.expenseColors.spend
                         )
                         if (uiState.notCountedCount > 0) {
                             Spacer(Modifier.height(4.dp))
@@ -138,7 +139,7 @@ fun TagDetailScreen(
 @Composable
 private fun TaggedExpenseRow(expense: Expense, homeCurrencyCode: String, onClick: () -> Unit) {
     val (sign, color) = when {
-        SpendClassifier.isSpend(expense) -> "-" to Color(0xFFFF5555)
+        SpendClassifier.isSpend(expense) -> "-" to MaterialTheme.expenseColors.spend
         SpendClassifier.isReceived(expense) -> "+" to MaterialTheme.colorScheme.primary
         else -> "" to MaterialTheme.colorScheme.onSurfaceVariant
     }

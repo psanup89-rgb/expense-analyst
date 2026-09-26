@@ -1,5 +1,6 @@
 package com.expenseanalyst.feature.expenses.ui
 
+import com.expenseanalyst.core.theme.expenseColors
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -249,7 +250,7 @@ internal fun AddExpenseContent(
     onSave: () -> Unit
 ) {
     val isExpense = uiState.transactionType == TransactionType.EXPENSE
-    val accentColor = if (isExpense) Color(0xFFFF5555) else MaterialTheme.colorScheme.primary
+    val accentColor = if (isExpense) MaterialTheme.expenseColors.spend else MaterialTheme.colorScheme.primary
     val categoryRows = uiState.categories.chunked(4)
     val filteredCurrencies = CurrencyCatalog.all.filter { currency ->
         val query = uiState.currencySearchQuery.trim()
@@ -762,7 +763,7 @@ internal fun AddExpenseContent(
             confirmButton = {
                 TextButton(
                     onClick = onConfirmDelete,
-                    colors = ButtonDefaults.textButtonColors(contentColor = Color(0xFFFF5555))
+                    colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.expenseColors.spend)
                 ) { Text("Delete") }
             },
             dismissButton = {
@@ -846,7 +847,7 @@ internal fun AddExpenseContent(
                                 selected = uiState.transactionType == TransactionType.EXPENSE,
                                 onClick = { onTransactionTypeChange(TransactionType.EXPENSE) },
                                 shape = SegmentedButtonDefaults.itemShape(index = 0, count = 4),
-                                colors = SegmentedButtonDefaults.colors(activeContainerColor = Color(0xFFFF5555).copy(alpha = 0.15f), activeContentColor = Color(0xFFFF5555))
+                                colors = SegmentedButtonDefaults.colors(activeContainerColor = MaterialTheme.expenseColors.spend.copy(alpha = 0.15f), activeContentColor = MaterialTheme.expenseColors.spend)
                             ) { Text("Expense", style = MaterialTheme.typography.labelLarge) }
                             SegmentedButton(
                                 selected = uiState.transactionType == TransactionType.INCOME,
@@ -864,7 +865,7 @@ internal fun AddExpenseContent(
                                 selected = uiState.transactionType == TransactionType.PAYMENT,
                                 onClick = { onTransactionTypeChange(TransactionType.PAYMENT) },
                                 shape = SegmentedButtonDefaults.itemShape(index = 3, count = 4),
-                                colors = SegmentedButtonDefaults.colors(activeContainerColor = Color(0xFF7C5CBF).copy(alpha = 0.15f), activeContentColor = Color(0xFF7C5CBF))
+                                colors = SegmentedButtonDefaults.colors(activeContainerColor = MaterialTheme.expenseColors.payment.copy(alpha = 0.15f), activeContentColor = MaterialTheme.expenseColors.payment)
                             ) { Text("Payment", style = MaterialTheme.typography.labelLarge) }
                         }
                         // A transfer needs to say where it went, or it counts toward neither

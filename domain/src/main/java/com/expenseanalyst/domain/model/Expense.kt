@@ -60,5 +60,11 @@ data class Expense(
      * rather than as a single `linkedExpenseId` on the loan. See
      * [com.expenseanalyst.domain.util.SpendClassifier.isLoanLeg].
      */
-    val loanId: Long? = null
+    val loanId: Long? = null,
+    /**
+     * On a Tabby/Tamara card charge: the Split Payments purchase record this instalment pays for
+     * (see domain/util/BnplInstallmentMatcher). The charge still counts toward Spent — linking only
+     * gives it the shop's name, "n of N" and category. Null on everything else.
+     */
+    val bnplPurchaseId: Long? = null
 )

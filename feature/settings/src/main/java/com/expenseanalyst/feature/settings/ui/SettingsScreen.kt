@@ -1,5 +1,6 @@
 package com.expenseanalyst.feature.settings.ui
 
+import com.expenseanalyst.core.theme.expenseColors
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -424,7 +425,7 @@ private fun SettingsContent(
                                     text = if (notifListenerGranted) "Granted — push notifications from bank apps captured"
                                            else "Not granted — only SMS will be captured",
                                     style = MaterialTheme.typography.bodySmall,
-                                    color = if (notifListenerGranted) Color(0xFF4CAF50)
+                                    color = if (notifListenerGranted) MaterialTheme.expenseColors.received
                                             else MaterialTheme.colorScheme.onSurfaceVariant
                                 )
                             }

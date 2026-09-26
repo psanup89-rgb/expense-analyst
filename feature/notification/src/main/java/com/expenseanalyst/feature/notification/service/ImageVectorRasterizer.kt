@@ -4,6 +4,8 @@ import android.graphics.Canvas
 import android.graphics.Paint
 import android.graphics.Path
 import androidx.compose.ui.graphics.PathFillType
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.asAndroidPath
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.graphics.vector.VectorGroup
@@ -20,16 +22,13 @@ import androidx.compose.ui.graphics.vector.toPath
  * notification fell back to a letter badge while the app showed the real icon. Rendering the same
  * `categoryIconVector()` output makes a mismatch impossible for any icon the picker offers.
  *
- * Handles what Material icons use: nested groups with their transforms, clip paths, fill type
- * and fill alpha. Strokes are not drawn — Material Filled icons have none.
+ * Handles what the category icons use: nested groups with their transforms, clip paths, fills
+ * (Material Outlined icons) and round-capped strokes (the Ledger line icons).
  */
 internal object ImageVectorRasterizer {
 
     fun draw(canvas: Canvas, vector: ImageVector, left: Float, top: Float, sizePx: Float, color: Int) {
-        val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-            style = Paint.Style.FILL
-            this.color = color
-        }
+        val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply { this.color = color }
         canvas.save()
         canvas.translate(left, top)
         canvas.scale(sizePx / vector.viewportWidth, sizePx / vector.viewportHeight)
@@ -50,7 +49,6 @@ internal object ImageVectorRasterizer {
             when (node) {
                 is VectorGroup -> drawGroup(canvas, node, paint, baseAlpha)
                 is VectorPath -> {
-                    if (node.fill == null) continue
                     val path = node.pathData.toPath().asAndroidPath().apply {
                         fillType = if (node.pathFillType == PathFillType.EvenOdd) {
                             Path.FillType.EVEN_ODD
@@ -58,8 +56,27 @@ internal object ImageVectorRasterizer {
                             Path.FillType.WINDING
                         }
                     }
-                    paint.alpha = (baseAlpha * node.fillAlpha).toInt().coerceIn(0, 255)
-                    canvas.drawPath(path, paint)
+                    if (node.fill != null) {
+                        paint.style = Paint.Style.FILL
+                        paint.alpha = (baseAlpha * node.fillAlpha).toInt().coerceIn(0, 255)
+                        canvas.drawPath(path, paint)
+                    }
+                    if (node.stroke != null && node.strokeLineWidth > 0f) {
+                        paint.style = Paint.Style.STROKE
+                        paint.strokeWidth = node.strokeLineWidth
+                        paint.strokeCap = when (node.strokeLineCap) {
+                            StrokeCap.Round -> Paint.Cap.ROUND
+                            StrokeCap.Square -> Paint.Cap.SQUARE
+                            else -> Paint.Cap.BUTT
+                        }
+                        paint.strokeJoin = when (node.strokeLineJoin) {
+                            StrokeJoin.Round -> Paint.Join.ROUND
+                            StrokeJoin.Bevel -> Paint.Join.BEVEL
+                            else -> Paint.Join.MITER
+                        }
+                        paint.alpha = (baseAlpha * node.strokeAlpha).toInt().coerceIn(0, 255)
+                        canvas.drawPath(path, paint)
+                    }
                 }
             }
         }

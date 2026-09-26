@@ -1,5 +1,6 @@
 package com.expenseanalyst.feature.settings.ui
 
+import com.expenseanalyst.core.theme.expenseColors
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -220,7 +221,7 @@ private fun TagRow(
                     DropdownMenuItem(text = { Text("Rename") }, onClick = { menuOpen = false; onRename() })
                     DropdownMenuItem(text = { Text("Merge into…") }, onClick = { menuOpen = false; onMerge() })
                     DropdownMenuItem(
-                        text = { Text("Delete", color = Color(0xFFFF5555)) },
+                        text = { Text("Delete", color = MaterialTheme.expenseColors.spend) },
                         onClick = { menuOpen = false; onDelete() }
                     )
                 }
@@ -332,7 +333,7 @@ private fun TagDialogHost(
                         }
                         TextButton(
                             onClick = { onDeleteCompletely(usage) },
-                            colors = ButtonDefaults.textButtonColors(contentColor = Color(0xFFFF5555))
+                            colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.expenseColors.spend)
                         ) { Text(if (inUse) "Remove completely" else "Delete") }
                     }
                 },

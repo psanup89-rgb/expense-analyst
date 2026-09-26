@@ -4,6 +4,71 @@ Format: `[Date] — Summary`
 
 ---
 
+
+## 2026-09-27 — v0.7.13: Ledger redesign, Tamara, Misc clean-up, account de-duplication
+
+Released as v0.7.13-debug (DB v31). Also contains the Ledger redesign and the Tabby fix below.
+
+### Data quality
+
+- **Card-bill payments no longer count twice.** CRED / Amex / "Credit Card Bill" payments and the matching "payment received on your card" credits are recorded as payments, not spending or income (history repaired: 86 rows; Spent −SAR ~37k, Received −SAR ~60k).
+- **Non-transactions dropped**: card-due reminders, failed auto-debits, low-balance notices, UPI collect requests, bill-download links; duplicate OTP rows removed where the real purchase exists.
+- **New categories** Investments, EMI and People (DB v31). SIPs → Investments, home-loan ACH → EMI, UPI payments to individuals → People. Ejar → Rent. Software subscriptions → Bills with a "Subscriptions" tag.
+- **Better matching**: ~60 new merchant keywords (Saudi and Indian), and truncated bank descriptors now match their keyword. Misc went from 488 rows to 215 (spending in Misc: SAR 269k → ~12k).
+- **Privacy**: merchant names can no longer carry card digits or phone numbers; 9 stored names cleaned.
+- **Emirates NBD "By/At" layout** parsed again (merchant, card and credit-card method); 6 rows repaired.
+- **Tamara works like Tabby.** Its "Split in N payment confirmation" SMS is now recognised (it was silently dropped before): the purchase is a Split Payments record, and the card instalments link to it — "Ikea Store 1/3 · Tamara", with the shop's category. 6 past purchases recovered from the inbox, 9 charges linked. Charges that combine several due instalments stay unlinked but still count.
+- **SMS Import no longer resurrects deleted expenses** (dedup now includes deleted rows).
+- Two INR 2 card-verification OTP rows removed.
+- **STC transfers** no longer create an account per recipient; 13 duplicate/phantom accounts merged or removed (39 → 28).
+
+## 2026-09-27 — Tabby/Tamara purchases were counted twice
+
+Investigated the first real Tabby purchase SMS. Every Tabby purchase had been counted twice: the
+"Your SAR X purchase at SHOP is confirmed" message was saved at full price by GenericParser (with
+the merchant "SHOP is confirmed"), and the instalments charged "At: Tabby" on the card counted too.
+
+- **Rule (user's choice, "A")**: the card instalments count toward Spent; the purchase confirmation
+  is a Split Payments record that doesn't. (Chosen partly because Tamara seemed to send no
+  purchase confirmation — later found wrong, see v0.7.13 — but it remains right: Tamara combines
+  instalments that fall due together into one card charge.)
+- **Fix**: `TabbyTamaraParser` recognises the real confirmation wording (shop name clean).
+- **New**: instalments are linked to their purchase (`BnplInstallmentMatcher`, `bnpl_purchase_id`,
+  DB v30) and shown as "Centrepoint 1/4 · Tabby" in the shop's category. The instalment count is
+  inferred from the amounts (3 and 4 both seen) and linking works whichever message arrives first.
+- **Data repair** (automatic, idempotent, `BnplReconciler`): 5 double-counted purchases converted —
+  Noon 2,329 (Jun), Pan Emirates 781 and IKEA 1,878 (Jul), Magrabi 1,288 and Centrepoint 599 (Sep):
+  SAR 6,875 removed from Spent. 12 instalments linked, including three SAR 776.33 charges that
+  turned out to be the June Noon purchase. Verified on device: July −2,659, September −1,887.
+- Tests: `BnplInstallmentMatcherTest` (8), real-wording cases in `TabbyTamaraParserTest`.
+
+---
+
+## 2026-09-27 — Ledger redesign (Notion: "Notification panel and icons")
+
+The whole app moves to the "Ledger" design: warm black and ivory, one lime accent, serif money.
+Chosen from three directions on a design canvas; direction A refined into final artwork first.
+
+- **Theme**: new dark ("Ledger") and light ("Paper") colour schemes. New `MaterialTheme.expenseColors`
+  (spend terracotta, received sage, review amber, payment violet, transfer slate) replaces every
+  hardcoded colour — 19 copies of neon red alone — across 14 screens.
+- **Type**: Nunito throughout — rounded, semi-bold body, extra-bold amounts and titles — as one
+  bundled variable font (OFL, 277 KB). First built with Instrument Serif + Manrope; replaced at the
+  user's request after it read too thin (four rounded options were compared on the canvas).
+- **Fix**: expense-row subtitles stay on one line (Nunito is wider and wrapped the time).
+- **Category icons**: a drawn set of 19 line icons (`LedgerCategoryIcons`) for every category in
+  use; other picker icons fall back to Material Outlined. New shared `CategoryBadge` (disc, hairline
+  ring, softened colour dot) in the list, detail, Analytics and Manage Categories.
+- **DB v29**: seeded Transport's icon moves from a car to a bus, so it no longer duplicates a
+  user's Vehicle category. Guarded to the untouched seeded row.
+- **Notifications**: money-first title ("SAR42.00 · Paul Cafe"), title-cased merchant, "category ·
+  bank" line with no card digits, "Needs review · tap to finish" when flagged, a month-to-date
+  line when expanded, Ledger badge, lime accent. Bills read "Bill · amount · biller".
+- **App icon**: a ledger page — margin rule and three entries, newest in lime — as an adaptive
+  icon with a monochrome layer for themed icons; matching status-bar icon.
+
+---
+
 ## 2026-09-26 — Manage Tags, tag-to-rule fixes, notification icon fix
 
 From two new Notion issues ("Tags", "Leisure category icon issue").

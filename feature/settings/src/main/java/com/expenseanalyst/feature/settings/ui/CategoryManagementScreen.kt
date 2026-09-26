@@ -57,6 +57,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.expenseanalyst.core.ui.CategoryBadge
 import com.expenseanalyst.core.util.availableCategoryIcons
 import com.expenseanalyst.core.util.categoryIconVector
 import com.expenseanalyst.domain.model.Category
@@ -183,26 +184,12 @@ private fun CategoryRow(
                 .padding(horizontal = 16.dp, vertical = 12.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            // Category icon with color background
-            val colorHex = category.colorHex.removePrefix("#")
-            val bgColor = runCatching {
-                Color(android.graphics.Color.parseColor("#$colorHex"))
-            }.getOrDefault(MaterialTheme.colorScheme.primary)
-
-            Box(
-                modifier = Modifier
-                    .size(40.dp)
-                    .clip(CircleShape)
-                    .background(bgColor.copy(alpha = 0.2f)),
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(
-                    imageVector = categoryIconVector(category.iconName),
-                    contentDescription = category.name,
-                    tint = bgColor,
-                    modifier = Modifier.size(22.dp)
-                )
-            }
+            CategoryBadge(
+                iconName = category.iconName,
+                colorHex = category.colorHex,
+                contentDescription = category.name,
+                size = 40.dp
+            )
 
             Spacer(Modifier.width(14.dp))
 

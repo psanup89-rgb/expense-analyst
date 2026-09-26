@@ -4,6 +4,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.ReadOnlyComposable
 import androidx.compose.ui.graphics.Color
+import com.expenseanalyst.core.theme.expenseColors
 import com.expenseanalyst.domain.model.Expense
 import com.expenseanalyst.domain.model.TransactionType
 import com.expenseanalyst.domain.model.TransferClassification
@@ -26,25 +27,26 @@ data class TransactionAmountStyle(
     val noteColor: Color?
 )
 
-private val SPEND_RED = Color(0xFFFF5555)
-private val PAYMENT_PURPLE = Color(0xFF7C5CBF)
-private val TRANSFER_GREY = Color(0xFF607D8B)
-private val REVIEW_AMBER = Color(0xFFF57C00)
 
 private const val TRANSFER_ARROWS = "⇄"
 
 @Composable
 @ReadOnlyComposable
 fun transactionAmountStyle(expense: Expense): TransactionAmountStyle {
-    val income = MaterialTheme.colorScheme.primary
+    val colors = MaterialTheme.expenseColors
+    val income = colors.received
     val muted = MaterialTheme.colorScheme.onSurfaceVariant
+    val spend = colors.spend
+    val payment = colors.payment
+    val transferGrey = colors.transfer
+    val review = colors.review
 
     // A loan leg counts toward neither total, so it must not read as spending (red) or income
     // (green) — that is the same mismatch that made unclassified transfers misleading. The sign
     // still says which way the money moved.
     if (SpendClassifier.isLoanLeg(expense)) {
         val sign = if (SpendClassifier.isLoanRepayment(expense)) "+" else "-"
-        return TransactionAmountStyle(TRANSFER_GREY, sign, "Loan", null)
+        return TransactionAmountStyle(transferGrey, sign, "Loan", null)
     }
 
     return when (expense.transactionType) {
@@ -52,22 +54,22 @@ fun transactionAmountStyle(expense: Expense): TransactionAmountStyle {
             TransactionAmountStyle(income, "+", null, null)
 
         TransactionType.PAYMENT ->
-            TransactionAmountStyle(PAYMENT_PURPLE, "-", null, null)
+            TransactionAmountStyle(payment, "-", null, null)
 
         TransactionType.TRANSFER -> when (expense.transferClassification) {
             TransferClassification.EXTERNAL ->
-                TransactionAmountStyle(SPEND_RED, "-", "Sent", null)
+                TransactionAmountStyle(spend, "-", "Sent", null)
             TransferClassification.EXTERNAL_IN ->
                 TransactionAmountStyle(income, "+", "Received", null)
             TransferClassification.OWN_ACCOUNT ->
-                TransactionAmountStyle(TRANSFER_GREY, TRANSFER_ARROWS, "Own transfer", null)
+                TransactionAmountStyle(transferGrey, TRANSFER_ARROWS, "Own transfer", null)
             // Unclassified: neutral, and explicitly labelled, because this row counts toward
             // nothing at all until the user says which kind of transfer it is.
             null ->
-                TransactionAmountStyle(muted, TRANSFER_ARROWS, "Tap to classify", REVIEW_AMBER)
+                TransactionAmountStyle(muted, TRANSFER_ARROWS, "Tap to classify", review)
         }
 
         TransactionType.EXPENSE ->
-            TransactionAmountStyle(SPEND_RED, "-", null, null)
+            TransactionAmountStyle(spend, "-", null, null)
     }
 }

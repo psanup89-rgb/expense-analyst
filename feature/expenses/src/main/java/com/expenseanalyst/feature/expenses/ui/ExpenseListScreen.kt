@@ -1,5 +1,6 @@
 package com.expenseanalyst.feature.expenses.ui
 
+import com.expenseanalyst.core.theme.expenseColors
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.animateContentSize
 import androidx.compose.foundation.background
@@ -71,6 +72,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.expenseanalyst.core.util.CurrencyFormatter
 import com.expenseanalyst.core.util.DateTimeUtil
+import com.expenseanalyst.core.ui.CategoryBadge
 import com.expenseanalyst.core.util.categoryIconVector
 import com.expenseanalyst.domain.model.Expense
 import com.expenseanalyst.domain.model.PaymentMethod
@@ -461,7 +463,7 @@ private fun MonthlySummaryCard(
                         text = CurrencyFormatter.format(totalDebit, currencyCode),
                         style = MaterialTheme.typography.titleLarge,
                         fontWeight = FontWeight.Bold,
-                        color = Color(0xFFFF5555)
+                        color = MaterialTheme.expenseColors.spend
                     )
                 }
                 Column(
@@ -481,7 +483,7 @@ private fun MonthlySummaryCard(
                         text = if (totalCredit > 0) CurrencyFormatter.format(totalCredit, currencyCode) else "—",
                         style = MaterialTheme.typography.titleLarge,
                         fontWeight = FontWeight.Bold,
-                        color = if (totalCredit > 0) MaterialTheme.colorScheme.primary
+                        color = if (totalCredit > 0) MaterialTheme.expenseColors.received
                         else MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
@@ -553,20 +555,12 @@ fun ExpenseCard(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            Box(
-                modifier = Modifier
-                    .size(46.dp)
-                    .clip(RoundedCornerShape(14.dp))
-                    .background(MaterialTheme.colorScheme.surfaceContainerHigh),
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(
-                    imageVector = categoryIconVector(expense.category.iconName),
-                    contentDescription = expense.category.name,
-                    modifier = Modifier.size(24.dp),
-                    tint = MaterialTheme.colorScheme.primary
-                )
-            }
+            CategoryBadge(
+                iconName = expense.category.iconName,
+                colorHex = expense.category.colorHex,
+                contentDescription = expense.category.name,
+                size = 46.dp
+            )
 
             Column(modifier = Modifier.weight(1f)) {
                 Text(
@@ -581,7 +575,9 @@ fun ExpenseCard(
                     Text(
                         text = "${expense.category.name} · ${DateTimeUtil.formatTime(expense.date)}",
                         style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
                     )
                     // Transfers carry a qualifier here ("Sent", "Own transfer", "Tap to
                     // classify"), since the amount alone can no longer say which kind it is.
@@ -608,7 +604,9 @@ fun ExpenseCard(
                 Text(
                     text = expense.accountDisplayName ?: expense.paymentMethod.label,
                     style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
                 )
                 val homeAmount = expense.homeAmount
                 if (expense.currencyCode != homeCurrencyCode && homeAmount != null) {
@@ -654,7 +652,7 @@ private fun SwipeToDeleteExpenseCard(
         backgroundContent = {
             val color by animateColorAsState(
                 targetValue = if (dismissState.targetValue == SwipeToDismissBoxValue.EndToStart)
-                    Color(0xFFFF5555) else MaterialTheme.colorScheme.surfaceContainerLow,
+                    MaterialTheme.expenseColors.spend else MaterialTheme.colorScheme.surfaceContainerLow,
                 label = "swipe_bg"
             )
             Box(

@@ -195,4 +195,66 @@ class CategoryInferenceTest {
         )
         assertEquals("Shopping", result?.name)
     }
+
+    // ── Sep 2026 Misc audit ─────────────────────────────────────────────────
+
+    private val withNew = allCategories + listOf(cat(17, "Investments"), cat(18, "EMI"), cat(19, "People"))
+
+    @Test
+    fun `merchants from the Misc audit find their category`() {
+        assertEquals("Rent", infer("Ejar", withNew))
+        assertEquals("Groceries", infer("Keemart", withNew))
+        assertEquals("Groceries", infer("Lulu Express Sahara Mall", withNew))
+        assertEquals("Food", infer("Yammak", withNew))
+        assertEquals("Food", infer("ETERNAL LIMITED", withNew))
+        assertEquals("Transport", infer("UBR* PEND", withNew))
+        assertEquals("Leisure", infer("CINEPOLIS I", withNew))
+        assertEquals("Bills", infer("OPENAI *C", withNew))
+        assertEquals("Investments", infer("Groww", withNew))
+        assertEquals("Investments", infer("INDIANESIGN", withNew))
+        assertEquals("Investments", infer("MONTHLYSMALLCAS", withNew))
+        assertEquals("EMI", infer("HDFC HOME LOAN", withNew))
+        // Tamara confirmations name the shop, sometimes in Arabic
+        assertEquals("Shopping", infer("بان هوم - السعودية", withNew))
+        assertEquals("Shopping", infer("اكسترا: متاجر", withNew))
+        assertEquals("Shopping", infer("Landmark Online", withNew))
+        assertEquals("Shopping", infer("Samsung", withNew))
+    }
+
+    @Test
+    fun `a descriptor the bank cut short still matches its keyword`() {
+        assertEquals("Food", infer("HUNGERSTA", withNew))
+        assertEquals("Bills", infer("SAUDI ELE", withNew))
+        assertEquals("Shopping", infer("LIFE STYL", withNew))
+        assertEquals("Shopping", infer("Pan Emira", withNew))
+        // Too short to be sure: a bare "Google" must not become "google cloud"
+        assertEquals(null, infer("Google", withNew))
+    }
+
+    @Test
+    fun `traffic fines go to Vehicle, or Transport when there is no Vehicle category`() {
+        val body = "MOI Payments-Traffic Violations From:1234 Amount:SR 300"
+        assertEquals("Transport", infer("MOI Payments-Traffic Violations", withNew))
+        // AlRajhiParser's merchant is just "MOI Payment" — the body carries the fine
+        assertEquals(
+            "Vehicle",
+            CategoryInference.infer("MOI Payment", null, withNew + cat(20, "Vehicle"), smsBody = body)?.name
+        )
+        assertEquals(
+            "Vehicle",
+            CategoryInference.infer("Traffic Violation fine", null, withNew + cat(20, "Vehicle"), smsBody = body)?.name
+        )
+    }
+
+    @Test
+    fun `a UPI payment to a person goes to People, a card purchase never does`() {
+        fun upi(m: String) = CategoryInference.infer(m, null, withNew, upiDebit = true)?.name
+        assertEquals("People", upi("P K SASEEDHARAN"))
+        assertEquals("People", upi("Mrs NIRMALAMARY  D"))
+        assertEquals("People", upi("MANOJ POOVANNIYIL"))
+        // brand keyword wins over the person check
+        assertEquals("Food", upi("CREAM STORY"))
+        // same name on a card is a truncated business descriptor, not a person
+        assertEquals(null, infer("RAYMOND L".replace("RAYMOND", "ROHAN"), withNew))
+    }
 }

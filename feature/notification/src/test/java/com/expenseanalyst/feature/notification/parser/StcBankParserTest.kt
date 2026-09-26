@@ -72,4 +72,15 @@ class StcBankParserTest {
     fun `parse returns null for non-transaction messages`(sender: String, body: String) {
         assertNull(parser.parse(sender, body))
     }
+
+    // "Acc:" is the recipient's account. Reading it as ours made one STC account per recipient.
+    @Test
+    fun `outward transfer keeps the recipient's account digits off the user's account`() {
+        val body = "Internal outward transfer\nAmount:100.00SAR\nTo:JOHN SAMPLE\nAcc:1234*\nAt:14/04/26 15:48"
+        val result = parser.parse("STC Bank", body)
+        assertNotNull(result)
+        assertEquals(TransactionDirection.TRANSFER, result!!.type)
+        assertEquals("JOHN SAMPLE", result.merchant)
+        assertNull(result.accountLast4)
+    }
 }

@@ -1,5 +1,6 @@
 package com.expenseanalyst.feature.notification.ui
 
+import com.expenseanalyst.core.theme.expenseColors
 import android.Manifest
 import android.content.Intent
 import android.content.pm.PackageManager
@@ -440,7 +441,7 @@ private fun BulkImportDoneContent(
                 SummaryRow(
                     label = "Bills detected",
                     value = billsFound.toString(),
-                    valueColor = Color(0xFF7C5CBF)
+                    valueColor = MaterialTheme.expenseColors.payment
                 )
             }
             if (failed > 0) {

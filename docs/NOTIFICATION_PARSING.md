@@ -130,17 +130,27 @@ Registered in `BillStatementParserRegistry` (tried before transaction parsers). 
 | 7 | IdfcFirstBankParser | IDFC First Bank | Sender `idfcfb` | INR | CC spend (fun prefixes), savings debit/credit, card payment, interest |
 | 8 | OneCardParser | OneCard (Federal Bank) | Sender `onecrd` | Multi | `paid X at MERCHANT`, payment received, refund |
 | 9 | AlRajhiParser | Al Rajhi Bank | Sender OR body content | SAR | `PoS/Online Purchase`, `;Visa-Apple Pay`, `At:` merchant |
-| 10 | StcBankParser | STC Bank | Sender `stc` | SAR | `SAR X paid to`, `received` |
+| 10 | StcBankParser | STC Bank | Sender `stc` | SAR | `SAR X paid to`, `received`, "Internal outward transfer … To:NAME Acc:1234*". `accountLast4` is always null — "Acc:" is the **recipient's** account |
 | 11 | AlinmaParser | Alinma Bank | Sender `alinma` | SAR | `card ending X used for SAR X at` |
 | 12 | D360Parser | D360 Bank | Sender `d360` | SAR | `SAR X paid to`, Transaction ID |
-| 13 | EmiratesNbdParser | Emirates NBD | Sender OR body fingerprint | Multi | `POS/Online Purchase`, `Card: Visa card XX4388`, `Amount: SAR X`, `Merchant:` |
+| 13 | EmiratesNbdParser | Emirates NBD | Sender OR body fingerprint | Multi | `POS/Online Purchase`, `Card: Visa card XX4388`, `Amount: SAR X`, `Merchant:`; and the "By/At" layout (`By: XX1234;Visa`, `At: Temu.com`). "Remaining limit" ⇒ credit card |
 | 14 | FasTagParser | FASTag (LivQuik) | Sender `qwfstg` | INR | `debited RsX for VEHICLE in LOCATION at DATE` |
 | 15 | WalletParser | Digital Wallet | Sender Apple/Google/Samsung Pay | Multi | `Payment of $X at`, `Paid X to` |
 | 16 | UpiParser | UPI (GPay/PhonePe/Paytm) | Sender or `UPI` in body | INR | `paid ₹X to`, `received from` |
 | 17 | MubasherParser | Mubasher (bill payment) | Sender `mub/mubasher` OR body fingerprint | SAR | `Biller:`, `Service:`, `Bill:` — bill payment confirmations |
 | 18 | KeetaParser | Keeta (food delivery) | Sender OR body contains `keeta` | SAR | Refund/cancellation ("SAR X refunded", "will return to the original way"), and charge SMS ("SAR X charged for your Keeta order") |
-| 19 | TabbyTamaraParser | Tabby / Tamara (BNPL) | Sender OR body contains `tabby`/`tamara` + a purchase-split fingerprint | Multi | ⚠️ **Unverified** — no real purchase-confirmation SMS sample was available when written; see the parser's KDoc. Extracts total + per-installment amount, sets `isBnplConfirmation = true`, routing `PendingNotificationManager` to reclassify the merchant's own full-amount expense as `PAYMENT`/"Split Payments" instead of the normal auto-save flow. Distinct from `TamaraStatementParser` (bill statement parser #6 above), which only handles the later payment-due reminder. |
+| 19 | TabbyTamaraParser | Tabby / Tamara (BNPL) | Tabby: sender/body `tabby` + "Your SAR X purchase at SHOP is confirmed". Tamara: "Split in N payment confirmation" shape alone (the body never says Tamara) | Multi | **Verified wording (Sep 2026)** for both — Tamara: `Store:` shop, `Order:` total, instalment count from "Split in N" (`instalmentCountOf`). The older "split into N payments" branch is still unverified. Extracts total + per-installment amount, sets `isBnplConfirmation = true`, routing `PendingNotificationManager` to reclassify the merchant's own full-amount expense as `PAYMENT`/"Split Payments" instead of the normal auto-save flow. Distinct from `TamaraStatementParser` (bill statement parser #6 above), which only handles the later payment-due reminder. |
 | 20 | GenericParser | Unknown (fallback) | Always matches (unless bill-reminder phrase detected) | Multi | Best-effort: `At:` merchant, `Card:` account, amount + direction. Has `billReminderPattern` guard — returns null for "ignore if already paid", "bill of Rs.X is pending", "minimum amount due", "bill payment reminder" |
+
+### Cross-bank normalisation (`ParserRegistry.normalize`)
+
+Applied to every parser's result — never re-implement per parser:
+
+- **Not a transaction → null**: OTP messages; card-due reminders ("is due for payment"); failed auto-debits; "balance is almost consumed"; UPI collect requests ("has requested money"); bill-download links. Bill reminders still reach `BillStatementParserRegistry`, which runs on a null here.
+- **Card-bill payment → `PAYMENT`**: a debit to CRED / Dreamplug / American Express / "… Credit Card Bill", and a credit that is a card-bill payment arriving on the card ("Payment … received towards your Credit Card", "credited to your card ending", "Credit Card: Credited", "Excess amount … credit card"). Refund wording opts out.
+- **`sanitizeMerchant`**: "ACH D- Groww-<ref>" → "Groww"; cuts "… using your … Card xx12"; nulls a merchant that carries a card/account identifier or is a bare phone number.
+
+A parser's `accountLast4` must be the **user's own** account or card — never a counterparty's (see STC above).
 
 ## SMS Import (Bulk)
 
@@ -154,7 +164,7 @@ The SMS import feature (`SmsImportViewModel`) reads SMS from the device inbox an
 ### Dedup Logic
 Two-tier duplicate detection prevents re-importing existing expenses:
 
-1. **Primary (exact match)**: Hash of raw SMS body text — if the exact same SMS was already imported, skip it
+1. **Primary (exact match)**: Hash of raw SMS body text — if the exact same SMS was already imported, skip it. Checked against **deleted rows too**, so an expense the user deleted never comes back on re-import
 2. **Fallback (for old records without rawSmsBody)**: `amount + calendar day + merchant name` — catches approximate duplicates
 
 The import does NOT clear existing data. It only adds new expenses that don't match existing ones.

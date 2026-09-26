@@ -1,5 +1,6 @@
 package com.expenseanalyst.feature.expenses.ui
 
+import com.expenseanalyst.core.theme.expenseColors
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -180,7 +181,7 @@ private fun ReimbursementCard(
             Icon(
                 Icons.Default.RequestQuote,
                 contentDescription = null,
-                tint = if (isReimbursed) MaterialTheme.colorScheme.primary else Color(0xFFF57C00),
+                tint = if (isReimbursed) MaterialTheme.colorScheme.primary else MaterialTheme.expenseColors.review,
                 modifier = Modifier.size(22.dp)
             )
             Column(modifier = Modifier.weight(1f)) {
@@ -210,7 +211,7 @@ private fun ReimbursementCard(
                     text = "-${CurrencyFormatter.format(expense.amount, expense.currencyCode)}",
                     style = MaterialTheme.typography.titleSmall,
                     fontWeight = FontWeight.Bold,
-                    color = Color(0xFFFF5555)
+                    color = MaterialTheme.expenseColors.spend
                 )
                 expense.homeAmount?.takeIf { expense.currencyCode != homeCurrencyCode }?.let { ha ->
                     Text(

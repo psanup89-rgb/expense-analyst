@@ -36,6 +36,11 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.datetime.Instant
 import java.util.Calendar
+import com.expenseanalyst.core.util.CurrencyFormatter
+import com.expenseanalyst.domain.util.SpendClassifier
+import kotlinx.datetime.Clock
+import kotlinx.datetime.TimeZone
+import kotlinx.datetime.toLocalDateTime
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -63,7 +68,8 @@ class PendingNotificationManager @Inject constructor(
     private val transferRecipientRuleRepository: TransferRecipientRuleRepository,
     private val accountRepository: AccountRepository,
     private val currencyRepository: CurrencyRepository,
-    private val appPreferencesRepository: AppPreferencesRepository
+    private val appPreferencesRepository: AppPreferencesRepository,
+    private val bnplReconciler: BnplReconciler
 ) {
     private val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
 
@@ -135,7 +141,8 @@ class PendingNotificationManager @Inject constructor(
                 ?: normalized.bankName
             val category = CategoryInference.infer(
                 merchantName, normalized.bankName, categories,
-                smsBody = normalized.rawBody, merchantRules = merchantRules
+                smsBody = normalized.rawBody, merchantRules = merchantRules,
+                upiDebit = normalized.type == TransactionDirection.DEBIT && normalized.paymentMethodName == "UPI"
             ) ?: fallbackCategory
             val matchedRule = MerchantRuleMatcher.findMatch(merchantName, merchantRules)
 
@@ -253,7 +260,13 @@ class PendingNotificationManager @Inject constructor(
                 merchant = merchantName,
                 needsReview = needsReview
             )
-            TransactionAlertNotification.postForExpense(context, normalized, savedId, category)
+            // A Tabby/Tamara card charge gets linked to its purchase (and renamed after the shop).
+            runCatching { bnplReconciler.reconcile() }
+            TransactionAlertNotification.postForExpense(
+                context, normalized, savedId, category,
+                needsReview = needsReview,
+                monthToDate = monthToDateLine(homeCurrencyCode)
+            )
         }
     }
 
@@ -342,6 +355,8 @@ class PendingNotificationManager @Inject constructor(
         expenseRepository.addExpense(
             stubExpense.copy(homeAmount = conversion.homeAmount, exchangeRate = conversion.exchangeRate)
         )
+        // The first instalment often lands on the card seconds BEFORE this confirmation; link it now.
+        runCatching { bnplReconciler.reconcile() }
     }
 
     private fun isSameCalendarDay(millis1: Long, millis2: Long): Boolean {
@@ -350,4 +365,21 @@ class PendingNotificationManager @Inject constructor(
         return c1.get(Calendar.YEAR) == c2.get(Calendar.YEAR) &&
             c1.get(Calendar.DAY_OF_YEAR) == c2.get(Calendar.DAY_OF_YEAR)
     }
+
+    /**
+     * "September so far: SAR34,443.00 spent" for the expanded notification. Uses SpendClassifier,
+     * the same rule as the home screen's Spent card, so the two never disagree. Best-effort: any
+     * failure just drops the line rather than the notification.
+     */
+    private suspend fun monthToDateLine(homeCurrencyCode: String): String? = runCatching {
+        val tz = TimeZone.currentSystemDefault()
+        val today = Clock.System.now().toLocalDateTime(tz).date
+        val thisMonth = expenseRepository.getExpensesSnapshot().filter {
+            val d = it.date.toLocalDateTime(tz).date
+            d.year == today.year && d.month == today.month
+        }
+        val total = SpendClassifier.spendBreakdown(thisMonth).net
+        val monthName = today.month.name.lowercase().replaceFirstChar { it.uppercase() }
+        NotificationCopy.monthToDateLine(monthName, CurrencyFormatter.format(total, homeCurrencyCode))
+    }.getOrNull()
 }

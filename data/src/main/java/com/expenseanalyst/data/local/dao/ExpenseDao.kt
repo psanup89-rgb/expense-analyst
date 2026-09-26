@@ -243,6 +243,31 @@ interface ExpenseDao {
     )
     suspend fun reclassifyAsSplitPayment(id: Long, categoryId: Long, updatedAt: Long): Int
 
+    /**
+     * Turns a Tabby/Tamara purchase confirmation that was mis-saved as an ordinary EXPENSE (full
+     * price, double-counted against the card instalments) into a Split Payments PAYMENT record,
+     * fixing the merchant name at the same time. Targeted update, not updateExpense.
+     */
+    @Query(
+        """
+        UPDATE expenses SET transaction_type = 'PAYMENT', category_id = :categoryId,
+            merchant_name = :merchantName, needs_review = 0, needs_review_reasons = NULL,
+            updated_at_utc_millis = :updatedAt
+        WHERE id = :id AND is_deleted = 0
+        """
+    )
+    suspend fun convertToBnplPurchase(id: Long, categoryId: Long, merchantName: String, updatedAt: Long): Int
+
+    /** Links a card charge to its BNPL purchase and names it after the shop. Targeted update. */
+    @Query(
+        """
+        UPDATE expenses SET bnpl_purchase_id = :purchaseId, merchant_name = :merchantName,
+            category_id = :categoryId, updated_at_utc_millis = :updatedAt
+        WHERE id = :id AND is_deleted = 0
+        """
+    )
+    suspend fun linkBnplInstalment(id: Long, purchaseId: Long, merchantName: String, categoryId: Long, updatedAt: Long): Int
+
     @Query(
         """
         UPDATE expenses

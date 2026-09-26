@@ -7,21 +7,31 @@ import com.expenseanalyst.domain.repository.ExpenseRepository
 import com.expenseanalyst.domain.repository.OnboardingRepository
 import com.expenseanalyst.feature.notification.parser.ParsedTransaction
 import com.expenseanalyst.feature.notification.parser.TransactionDirection
+import com.expenseanalyst.feature.notification.service.BnplReconciler
 import com.expenseanalyst.feature.notification.service.PendingNotificationManager
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.launch
 import javax.inject.Inject
 
 @HiltViewModel
 class MainViewModel @Inject constructor(
     onboardingRepository: OnboardingRepository,
     private val pendingManager: PendingNotificationManager,
-    expenseRepository: ExpenseRepository
+    expenseRepository: ExpenseRepository,
+    bnplReconciler: BnplReconciler
 ) : ViewModel() {
+
+    init {
+        // Repairs Tabby/Tamara history once per launch (idempotent): converts double-counted
+        // purchase confirmations and links instalments that arrived while the app wasn't running.
+        viewModelScope.launch(Dispatchers.IO) { runCatching { bnplReconciler.reconcile() } }
+    }
 
     val needsReviewCount: StateFlow<Int> = expenseRepository.getNeedsReviewCount()
         .stateIn(scope = viewModelScope, started = SharingStarted.Eagerly, initialValue = 0)

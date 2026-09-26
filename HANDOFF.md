@@ -1,10 +1,71 @@
 # Expense Analyst — Handoff
 
-**Last updated**: 2026-09-26
-**DB version**: 28
+**Last updated**: 2026-09-27
+**DB version**: 31
 **Build**: `./gradlew clean assembleDebug` ✅
 **Repo**: `https://github.com/psanup89-rgb/expense-analyst` (public)
-**Release**: v0.7.12-debug (GitHub Release with APK)
+**Release**: v0.7.13-debug (GitHub Release with APK)
+
+---
+
+## Session Summary (2026-09-27, later) — data quality pass (v0.7.13)
+
+All verified on device, each DB change preceded by a backup (backups deleted after release).
+
+- **Emirates NBD "By/At" layout**: regression from removing Al Rajhi's generic fingerprint
+  (b2d8632) — Temu and 5 foreign-currency purchases had no merchant/card. Parser fixed, 6 rows
+  repaired.
+- **Accounts 39 → 28**: STC stored transfer recipients' "Acc:" digits as the user's account (4
+  phantom STC accounts); duplicates for HDFC, Axis, OneCard and ICICI ("UPI · Credit Card")
+  merged; empty Emirates NBD Savings and Test Bank removed; Keeta → "Keeta Wallet"; 5 cashback
+  rows moved from Unknown Bank to the Al Rajhi prepaid card.
+- **Misc 488 → 215** (spending in Misc SAR 269k → 12.7k): history re-parsed with today's parsers.
+  86 card-bill payments/credits → PAYMENT (Spent −~37k, Received −~60k); 21 non-transactions
+  soft-deleted; new categories Investments / EMI / People (DB v31); Ejar → Rent; subscriptions →
+  Bills + "Subscriptions" tag via merchant rules; ~60 keywords + truncated-descriptor matching.
+  9 merchant names carrying card digits cleaned.
+- **Tamara works like Tabby**: real "Split in N payment confirmation" wording; 6 purchases
+  recovered from the SMS inbox, 9 of 13 charges linked. The other 4: one predates app history, 3
+  are several instalments charged together (sums verified to the cent).
+- **SMS Import** dedup now includes deleted rows.
+
+**Open**
+- Split Tamara's combined charges into their instalments (subset-sum; offered, not built).
+- The user's merchant rule "tamara → Bills" still files unlinked Tamara charges under Bills.
+- App icon: device shows the old icon because the **Samsung Themes icon pack** cached it; the
+  APK is right. Fix on device: Themes → Icons → Default, then re-apply the pack.
+- ~87 small one-off spends remain in Misc; "dummyBrand" test rows still present.
+
+---
+
+## Session Summary (2026-09-27) — Ledger redesign (shipped in v0.7.13)
+
+Notion "Notification panel and icons" (Not started): user wanted the app icon, notifications and
+category icons redone to look classy. Three directions were put on a design canvas; the user
+picked A · Ledger, it was refined into final artwork (page "Ledger — final"), and the user chose
+the full re-theme on top of the icon/notification/category work.
+
+**Built and checked on device**
+- Home, detail and list render in the Ledger palette with bundled Nunito (swapped in for
+  Instrument Serif + Manrope, which the user found too thin); category badges
+  show the new glyphs and dots; Transport → bus via DB v29 (`user_version=29` on device).
+- A SAR 1.00 test notification showed the new title, body and badge. Both test transactions
+  (ids 1226, 1228) are soft-deleted.
+- Tests: `:domain` 127 (only the known EMI failure); `:feature:notification` passes, including
+  the new `NotificationCopyTest`.
+
+**Known**
+- The shade still showed the *old* app icon — Samsung's launcher icon cache. The APK carries the
+  new adaptive icon; it refreshes when the launcher does.
+- Not built from the design board: the notification action buttons shown there ("Edit", and
+  "To someone / My account" for transfers) — the app still offers "Add note" only.
+- Light theme ("Paper") has tokens and schemes but was not reviewed on device.
+- The design canvas's "4 · Colour & type" board still shows Instrument Serif/Manrope; the
+  "Font options" page records the switch to Nunito.
+- **Tabby double-counting — FIXED same day** (see CHANGELOG "Tabby/Tamara purchases were counted
+  twice"): 5 purchases / SAR 6,875 repaired on device, 12 instalments linked. (Tamara was later
+  found to send a confirmation after all — see the session above.) A SAR 1.00 "Tabby" charge (card check)
+  stays as-is; brand names in instalment labels are title-cased ("IKEA" → "Ikea").
 
 ---
 

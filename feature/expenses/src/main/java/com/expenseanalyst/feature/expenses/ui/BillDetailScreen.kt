@@ -1,5 +1,6 @@
 package com.expenseanalyst.feature.expenses.ui
 
+import com.expenseanalyst.core.theme.expenseColors
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -123,9 +124,9 @@ fun BillDetailScreen(
         val statementEnd = bill.statementPeriodEnd
         val isOverdue = dueDateMillis != null && dueDateMillis < now && bill.status != BillStatus.SETTLED
         val statusColor = when (bill.status) {
-            BillStatus.SETTLED -> Color(0xFF4CAF50)
-            BillStatus.PARTIAL -> Color(0xFFFF9800)
-            BillStatus.PENDING -> if (isOverdue) MaterialTheme.colorScheme.error else Color(0xFF7C5CBF)
+            BillStatus.SETTLED -> MaterialTheme.expenseColors.received
+            BillStatus.PARTIAL -> MaterialTheme.expenseColors.review
+            BillStatus.PENDING -> if (isOverdue) MaterialTheme.colorScheme.error else MaterialTheme.expenseColors.payment
         }
 
         LazyColumn(
@@ -234,7 +235,7 @@ fun BillDetailScreen(
                         )
                         if (totalDue != null) {
                             val remaining = totalDue - uiState.totalPaid
-                            val remainingColor = if (remaining > 0) MaterialTheme.colorScheme.error else Color(0xFF4CAF50)
+                            val remainingColor = if (remaining > 0) MaterialTheme.colorScheme.error else MaterialTheme.expenseColors.received
                             Row(Modifier.fillMaxWidth()) {
                                 Text(
                                     text = "Remaining: ",

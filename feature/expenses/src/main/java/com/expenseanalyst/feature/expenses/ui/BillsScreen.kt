@@ -1,5 +1,6 @@
 package com.expenseanalyst.feature.expenses.ui
 
+import com.expenseanalyst.core.theme.expenseColors
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -218,9 +219,9 @@ private fun BillCard(
     val dueDateMillis = bill.dueDateMillis
     val isOverdue = dueDateMillis != null && dueDateMillis < now && bill.status != BillStatus.SETTLED
     val statusColor = when (bill.status) {
-        BillStatus.SETTLED -> Color(0xFF4CAF50)
-        BillStatus.PARTIAL -> Color(0xFFFF9800)
-        BillStatus.PENDING -> if (isOverdue) MaterialTheme.colorScheme.error else Color(0xFF7C5CBF)
+        BillStatus.SETTLED -> MaterialTheme.expenseColors.received
+        BillStatus.PARTIAL -> MaterialTheme.expenseColors.review
+        BillStatus.PENDING -> if (isOverdue) MaterialTheme.colorScheme.error else MaterialTheme.expenseColors.payment
     }
 
     Card(

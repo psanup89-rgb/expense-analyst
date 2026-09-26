@@ -50,14 +50,86 @@ class TabbyTamaraParser : TransactionParser {
         """(?i)\bat\s+([A-Za-z0-9][A-Za-z0-9 &'.-]{1,40}?)(?=\s+has\s+been|\.|\s*$)"""
     )
 
+    /**
+     * The wording Tabby ACTUALLY sends (first real sample, 27 Sep 2026), which the split
+     * fingerprint above never matched — so GenericParser caught it instead and recorded the full
+     * price as an ordinary expense, double-counting it against the instalments on the card:
+     *   "Your SAR 599.00 purchase at CENTREPOINT is confirmed. Track your upcoming payments
+     *    with the Tabby app: <link>"
+     * No instalment count is stated; BnplInstallmentMatcher infers it from the card charges.
+     */
+    private val confirmedPurchasePattern = Regex(
+        """(?i)your\s+([A-Z]{3})\s+([\d,]+(?:\.\d+)?)\s+purchase\s+at\s+(.+?)\s+is\s+confirmed"""
+    )
+
+    /**
+     * The wording Tamara ACTUALLY sends (real sample from the owner, 27 Sep 2026):
+     *   "Split in 3 payment
+     *    confirmation:
+     *    Store: Ikea Store
+     *    Order: 1,585.75 SAR
+     *    Date: 22/09/2026
+     *    Visit the app for more details."
+     * The body never says "Tamara", so this fingerprint alone identifies the provider; unlike
+     * Tabby it states the instalment count, which [instalmentCountOf] hands to the matcher.
+     * Until this existed no parser matched it, and unmatched messages are not saved — every
+     * Tamara purchase was silently dropped, leaving only the "At: Tamara" card charges.
+     */
+    private val tamaraSplitPattern = Regex("""(?i)split\s+in\s+(\d+)\s+payments?\s*confirmation""")
+    private val storePattern = Regex("""(?i)Store\s*:\s*(.+)""")
+    private val orderAmountPattern = Regex(
+        """(?i)Order\s*:\s*(?:([A-Z]{3})\s*)?([\d,]+(?:\.\d+)?)\s*([A-Z]{3})?"""
+    )
+
+    /** The instalment count a confirmation states ("Split in 3 payment confirmation"), if any. */
+    fun instalmentCountOf(body: String): Int? =
+        tamaraSplitPattern.find(body)?.groupValues?.get(1)?.toIntOrNull()
+            ?: installmentPattern.find(body)?.groupValues?.get(1)?.toIntOrNull()
+
     // "for your Samsung order" — same shape as TamaraStatementParser's orderPattern.
     private val orderMerchantPattern = Regex("""(?i)for\s+(?:your\s+)?(.+?)\s+order""")
 
     override fun canParse(sender: String, body: String): Boolean =
-        (senderPattern.containsMatchIn(sender) || senderPattern.containsMatchIn(body)) &&
-            splitFingerprint.containsMatchIn(body)
+        tamaraSplitPattern.containsMatchIn(body) ||
+            (senderPattern.containsMatchIn(sender) || senderPattern.containsMatchIn(body)) &&
+            (splitFingerprint.containsMatchIn(body) || confirmedPurchasePattern.containsMatchIn(body))
 
     override fun parse(sender: String, body: String): ParsedTransaction? {
+        if (tamaraSplitPattern.containsMatchIn(body)) {
+            val m = orderAmountPattern.find(body) ?: return null
+            val amount = m.groupValues[2].replace(",", "").toDoubleOrNull() ?: return null
+            val currency = m.groupValues[1].ifBlank { m.groupValues[3] }.ifBlank { "SAR" }.uppercase()
+            val shop = storePattern.find(body)?.groupValues?.get(1)?.trim()
+                ?.takeIf { it.isNotBlank() && it.length < 60 }
+            return ParsedTransaction(
+                amount = amount,
+                currencyCode = currency,
+                type = TransactionDirection.PAYMENT,
+                merchant = shop,
+                accountLast4 = null,
+                referenceNumber = null,
+                bankName = "Tamara",
+                paymentMethodName = "CREDIT_CARD",
+                isBnplConfirmation = true
+            )
+        }
+
+        confirmedPurchasePattern.find(body)?.let { m ->
+            val amount = m.groupValues[2].replace(",", "").toDoubleOrNull() ?: return null
+            val shop = m.groupValues[3].trim().takeIf { it.isNotBlank() && it.length < 60 }
+            return ParsedTransaction(
+                amount = amount,
+                currencyCode = m.groupValues[1].uppercase(),
+                type = TransactionDirection.PAYMENT,
+                merchant = shop,
+                accountLast4 = null,
+                referenceNumber = null,
+                bankName = providerOf(sender, body),
+                paymentMethodName = "CREDIT_CARD",
+                isBnplConfirmation = true
+            )
+        }
+
         val installmentMatch = installmentPattern.find(body) ?: return null
         val installmentCount = installmentMatch.groupValues[1].toIntOrNull()
             ?.takeIf { it > 0 } ?: return null
@@ -80,7 +152,7 @@ class TabbyTamaraParser : TransactionParser {
             ?.replaceFirstChar { it.uppercase() }
             ?.takeIf { it.isNotBlank() && it.length < 60 }
 
-        val provider = if (Regex("""(?i)tabby""").containsMatchIn(sender + body)) "Tabby" else "Tamara"
+        val provider = providerOf(sender, body)
 
         return ParsedTransaction(
             amount = totalAmount,
@@ -94,4 +166,7 @@ class TabbyTamaraParser : TransactionParser {
             isBnplConfirmation = true
         )
     }
+
+    private fun providerOf(sender: String, body: String): String =
+        if (Regex("""(?i)tabby""").containsMatchIn(sender + body)) "Tabby" else "Tamara"
 }

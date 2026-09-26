@@ -55,12 +55,68 @@ object ParserRegistry {
      */
     fun parse(sender: String, body: String): ParsedTransaction? {
         if (otpPattern.containsMatchIn(body)) return null
+        if (nonTransactionPattern.containsMatchIn(body)) return null
         for (parser in parsers) {
             if (parser.canParse(sender, body)) {
                 val result = parser.parse(sender, body)
-                if (result != null) return result
+                if (result != null) return normalize(result, body)
             }
         }
         return null
+    }
+
+    // Messages that mention an amount but move no money: a card-due reminder (the debit comes
+    // later in its own SMS — BillStatementParserRegistry still gets these, it runs on a null
+    // here), a failed auto-debit, a low-balance notice, a UPI collect *request*, a bill-download
+    // link. Each was being saved as spending (Sep 2026 Misc audit: 13 rows).
+    private val nonTransactionPattern = Regex(
+        """(?i)\bis\s+due\s+for\s+payment\b|auto\s*debit\s+instruction.*\bhas\s+failed|""" +
+            """\bbalance\s+is\s+almost\s+consumed|\bhas\s+requested\s+money\b|""" +
+            """\bto\s+download\s+your\s+bill\b""",
+        RegexOption.DOT_MATCHES_ALL
+    )
+
+    // Paying a credit-card bill moves money between the user's own accounts: the spending was
+    // already counted when the card was used. Sent via CRED, or straight to the card issuer.
+    private val cardBillPayeePattern = Regex(
+        """(?i)^(?:cred(?:\s+club)?|dreamplug.*|american\s+express|amex|.*credit\s+card\s+bil.*)$"""
+    )
+
+    // The card side of the same bill payment ("Payment of INR 500 has been received towards
+    // your Axis Bank Credit Card", "Online Payment ... credited to your card ending ..."), and
+    // excess card balance returned to a bank account. Not income. A refund to a card is — so
+    // refund wording opts out.
+    private val cardPaymentCreditPattern = Regex(
+        """(?i)payment.{0,60}(?:received|credited).{0,40}\bcard\b|credited\s+to\s+your\s+card\b|""" +
+            """excess\s+amount.{0,60}credit\s+card|credit\s+card\s*:\s*credited"""
+    )
+    private val refundWording = Regex("""(?i)refund|reversal|cash\s*back""")
+
+    // Merchant fragments that identify an account or card, or a helpline number — never a
+    // payee (CLAUDE.md output rules: card identifiers must never be displayed).
+    private val identifierInMerchant = Regex("""(?i)\bcard\s+ending\b|\bxx\s*\d{2,}|\b(?:a/?c|account)\b.*\d|^\+?[\d\s-]{8,}$""")
+    private val usingYourSuffix = Regex("""(?i)\s+using\s+your\b.*$""")
+    // "ACH D- Groww-0000ZACR1X…" / "ACH D- TP ACH INDIANESIGN-2320147606" → the payee alone
+    private val achPattern = Regex("""(?i)^ACH\s*D-\s*(?:TP\s+ACH\s+)?(.+?)-[A-Z0-9]{6,}$""")
+
+    /** Cross-bank corrections applied to every parser's result; see the patterns above. */
+    internal fun normalize(parsed: ParsedTransaction, body: String): ParsedTransaction {
+        val merchant = sanitizeMerchant(parsed.merchant)
+        val type = when {
+            parsed.type == TransactionDirection.DEBIT && merchant != null &&
+                cardBillPayeePattern.matches(merchant.trim()) -> TransactionDirection.PAYMENT
+            parsed.type == TransactionDirection.CREDIT && cardPaymentCreditPattern.containsMatchIn(body) &&
+                !refundWording.containsMatchIn(body) -> TransactionDirection.PAYMENT
+            else -> parsed.type
+        }
+        return parsed.copy(merchant = merchant, type = type)
+    }
+
+    internal fun sanitizeMerchant(merchant: String?): String? {
+        var m = merchant?.trim()?.takeIf { it.isNotEmpty() } ?: return null
+        achPattern.find(m)?.let { m = it.groupValues[1].trim() }
+        m = m.replace(usingYourSuffix, "").trim()
+        if (m.isEmpty() || identifierInMerchant.containsMatchIn(m)) return null
+        return m
     }
 }

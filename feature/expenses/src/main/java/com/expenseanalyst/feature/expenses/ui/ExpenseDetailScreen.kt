@@ -1,5 +1,6 @@
 package com.expenseanalyst.feature.expenses.ui
 
+import com.expenseanalyst.core.theme.expenseColors
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -70,6 +71,7 @@ import android.content.Intent
 import android.net.Uri
 import com.expenseanalyst.core.util.CurrencyFormatter
 import com.expenseanalyst.core.util.DateTimeUtil
+import com.expenseanalyst.core.ui.CategoryBadge
 import com.expenseanalyst.core.util.categoryIconVector
 import com.expenseanalyst.domain.model.Category
 import com.expenseanalyst.domain.model.Expense
@@ -114,7 +116,7 @@ fun ExpenseDetailScreen(
                 TextButton(
                     onClick = viewModel::deleteExpense,
                     colors = androidx.compose.material3.ButtonDefaults.textButtonColors(
-                        contentColor = Color(0xFFFF5555)
+                        contentColor = MaterialTheme.expenseColors.spend
                     )
                 ) { Text("Delete") }
             },
@@ -217,7 +219,7 @@ fun ExpenseDetailScreen(
                         }
                         IconButton(onClick = viewModel::showDeleteConfirm) {
                             Icon(Icons.Default.Delete, contentDescription = "Delete",
-                                tint = Color(0xFFFF5555))
+                                tint = MaterialTheme.expenseColors.spend)
                         }
                     }
                 },
@@ -307,20 +309,12 @@ private fun ExpenseDetailContent(
                     .padding(24.dp),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                Box(
-                    modifier = Modifier
-                        .size(64.dp)
-                        .clip(RoundedCornerShape(20.dp))
-                        .background(MaterialTheme.colorScheme.surfaceContainerHigh),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(
-                        imageVector = categoryIconVector(expense.category.iconName),
-                        contentDescription = expense.category.name,
-                        modifier = Modifier.size(32.dp),
-                        tint = MaterialTheme.colorScheme.primary
-                    )
-                }
+                CategoryBadge(
+                    iconName = expense.category.iconName,
+                    colorHex = expense.category.colorHex,
+                    contentDescription = expense.category.name,
+                    size = 64.dp
+                )
                 Spacer(Modifier.height(12.dp))
                 Text(
                     text = "$amountPrefix${CurrencyFormatter.format(expense.amount, expense.currencyCode)}",
@@ -494,7 +488,7 @@ private fun ExpenseDetailContent(
                             TextButton(
                                 onClick = onUnlinkLoan,
                                 contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 8.dp, vertical = 0.dp),
-                                colors = ButtonDefaults.textButtonColors(contentColor = Color(0xFFFF5555))
+                                colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.expenseColors.spend)
                             ) { Text("Unlink", style = MaterialTheme.typography.labelMedium) }
                         } else {
                             TextButton(
@@ -530,7 +524,7 @@ private fun ExpenseDetailContent(
                                 style = MaterialTheme.typography.bodySmall,
                                 fontWeight = FontWeight.Medium,
                                 color = if (expense.transferClassification == null) {
-                                    Color(0xFFF57C00)
+                                    MaterialTheme.expenseColors.review
                                 } else {
                                     MaterialTheme.colorScheme.onSurface
                                 }
@@ -603,7 +597,7 @@ private fun ExpenseDetailContent(
                             TextButton(
                                 onClick = onDeleteRule,
                                 contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 8.dp, vertical = 0.dp),
-                                colors = ButtonDefaults.textButtonColors(contentColor = Color(0xFFFF5555))
+                                colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.expenseColors.spend)
                             ) {
                                 Text("Remove", style = MaterialTheme.typography.labelMedium)
                             }
@@ -942,7 +936,7 @@ private fun TransferClassificationSheet(
                 TextButton(
                     onClick = onForgetRule,
                     modifier = Modifier.padding(horizontal = 16.dp),
-                    colors = ButtonDefaults.textButtonColors(contentColor = Color(0xFFFF5555))
+                    colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.expenseColors.spend)
                 ) {
                     Text("Forget rule for $recipientName")
                 }

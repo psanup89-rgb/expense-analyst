@@ -5,79 +5,81 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.ui.graphics.Color
 
-private val DarkNeonColorScheme = darkColorScheme(
-    primary = NeonGreen,
-    onPrimary = OnNeonGreen,
-    primaryContainer = NeonGreenContainer,
-    onPrimaryContainer = NeonGreen,
-    secondary = NeonYellow,
-    onSecondary = OnNeonYellow,
-    secondaryContainer = NeonYellowContainer,
-    onSecondaryContainer = NeonYellow,
-    tertiary = NeonRedDim,
-    onTertiary = NeonRedContainer,
-    tertiaryContainer = NeonRedContainer,
-    onTertiaryContainer = NeonRedDim,
-    error = NeonRed,
-    onError = NeonRedContainer,
-    errorContainer = NeonRedContainer,
-    onErrorContainer = NeonRedDim,
-    background = Background,
-    onBackground = OnBackground,
-    surface = Surface,
-    onSurface = OnSurface,
-    surfaceVariant = SurfaceContainerHigh,
-    onSurfaceVariant = OnSurfaceVariant,
-    outline = Outline,
-    outlineVariant = OutlineVariant,
-    inverseSurface = OnSurface,
-    inverseOnSurface = Surface,
-    inversePrimary = NeonGreenContainer,
-    surfaceDim = SurfaceDim,
-    surfaceBright = SurfaceBright,
-    surfaceContainerLowest = SurfaceLowest,
-    surfaceContainerLow = SurfaceContainerLow,
-    surfaceContainer = SurfaceContainer,
-    surfaceContainerHigh = SurfaceContainerHigh,
-    surfaceContainerHighest = SurfaceContainerHighest
+private val LedgerDarkScheme = darkColorScheme(
+    primary = LedgerAccent,
+    onPrimary = LedgerOnAccent,
+    primaryContainer = LedgerAccentContainer,
+    onPrimaryContainer = LedgerAccent,
+    secondary = LedgerIvory,
+    onSecondary = LedgerGround,
+    secondaryContainer = LedgerPanelHighest,
+    onSecondaryContainer = LedgerIvory,
+    tertiary = LedgerReceived,
+    onTertiary = LedgerGround,
+    tertiaryContainer = LedgerPanelHigh,
+    onTertiaryContainer = LedgerReceived,
+    error = LedgerSpend,
+    onError = LedgerGround,
+    errorContainer = Color(0xFF3A1E16),
+    onErrorContainer = LedgerSpend,
+    background = LedgerGround,
+    onBackground = LedgerIvory,
+    surface = LedgerGround,
+    onSurface = LedgerIvory,
+    surfaceVariant = LedgerPanelHigh,
+    onSurfaceVariant = LedgerMuted,
+    outline = LedgerHairline,
+    outlineVariant = LedgerLine,
+    inverseSurface = LedgerIvory,
+    inverseOnSurface = LedgerGround,
+    inversePrimary = PaperAccent,
+    surfaceDim = LedgerGround,
+    surfaceBright = LedgerPanelHighest,
+    surfaceContainerLowest = LedgerGround,
+    surfaceContainerLow = LedgerPanel,
+    surfaceContainer = LedgerPanel,
+    surfaceContainerHigh = LedgerPanelHigh,
+    surfaceContainerHighest = LedgerPanelHighest
 )
 
-private val LightNeonColorScheme = lightColorScheme(
-    primary = NeonGreenDim,
-    onPrimary = LightOnNeonGreen,
-    primaryContainer = LightNeonGreenContainer,
-    onPrimaryContainer = OnNeonGreen,
-    secondary = NeonYellowDim,
-    onSecondary = OnNeonYellow,
-    secondaryContainer = NeonYellowContainer,
-    onSecondaryContainer = OnNeonYellow,
-    tertiary = LightNeonRed,
-    onTertiary = LightOnNeonGreen,
-    tertiaryContainer = LightNeonRedContainer,
-    onTertiaryContainer = LightNeonRed,
-    error = LightNeonRed,
-    onError = LightOnNeonGreen,
-    errorContainer = LightNeonRedContainer,
-    onErrorContainer = LightNeonRed,
-    background = LightBackground,
-    onBackground = LightOnBackground,
-    surface = LightSurface,
-    onSurface = LightOnSurface,
-    surfaceVariant = LightSurfaceContainerHigh,
-    onSurfaceVariant = LightOnSurfaceVariant,
-    outline = LightOutline,
-    outlineVariant = LightOutlineVariant,
-    inverseSurface = LightOnSurface,
-    inverseOnSurface = LightSurface,
-    inversePrimary = NeonGreen,
-    surfaceDim = LightSurfaceDim,
-    surfaceBright = LightSurfaceBright,
-    surfaceContainerLowest = LightSurfaceLowest,
-    surfaceContainerLow = LightSurfaceContainerLow,
-    surfaceContainer = LightSurfaceContainer,
-    surfaceContainerHigh = LightSurfaceContainerHigh,
-    surfaceContainerHighest = LightSurfaceContainerHighest
+private val LedgerLightScheme = lightColorScheme(
+    primary = PaperAccent,
+    onPrimary = PaperOnAccent,
+    primaryContainer = PaperAccentContainer,
+    onPrimaryContainer = Color(0xFF2B3600),
+    secondary = PaperInk,
+    onSecondary = PaperGround,
+    secondaryContainer = PaperPanelHighest,
+    onSecondaryContainer = PaperInk,
+    tertiary = PaperReceived,
+    onTertiary = PaperPanel,
+    tertiaryContainer = PaperPanelHigh,
+    onTertiaryContainer = PaperReceived,
+    error = PaperSpend,
+    onError = PaperPanel,
+    errorContainer = Color(0xFFF6DDD4),
+    onErrorContainer = PaperSpend,
+    background = PaperGround,
+    onBackground = PaperInk,
+    surface = PaperGround,
+    onSurface = PaperInk,
+    surfaceVariant = PaperPanelHigh,
+    onSurfaceVariant = PaperMuted,
+    outline = PaperHairline,
+    outlineVariant = PaperLine,
+    inverseSurface = PaperInk,
+    inverseOnSurface = PaperGround,
+    inversePrimary = LedgerAccent,
+    surfaceDim = PaperPanelHighest,
+    surfaceBright = PaperPanel,
+    surfaceContainerLowest = PaperPanel,
+    surfaceContainerLow = PaperSurface,
+    surfaceContainer = PaperPanel,
+    surfaceContainerHigh = PaperPanelHigh,
+    surfaceContainerHighest = PaperPanelHighest
 )
 
 @Composable
@@ -85,12 +87,15 @@ fun ExpenseAnalystTheme(
     darkTheme: Boolean = isSystemInDarkTheme(),
     content: @Composable () -> Unit
 ) {
-    val colorScheme = if (darkTheme) DarkNeonColorScheme else LightNeonColorScheme
+    val colorScheme = if (darkTheme) LedgerDarkScheme else LedgerLightScheme
+    val expenseColors = if (darkTheme) DarkExpenseColors else LightExpenseColors
 
-    MaterialTheme(
-        colorScheme = colorScheme,
-        typography = ExpenseAnalystTypography,
-        shapes = ExpenseAnalystShapes,
-        content = content
-    )
+    CompositionLocalProvider(LocalExpenseColors provides expenseColors) {
+        MaterialTheme(
+            colorScheme = colorScheme,
+            typography = ExpenseAnalystTypography,
+            shapes = ExpenseAnalystShapes,
+            content = content
+        )
+    }
 }

@@ -51,6 +51,12 @@ interface ExpenseRepository {
      */
     suspend fun classifyTransfer(id: Long, classification: TransferClassification): Int
 
+    /** See ExpenseDao.convertToBnplPurchase. */
+    suspend fun convertToBnplPurchase(id: Long, categoryId: Long, merchantName: String): Int
+
+    /** See ExpenseDao.linkBnplInstalment. */
+    suspend fun linkBnplInstalment(id: Long, purchaseId: Long, merchantName: String, categoryId: Long): Int
+
     /** Every non-deleted expense carrying [tagId], newest first. */
     fun getExpensesByTag(tagId: Long): Flow<List<Expense>>
 

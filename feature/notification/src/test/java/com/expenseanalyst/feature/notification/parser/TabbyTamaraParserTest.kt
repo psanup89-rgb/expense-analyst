@@ -82,4 +82,68 @@ class TabbyTamaraParserTest {
     fun `parse returns null when no installment amount is present`() {
         assertNull(parser.parse("Tamara", "Your order has been split into payments."))
     }
+
+    // ── Real wording (27 Sep 2026 sample; link replaced) ──
+
+    private val realConfirmation =
+        "Your SAR 599.00 purchase at CENTREPOINT is confirmed. Track your upcoming payments with the Tabby app: https://example.invalid/x"
+
+    @Test
+    fun `real Tabby confirmation is recognised as a BNPL purchase`() {
+        val parser = TabbyTamaraParser()
+        assertTrue(parser.canParse("Tabby", realConfirmation))
+        val parsed = parser.parse("Tabby", realConfirmation)!!
+        assertEquals(599.0, parsed.amount)
+        assertEquals("SAR", parsed.currencyCode)
+        assertEquals("CENTREPOINT", parsed.merchant)   // not "CENTREPOINT is confirmed"
+        assertEquals("Tabby", parsed.bankName)
+        assertEquals(TransactionDirection.PAYMENT, parsed.type)
+        assertTrue(parsed.isBnplConfirmation)
+    }
+
+    @Test
+    fun `multi-word shop names and thousands separators parse`() {
+        val body = "Your SAR 1,878.00 purchase at Pan Emirates Riyadh KSA is confirmed. Track your upcoming payments with the Tabby app"
+        val parsed = TabbyTamaraParser().parse("Tabby", body)!!
+        assertEquals(1878.0, parsed.amount)
+        assertEquals("Pan Emirates Riyadh KSA", parsed.merchant)
+    }
+
+    @Test
+    fun `the card charge to Tabby is not a confirmation`() {
+        // The instalment itself — must stay a normal card expense, not be swallowed here.
+        val charge = "PoS purchase Card:0000 ;Visa At: Tabby Amount:149.75 SAR Balance: 100.00 SAR 27/9/26 00:30"
+        assertFalse(TabbyTamaraParser().canParse("AlRajhiBank", charge))
+    }
+
+    @Test
+    fun `the registry routes the real confirmation to this parser, ahead of GenericParser`() {
+        val parsed = ParserRegistry.parse(sender = "Tabby", body = realConfirmation)!!
+        assertTrue(parsed.isBnplConfirmation)
+        assertEquals("CENTREPOINT", parsed.merchant)
+    }
+
+    // Tamara's real wording (owner's sample, 27 Sep 2026). Never names Tamara in the text.
+    private val tamaraConfirmation =
+        "Split in 3 payment\nconfirmation:\nStore: Ikea Store\nOrder: 1,585.75 SAR\nDate: 22/09/2026\nVisit the app for more details."
+
+    @org.junit.jupiter.api.Test
+    fun `Tamara split confirmation is a Split Payments purchase with its shop and count`() {
+        for (sender in listOf("Tamara", "")) {
+            val result = ParserRegistry.parse(sender, tamaraConfirmation)
+            org.junit.jupiter.api.Assertions.assertNotNull(result, "sender='$sender'")
+            org.junit.jupiter.api.Assertions.assertEquals(1585.75, result!!.amount, 0.001)
+            org.junit.jupiter.api.Assertions.assertEquals("SAR", result.currencyCode)
+            org.junit.jupiter.api.Assertions.assertEquals("Ikea Store", result.merchant)
+            org.junit.jupiter.api.Assertions.assertEquals("Tamara", result.bankName)
+            org.junit.jupiter.api.Assertions.assertEquals(TransactionDirection.PAYMENT, result.type)
+            org.junit.jupiter.api.Assertions.assertTrue(result.isBnplConfirmation)
+        }
+        org.junit.jupiter.api.Assertions.assertEquals(3, TabbyTamaraParser().instalmentCountOf(tamaraConfirmation))
+    }
+
+    @org.junit.jupiter.api.Test
+    fun `the Tamara due-reminder parser does not claim a purchase confirmation`() {
+        org.junit.jupiter.api.Assertions.assertFalse(TamaraStatementParser().canParse("Tamara", tamaraConfirmation))
+    }
 }

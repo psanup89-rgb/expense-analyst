@@ -2,9 +2,9 @@
 
 ## Database: Room (SQLite)
 - Database class: `ExpenseAnalystDatabase`
-- **Current schema version: `28`**
+- **Current schema version: `31`** (v30→v31 seeds the Investments, EMI and People categories; no schema change)
 - Room schema export is enabled under `data/schemas/`
-- All migrations are inline in `ExpenseAnalystDatabase.kt` (v1→v2→...→v28)
+- All migrations are inline in `ExpenseAnalystDatabase.kt` (v1→v2→...→v31)
 - Home currency preference is stored separately in DataStore, not in Room
 
 ---
@@ -43,6 +43,7 @@ Primary table for all transactions (manual and auto-parsed).
 | reimbursed_date_millis | INTEGER | NULLABLE | Added in v21→v22. Null while pending; set when the user manually marks the expense reimbursed. Ignored unless `is_reimbursable = 1`. |
 | refund_original_expense_id | INTEGER | NULLABLE | Added in v24→v25. On a Refund-category INCOME row, the id of the EXPENSE it was auto-matched to (`RefundMatcher`). |
 | transfer_classification | TEXT | NULLABLE | Added in v26→v27. Only meaningful on TRANSFER rows: `EXTERNAL` (counts as Spent), `OWN_ACCOUNT` (never counts), `EXTERNAL_IN` (counts as Received, manual-only). **Null = unclassified, counted in neither total** — the pre-v27 behaviour, so no historical figure moved. Decoded tolerantly (unknown value → null). |
+| bnpl_purchase_id | INTEGER | NULLABLE, no FK | Added in v29→v30. On a Tabby/Tamara card charge: the Split Payments purchase record (a PAYMENT row) this instalment pays for. The charge still counts toward Spent. Set by `BnplReconciler`. |
 | loan_id | INTEGER | NULLABLE, no FK | Added in v27→v28. Set when the row is one leg of a loan in `lent_items` (money lent out, or a repayment). **A loan leg counts toward neither Spent nor Received, whatever its type.** Many rows can share one loan. No FK/index: loans are soft-deleted, and the table is small. |
 
 **Indices:**

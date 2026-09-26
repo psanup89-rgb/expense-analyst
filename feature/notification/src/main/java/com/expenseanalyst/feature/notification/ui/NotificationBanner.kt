@@ -1,5 +1,6 @@
 package com.expenseanalyst.feature.notification.ui
 
+import com.expenseanalyst.core.theme.expenseColors
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
@@ -89,7 +90,7 @@ private fun BannerContent(
             Icon(
                 if (event.needsReview) Icons.Default.RateReview else Icons.Default.CheckCircle,
                 contentDescription = null,
-                tint = if (event.needsReview) Color(0xFFF57C00) else MaterialTheme.colorScheme.secondary,
+                tint = if (event.needsReview) MaterialTheme.expenseColors.review else MaterialTheme.colorScheme.secondary,
                 modifier = Modifier.size(20.dp)
             )
             Spacer(Modifier.width(10.dp))
@@ -104,7 +105,7 @@ private fun BannerContent(
                     text = if (event.needsReview) "Needs review — tap to edit" else "Saved · tap to review",
                     style = MaterialTheme.typography.labelSmall,
                     color = if (event.needsReview)
-                        Color(0xFFF57C00)
+                        MaterialTheme.expenseColors.review
                     else
                         MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.7f)
                 )

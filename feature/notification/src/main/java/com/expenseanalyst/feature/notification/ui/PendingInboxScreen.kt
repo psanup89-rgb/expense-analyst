@@ -1,5 +1,6 @@
 package com.expenseanalyst.feature.notification.ui
 
+import com.expenseanalyst.core.theme.expenseColors
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -280,13 +281,13 @@ private fun PendingBillItem(
                         if (item.linkedBillId != null) {
                             Spacer(Modifier.height(4.dp))
                             Surface(
-                                color = Color(0xFFE8F5E9),
+                                color = MaterialTheme.expenseColors.received.copy(alpha = 0.15f),
                                 shape = RoundedCornerShape(4.dp)
                             ) {
                                 Text(
                                     text = "Open bill found — can update",
                                     fontSize = 11.sp,
-                                    color = Color(0xFF2E7D32),
+                                    color = MaterialTheme.expenseColors.received,
                                     fontWeight = FontWeight.Medium,
                                     modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
                                 )
@@ -356,7 +357,7 @@ private fun PendingBillItem(
                         onClick = onUpdate,
                         modifier = Modifier.weight(1f),
                         colors = ButtonDefaults.buttonColors(
-                            containerColor = Color(0xFF4CAF50)
+                            containerColor = MaterialTheme.expenseColors.received
                         )
                     ) {
                         Text("Update Bill")

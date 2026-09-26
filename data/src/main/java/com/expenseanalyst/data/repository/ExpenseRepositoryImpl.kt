@@ -126,6 +126,12 @@ class ExpenseRepositoryImpl @Inject constructor(
             updatedAt = DateTimeUtil.nowMillis()
         )
 
+    override suspend fun convertToBnplPurchase(id: Long, categoryId: Long, merchantName: String): Int =
+        expenseDao.convertToBnplPurchase(id, categoryId, merchantName, DateTimeUtil.nowMillis())
+
+    override suspend fun linkBnplInstalment(id: Long, purchaseId: Long, merchantName: String, categoryId: Long): Int =
+        expenseDao.linkBnplInstalment(id, purchaseId, merchantName, categoryId, DateTimeUtil.nowMillis())
+
     override fun getExpensesByTag(tagId: Long): Flow<List<Expense>> =
         expenseDao.getExpensesByTagId(tagId).map { list -> list.map { it.toDomain() } }
 
