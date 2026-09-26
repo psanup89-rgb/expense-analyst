@@ -126,6 +126,9 @@ class ExpenseRepositoryImpl @Inject constructor(
             updatedAt = DateTimeUtil.nowMillis()
         )
 
+    override fun getExpensesByTag(tagId: Long): Flow<List<Expense>> =
+        expenseDao.getExpensesByTagId(tagId).map { list -> list.map { it.toDomain() } }
+
     override fun getExpensesByLoan(loanId: Long): Flow<List<Expense>> =
         expenseDao.getExpensesByLoanId(loanId).map { list -> list.map { it.toDomain() } }
 

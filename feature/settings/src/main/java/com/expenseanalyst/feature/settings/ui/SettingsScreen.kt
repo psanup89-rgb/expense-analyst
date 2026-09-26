@@ -59,6 +59,7 @@ fun SettingsScreen(
     onBack: (() -> Unit)? = null,
     onNavigateToSmsImport: () -> Unit = {},
     onNavigateToCategoryManagement: () -> Unit = {},
+    onNavigateToTagManagement: () -> Unit = {},
     onNavigateToAccountManagement: () -> Unit = {},
     onNavigateToBudget: () -> Unit = {},
     onNavigateToLoans: () -> Unit = {},
@@ -91,6 +92,7 @@ fun SettingsScreen(
         onGooglePlacesToggle = viewModel::toggleGooglePlaces,
         onNavigateToSmsImport = onNavigateToSmsImport,
         onNavigateToCategoryManagement = onNavigateToCategoryManagement,
+        onNavigateToTagManagement = onNavigateToTagManagement,
         onNavigateToAccountManagement = onNavigateToAccountManagement,
         onNavigateToBudget = onNavigateToBudget,
         onNavigateToLoans = onNavigateToLoans,
@@ -115,6 +117,7 @@ private fun SettingsContent(
     onGooglePlacesToggle: (Boolean) -> Unit,
     onNavigateToSmsImport: () -> Unit,
     onNavigateToCategoryManagement: () -> Unit,
+    onNavigateToTagManagement: () -> Unit,
     onNavigateToAccountManagement: () -> Unit,
     onNavigateToBudget: () -> Unit,
     onNavigateToLoans: () -> Unit,
@@ -555,6 +558,36 @@ private fun SettingsContent(
                             shape = androidx.compose.foundation.shape.RoundedCornerShape(10.dp)
                         ) {
                             Text("Manage Categories")
+                        }
+                    }
+                }
+            }
+
+            // Tags section
+            item {
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer)
+                ) {
+                    Column(modifier = Modifier.padding(20.dp)) {
+                        Text(
+                            text = "Tags",
+                            style = MaterialTheme.typography.titleMedium,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                        Spacer(Modifier.height(12.dp))
+                        Text(
+                            text = "Rename, merge or delete tags, and see the expenses under each.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Spacer(Modifier.height(12.dp))
+                        FilledTonalButton(
+                            onClick = onNavigateToTagManagement,
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = androidx.compose.foundation.shape.RoundedCornerShape(10.dp)
+                        ) {
+                            Text("Manage Tags")
                         }
                     }
                 }

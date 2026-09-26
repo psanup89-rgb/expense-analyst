@@ -18,7 +18,13 @@ class MerchantRuleRepositoryImpl @Inject constructor(
     override fun getRules(): Flow<List<MerchantRule>> =
         dao.getAllWithTags().map { list -> list.map { it.toDomain() } }
 
-    override suspend fun saveRule(merchantPattern: String, categoryId: Long, categoryName: String, tagIds: List<Long>) {
+    override suspend fun saveRule(merchantPattern: String, categoryId: Long, categoryName: String, tagIds: List<Long>?) {
+        // Read the existing tags BEFORE the upsert. `upsert` is REPLACE, which deletes the old row
+        // and inserts a new one, and merchant_rule_tags cascades on rule deletion — so by the time
+        // the upsert returns, the old tag links are already gone.
+        val keptTagIds = tagIds
+            ?: dao.findByPattern(merchantPattern)?.let { dao.getTagIdsForRule(it.id) }
+            ?: emptyList()
         val ruleId = dao.upsert(
             MerchantRuleEntity(
                 merchantPattern = merchantPattern,
@@ -27,7 +33,7 @@ class MerchantRuleRepositoryImpl @Inject constructor(
                 createdAtUtcMillis = System.currentTimeMillis()
             )
         )
-        dao.setTagsForRule(ruleId, tagIds)
+        dao.setTagsForRule(ruleId, keptTagIds)
     }
 
     override suspend fun deleteRule(id: Long) = dao.deleteById(id)

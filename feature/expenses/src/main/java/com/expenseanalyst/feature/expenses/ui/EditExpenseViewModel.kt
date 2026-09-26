@@ -159,18 +159,9 @@ class EditExpenseViewModel @Inject constructor(
         _form.update { it.copy(transferClassification = classification) }
     }
     fun onCategorySelect(category: Category) {
+        // The merchant rule is updated in saveExpense(), not here: saving at pick time missed any
+        // tags chosen afterwards, and wrote a rule even if the user then backed out of the edit.
         _form.update { it.copy(selectedCategory = category, isCategorySheetVisible = false) }
-        // Auto-save merchant rule so future transactions for this merchant are auto-categorized
-        val merchant = _form.value.merchantName?.trim().orEmpty()
-        if (merchant.isNotBlank()) {
-            viewModelScope.launch {
-                merchantRuleRepository.saveRule(
-                    merchantPattern = merchant.lowercase(),
-                    categoryId = category.id,
-                    categoryName = category.name
-                )
-            }
-        }
     }
     fun showCategorySheet() = _form.update { it.copy(isCategorySheetVisible = true) }
     fun dismissCategorySheet() = _form.update { it.copy(isCategorySheetVisible = false) }
@@ -320,6 +311,33 @@ class EditExpenseViewModel @Inject constructor(
     fun showBillPicker() = _form.update { it.copy(isBillPickerVisible = true) }
     fun dismissBillPicker() = _form.update { it.copy(isBillPickerVisible = false) }
 
+    /**
+     * Teaches the merchant rule from this edit, so future expenses from the same merchant get the
+     * same treatment. Only runs when the user changed the category or added a tag — otherwise any
+     * edit (a note, an amount) would create a rule nobody asked for.
+     *
+     * Tags are **added** to the rule, never removed: a tag already on the rule stays even if it
+     * isn't on this expense (the expense may predate the tag being added to the rule). Removing a
+     * tag from a rule is done deliberately in the rule dialog on the expense detail screen.
+     * When only tags changed and a rule already exists, the rule keeps its own category.
+     */
+    private suspend fun updateMerchantRule(original: Expense, updated: Expense) {
+        val pattern = updated.merchantName?.trim()?.lowercase()?.takeIf { it.isNotBlank() } ?: return
+        val categoryChanged = updated.category.id != original.category.id
+        val originalTagIds = original.tags.map { it.id }.toSet()
+        val addedTagIds = updated.tags.map { it.id }.filterNot { it in originalTagIds }
+        if (!categoryChanged && addedTagIds.isEmpty()) return
+
+        val existing = merchantRuleRepository.getRules().first().find { it.merchantPattern == pattern }
+        val ruleCategory = if (categoryChanged || existing == null) updated.category else null
+        merchantRuleRepository.saveRule(
+            merchantPattern = pattern,
+            categoryId = ruleCategory?.id ?: existing!!.categoryId,
+            categoryName = ruleCategory?.name ?: existing!!.categoryName,
+            tagIds = ((existing?.tags?.map { it.id } ?: emptyList()) + addedTagIds).distinct()
+        )
+    }
+
     fun saveExpense() {
         val original = _originalExpense.value ?: return
         val state = uiState.value
@@ -345,6 +363,7 @@ class EditExpenseViewModel @Inject constructor(
                     isReimbursable = state.isReimbursable
                 )
                 updateExpenseUseCase(updated)
+                updateMerchantRule(original, updated)
                 _form.update { it.copy(isSaving = false, savedExpenseId = original.id) }
             } catch (e: Exception) {
                 _form.update { it.copy(isSaving = false, error = "Failed to update expense") }

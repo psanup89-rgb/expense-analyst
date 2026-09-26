@@ -29,6 +29,9 @@ interface MerchantRuleDao {
     @Query("SELECT * FROM merchant_rules WHERE merchant_pattern = :pattern LIMIT 1")
     suspend fun findByPattern(pattern: String): MerchantRuleEntity?
 
+    @Query("SELECT tag_id FROM merchant_rule_tags WHERE rule_id = :ruleId")
+    suspend fun getTagIdsForRule(ruleId: Long): List<Long>
+
     @Insert(onConflict = OnConflictStrategy.IGNORE)
     suspend fun insertCrossRef(crossRef: MerchantRuleTagCrossRef)
 

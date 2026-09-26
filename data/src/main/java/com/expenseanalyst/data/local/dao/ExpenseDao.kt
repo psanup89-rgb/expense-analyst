@@ -115,6 +115,16 @@ interface ExpenseDao {
     fun getNeedsReviewExpenses(): Flow<List<ExpenseWithCategory>>
 
     @Transaction
+    @Query(
+        """
+        SELECT e.* FROM expenses e JOIN expense_tags et ON et.expense_id = e.id
+        WHERE et.tag_id = :tagId AND e.is_deleted = 0
+        ORDER BY e.date_utc_millis DESC
+        """
+    )
+    fun getExpensesByTagId(tagId: Long): Flow<List<ExpenseWithCategory>>
+
+    @Transaction
     @Query("SELECT * FROM expenses WHERE is_deleted = 0 AND loan_id = :loanId ORDER BY date_utc_millis ASC")
     fun getExpensesByLoanId(loanId: Long): Flow<List<ExpenseWithCategory>>
 

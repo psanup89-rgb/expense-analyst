@@ -4,6 +4,34 @@ Format: `[Date] — Summary`
 
 ---
 
+## 2026-09-26 — Manage Tags, tag-to-rule fixes, notification icon fix
+
+From two new Notion issues ("Tags", "Leisure category icon issue").
+
+- **Feature**: Settings → **Manage Tags**. Lists every tag with its usage ("3 expenses · 1 rule"
+  or "Unused"), with search, add, rename, merge and delete. Delete offers **Move to another tag**
+  (a merge) or **Remove completely** (links removed; expenses kept). Renaming onto a name that
+  already exists offers a merge instead of failing. Tapping a tag lists its expenses with a Spent
+  total computed by `SpendClassifier`, so it agrees with the home card. No DB migration.
+- **Fix**: tag names now ignore case (`domain/util/TagNames`). The unique index on `tags.name` is
+  case-sensitive, which is how "Subscription" and "subscriptions" became two tags. Creating a tag
+  reuses an existing one that differs only in case; existing duplicates are left for the user to
+  merge.
+- **Fix**: saving a merchant rule wiped its tags. `saveRule`'s tag list defaulted to empty, and
+  the Add/Edit category auto-save and SMS import's web-search discovery all relied on that
+  default. It is now `null` = keep existing tags. The existing tags are read *before* the upsert,
+  because the upsert is REPLACE and `merchant_rule_tags` cascades on rule deletion.
+- **Fix**: tags added on the Edit Expense screen now reach the merchant rule. The rule is updated
+  on Save (not on category pick), only when the category changed or a tag was added, and tags are
+  only ever added to a rule, never removed — removal stays deliberate, via the rule dialog.
+- **Fix**: a category's notification icon now always matches the app. The notification drew from
+  its own set of 16 hand-drawn icons keyed by the seeded icon names, so a category whose icon was
+  changed (Leisure → `hotel`, Vehicle, Joey, Split Payments) fell back to a letter badge. It now
+  rasterizes the same `categoryIconVector()` the app uses (`ImageVectorRasterizer`); the old
+  drawables and `CategoryNotificationIcon` are deleted.
+
+---
+
 ## 2026-09-22 — Transfers counted toward nothing; Spent/Received now explain themselves
 
 Started from "does Spent minus Received give my actual spend?". It does not — Spent is already

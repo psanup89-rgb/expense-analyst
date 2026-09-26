@@ -7,6 +7,7 @@ import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
 import android.graphics.Bitmap
+import com.expenseanalyst.core.util.categoryIconVector
 import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.Paint
@@ -15,7 +16,6 @@ import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import androidx.core.app.PendingIntentCompat
 import androidx.core.app.RemoteInput
-import androidx.core.content.ContextCompat
 import com.expenseanalyst.domain.model.Category
 import com.expenseanalyst.feature.notification.R
 import com.expenseanalyst.feature.notification.parser.ParsedTransaction
@@ -336,9 +336,9 @@ object TransactionAlertNotification {
 
     /**
      * Renders a circular category badge for the notification's large icon: the category's
-     * [Category.colorHex] as the fill, with either its mapped glyph ([CategoryNotificationIcon])
-     * or — for a custom category outside that curated set — the category name's first letter in
-     * white, matching the same fallback used for its in-app avatar.
+     * [Category.colorHex] as the fill, with the same glyph the app draws for that category
+     * (`categoryIconVector`, rendered by [ImageVectorRasterizer]). The first-letter badge is only
+     * a fallback for a missing icon name.
      *
      * Never throws: a missing/invalid color or an unmapped icon name degrades gracefully rather
      * than dropping the notification.
@@ -357,13 +357,16 @@ object TransactionAlertNotification {
         val circlePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = bgColor }
         canvas.drawCircle(size / 2f, size / 2f, size / 2f, circlePaint)
 
-        val resId = iconName?.let(CategoryNotificationIcon::drawableFor)
-        if (resId != null) {
-            val inset = (size * 0.22f).toInt()
-            ContextCompat.getDrawable(context, resId)?.apply {
-                setBounds(inset, inset, size - inset, size - inset)
-                draw(canvas)
-            }
+        if (!iconName.isNullOrBlank()) {
+            val inset = size * 0.22f
+            ImageVectorRasterizer.draw(
+                canvas = canvas,
+                vector = categoryIconVector(iconName),
+                left = inset,
+                top = inset,
+                sizePx = size - 2 * inset,
+                color = Color.WHITE
+            )
         } else {
             val letter = categoryName?.trim()?.firstOrNull()?.uppercaseChar()?.toString() ?: "?"
             val textPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {

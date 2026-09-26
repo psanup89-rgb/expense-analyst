@@ -1,10 +1,29 @@
 # Expense Analyst — Handoff
 
-**Last updated**: 2026-09-22
+**Last updated**: 2026-09-26
 **DB version**: 28
 **Build**: `./gradlew clean assembleDebug` ✅
 **Repo**: `https://github.com/psanup89-rgb/expense-analyst` (public)
-**Release**: v0.7.11-debug (GitHub Release with APK)
+**Release**: v0.7.12-debug (GitHub Release with APK)
+
+---
+
+## Session Summary (2026-09-26) — Manage Tags + two Notion fixes (v0.7.12)
+
+**Shipped in v0.7.12 (verified on device)**
+- Settings → Manage Tags (list with usage, search, add, rename, merge, delete with move/remove,
+  per-tag expense list). Verified with throwaway `zzt` tags only: add, case-only duplicate
+  rejected, rename, rename-collision → merge, delete (unused), in-use delete dialog (cancelled),
+  tag detail on `haven`. Merge SQL additionally verified against a scratch copy of the DB.
+  Real tags untouched: 16 tags, 3 rule links.
+- Notion "Leisure category icon issue": notification now draws the app's own icon — verified, the
+  Leisure test notification shows the bed glyph.
+- Notion "Tags": edit-screen tags reach the rule; category-only saves no longer wipe rule tags —
+  both verified on a throwaway rule, since removed. The SAR 1.00 AGODA test transaction (id 1226)
+  was soft-deleted.
+
+**Open**: the Subscription/subscriptions pair
+is still two tags — merging is the user's call (Manage Tags → Merge into…).
 
 ---
 

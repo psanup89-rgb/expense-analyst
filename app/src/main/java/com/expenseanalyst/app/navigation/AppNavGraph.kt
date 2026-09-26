@@ -33,6 +33,8 @@ import com.expenseanalyst.feature.analytics.ui.AnalyticsScreen
 import com.expenseanalyst.feature.budget.ui.BudgetScreen
 import com.expenseanalyst.feature.settings.ui.AccountManagementScreen
 import com.expenseanalyst.feature.settings.ui.CategoryManagementScreen
+import com.expenseanalyst.feature.settings.ui.TagDetailScreen
+import com.expenseanalyst.feature.settings.ui.TagManagementScreen
 import com.expenseanalyst.feature.settings.ui.SettingsScreen
 import com.expenseanalyst.feature.loans.ui.LoanListScreen
 import com.expenseanalyst.feature.loans.ui.AddLoanScreen
@@ -222,6 +224,7 @@ fun AppNavGraph(
                     )
                 },
                 onNavigateToCategoryManagement = { navController.navigate(NavRoutes.CATEGORY_MANAGEMENT) },
+                onNavigateToTagManagement = { navController.navigate(NavRoutes.TAG_MANAGEMENT) },
                 onNavigateToAccountManagement = { navController.navigate(NavRoutes.ACCOUNT_MANAGEMENT) },
                 onNavigateToBudget = { navController.navigate(NavRoutes.BUDGET) },
                 onNavigateToLoans = { navController.navigate(NavRoutes.LOANS) },
@@ -236,6 +239,21 @@ fun AppNavGraph(
             )
         }
 
+        composable(NavRoutes.TAG_MANAGEMENT) {
+            TagManagementScreen(
+                onBack = { navController.popBackStack() },
+                onTagClick = { id -> navController.navigate(NavRoutes.tagDetail(id)) }
+            )
+        }
+        composable(
+            route = NavRoutes.TAG_DETAIL,
+            arguments = listOf(navArgument("tagId") { type = NavType.LongType })
+        ) {
+            TagDetailScreen(
+                onBack = { navController.popBackStack() },
+                onExpenseClick = { id -> navController.navigate(NavRoutes.expenseDetail(id)) }
+            )
+        }
         composable(NavRoutes.CATEGORY_MANAGEMENT) {
             CategoryManagementScreen(
                 onBack = { navController.popBackStack() }

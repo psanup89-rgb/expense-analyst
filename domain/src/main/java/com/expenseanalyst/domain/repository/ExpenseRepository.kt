@@ -51,6 +51,9 @@ interface ExpenseRepository {
      */
     suspend fun classifyTransfer(id: Long, classification: TransferClassification): Int
 
+    /** Every non-deleted expense carrying [tagId], newest first. */
+    fun getExpensesByTag(tagId: Long): Flow<List<Expense>>
+
     /** Every non-deleted row linked to [loanId], oldest first. */
     fun getExpensesByLoan(loanId: Long): Flow<List<Expense>>
 
