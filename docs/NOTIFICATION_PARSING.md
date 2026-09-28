@@ -117,7 +117,7 @@ Registered in `BillStatementParserRegistry` (tried before transaction parsers). 
 
 ---
 
-## Transaction Parsers (20 total)
+## Transaction Parsers (21 total)
 
 ### ParserRegistry Order (first match wins)
 
@@ -135,7 +135,8 @@ Registered in `BillStatementParserRegistry` (tried before transaction parsers). 
 | 10 | StcBankParser | STC Bank | Sender `stc` | SAR | `SAR X paid to`, `received`, card purchase "Online Purchase / Transaction Amount X / From: MERCHANT / Card: ****", "Internal outward transfer … To:NAME Acc:1234*". `accountLast4` is always null — "Acc:" is the **recipient's** account |
 | 11 | AlinmaParser | Alinma Bank | Sender `alinma` | SAR | `card ending X used for SAR X at` |
 | 12 | D360Parser | D360 Bank | Sender `d360` | SAR | `SAR X paid to`, Transaction ID |
-| 13 | EmiratesNbdParser | Emirates NBD | Sender OR body fingerprint | Multi | `POS/Online Purchase`, `Card: Visa card XX4388`, `Amount: SAR X`, `Merchant:`; and the "By/At" layout (`By: XX1234;Visa`, `At: Temu.com`). "Remaining limit" ⇒ credit card |
+| 12a | SabParser | SAB | Sender `SAB`/`SABB` OR starred card "By: ***1234;" | SAR | "Online Purchase / By: ***1234;mada / From: ***5678 / Amount: SAR X / At: MERCHANT"; refund wording → CREDIT; mada → Debit Card |
+| 13 | EmiratesNbdParser | Emirates NBD | Sender OR body fingerprint **plus** an ENBD-only marker (`XX1234`, "Remaining limit", "Credit Card: Credited") | Multi | `POS/Online Purchase`, `Card: Visa card XX1234`, `Amount: SAR X`, `Merchant:`; and the "By/At" layout (`By: XX1234;Visa`, `At: Temu.com`). "Remaining limit" ⇒ credit card |
 | 14 | FasTagParser | FASTag (LivQuik) | Sender `qwfstg` | INR | `debited RsX for VEHICLE in LOCATION at DATE` |
 | 15 | WalletParser | Digital Wallet | Sender Apple/Google/Samsung Pay | Multi | `Payment of $X at`, `Paid X to` |
 | 16 | UpiParser | UPI (GPay/PhonePe/Paytm) | Sender or `UPI` in body | INR | `paid ₹X to`, `received from` |
@@ -152,6 +153,9 @@ Applied to every parser's result — never re-implement per parser:
 - **Card-bill payment → `PAYMENT`**: a debit to CRED / Dreamplug / American Express / "… Credit Card Bill", and a credit that is a card-bill payment arriving on the card ("Payment … received towards your Credit Card", "credited to your card ending", "Credit Card: Credited", "Excess amount … credit card"). Refund wording opts out.
 - **`sanitizeMerchant`**: "ACH D- Groww-<ref>" → "Groww"; cuts "… using your … Card xx12"; nulls a merchant that carries a card/account identifier or is a bare phone number.
 
+- **Also in `normalize`**: symbol runs stripped from merchants ("HUNGERSTATION LLC××"); Amazon's own "Refund Issued" notice → merchant "Amazon"; ACH auto-debits → NET_BANKING; a bounced auto-debit ("… debit … has been returned") → not a transaction.
+- **Refunds are money in, with the merchant from the message**: ENBD "POS Refund … From:", Al Rajhi "Credit Card Refund … From:", STC "Refund Online Purchase … For X". HDFC "deposited … for Interest paid" → CREDIT, merchant "Interest".
+
 A parser's `accountLast4` must be the **user's own** account or card — never a counterparty's (see STC above).
 
 ## SMS Import (Bulk)
@@ -164,6 +168,9 @@ The SMS import feature (`SmsImportViewModel`) reads SMS from the device inbox an
 - **Browse**: Manual single-message selection
 
 ### Dedup Logic
+
+**Auto-debit twins** (both live capture and import): one SIP/EMI auto-debit can arrive as two messages ("ACH D- … debited" and "PAYMENT ALERT … UMRN"). `MandateDebitMatcher.findTwin` drops the second when a mandate debit of the same amount and currency is already recorded within 2 days (import also checks the current batch).
+
 Two-tier duplicate detection prevents re-importing existing expenses:
 
 1. **Primary (exact match)**: Hash of raw SMS body text — if the exact same SMS was already imported, skip it. Checked against **deleted rows too**, so an expense the user deleted never comes back on re-import

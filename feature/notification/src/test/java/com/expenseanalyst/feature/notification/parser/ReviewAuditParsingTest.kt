@@ -67,4 +67,12 @@ class ReviewAuditParsingTest {
         assertEquals("NET_BANKING", r.paymentMethodName)
         assertEquals("HDFC BANK LTD", r.merchant)
     }
+
+    @Test
+    fun `a returned NACH debit is not a transaction`() {
+        org.junit.jupiter.api.Assertions.assertNull(ParserRegistry.parse(
+            "AX-AXISBK",
+            "NACH debit towards MONTHLYSMALLCAS for INR 2,200.00 with UMRN UTIB0000 has been returned today - Axis Bank"
+        ))
+    }
 }

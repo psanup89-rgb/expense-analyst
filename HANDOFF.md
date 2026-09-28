@@ -8,7 +8,24 @@
 
 ---
 
-## Session Summary (2026-09-29) — Review tab audit (uncommitted, after v0.7.14)
+## Next steps (backlog)
+
+1. **Rent flow** (owner asked for this, 29 Sep 2026 — to do later). Rent is paid through Ejar in
+   uneven lumps: SAR 6,000–12,000 in most months, but SAR 85,000 in seven payments on 1–8 May 2026,
+   which made May's Spent look ~3× normal. Needs its own flow — to be designed with the owner.
+   Ideas to discuss, not decided: a rent/lease record (landlord, contract period, total) that the
+   Ejar payments link to, like loans and BNPL purchases; spreading a lump-sum payment across the
+   months it covers in Spent/Analytics; showing "rent paid vs due" for the contract; and whether a
+   deposit is part of it. Data: `merchant_name = 'Ejar'`, category Rent, Al Rajhi mada via Apple Pay.
+2. Split Tamara charges that combine several due instalments (subset-sum; sums match to the cent).
+3. Notification action buttons from the Ledger design ("Edit", "To someone / My account").
+4. Review the light ("Paper") theme on device.
+5. Salary messages exist only from Jul 2026; Jan–Jun salaries arrived some other way (ask owner).
+6. Auto-detect inbound transfers (EXTERNAL_IN is manual-only).
+
+---
+
+## Session Summary (2026-09-29) — Review tab audit (committed faa5465, after v0.7.14)
 
 All 83 Review items resolved (backup taken first). 54 were fixable from the data (card-bill
 payment pairs, refunds with the merchant in the message, SAB HungerStation, ACH payment method,
@@ -16,7 +33,11 @@ interest, stale flags); the rest were answered by the owner and remembered as ru
 rules, 3 merchant rules) or loans (Ashwin, Mohamathu Pillai — settled, repayments not recorded).
 Parser bugs found on the way: STC refunds counted as purchases, HDFC interest as a debit, SAB
 purchases filed under Emirates NBD (from the v0.7.13 ENBD "By/At" change). Spending by month is now
-visible in full: May 2026 stands out at ~SAR 108.6k.
+visible in full: May 2026 stands out at ~SAR 108.6k — SAR 85,000 of it is Ejar rent (7 payments,
+1–8 May); see Next steps #1. The May breakdown also found SIP/EMI auto-debits counted twice
+(HDFC sends "ACH D- … debited" AND "PAYMENT ALERT … UMRN") — 4 rows / SAR 4,138 removed, plus a
+bounced NACH debit ("has been returned", SAR 99); `MandateDebitMatcher` now dedupes the pair at
+live capture and SMS Import, and bounced debits are not transactions.
 
 ---
 

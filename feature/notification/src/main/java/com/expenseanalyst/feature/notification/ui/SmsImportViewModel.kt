@@ -21,6 +21,7 @@ import com.expenseanalyst.domain.repository.MerchantSearchRepository
 import com.expenseanalyst.domain.util.CategoryInference
 import com.expenseanalyst.domain.util.CurrencyConversion
 import com.expenseanalyst.domain.util.MerchantRuleMatcher
+import com.expenseanalyst.domain.util.MandateDebitMatcher
 import com.expenseanalyst.domain.util.PaymentMethodInference
 import com.expenseanalyst.domain.util.SpendClassifier
 import com.expenseanalyst.domain.util.ReimbursementMatcher
@@ -179,6 +180,16 @@ class SmsImportViewModel @Inject constructor(
                 }
                 val fallbackKey = dedupeKeyFallback(parsed.amount, sms.timestampMs, parsed.merchant)
                 if (fallbackKey in existingFallbackKeys) {
+                    skipped++
+                    _uiState.value = SmsImportUiState.BulkImporting(
+                        processed = index + 1, total = smsList.size
+                    )
+                    return@forEachIndexed
+                }
+                // One auto-debit, two messages (MandateDebitMatcher) — against saved rows and this batch
+                if (parsed.type == TransactionDirection.DEBIT &&
+                    MandateDebitMatcher.findTwin(parsed.amount, parsed.currencyCode, sms.timestampMs, sms.body, fullSnapshot + toSave) != null
+                ) {
                     skipped++
                     _uiState.value = SmsImportUiState.BulkImporting(
                         processed = index + 1, total = smsList.size

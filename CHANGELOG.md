@@ -5,6 +5,12 @@ Format: `[Date] — Summary`
 ---
 
 
+## 2026-09-29 — May breakdown: auto-debits counted twice
+
+- May's SAR 108,596 is SAR 85,000 of Ejar rent (7 payments, 1–8 May) — genuine; a rent flow is on the backlog (HANDOFF → Next steps).
+- SIP/EMI auto-debits were counted twice when HDFC sent both an "ACH D- … debited" and a "PAYMENT ALERT … UMRN" message: 4 duplicates removed (SAR 4,138; Jan 2,559, May 1,579) and the pair is now deduped at capture (`MandateDebitMatcher`).
+- A bounced NACH debit ("has been returned", SAR 99) is no longer counted as spent.
+
 ## 2026-09-29 — Review tab cleared (83 → 0)
 
 - Parsing fixes: SAB card purchases (own parser; were filed under Emirates NBD), refunds now read as money in with their merchant (ENBD, Al Rajhi, STC — which was counting a refund as a purchase — and Amazon), HDFC interest deposits (were a debit), ACH auto-debits → Net Banking, symbol junk stripped from merchant names.

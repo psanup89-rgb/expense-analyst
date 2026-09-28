@@ -83,7 +83,10 @@ object ParserRegistry {
             // Axis: "Your Credit Card … has a credit balance of INR 1445. The amount will be
             // credited to your Savings Account if not used" — a notice; the actual move arrives
             // later as "Excess amount … has been credited to A/c".
-            """\bhas\s+a\s+credit\s+balance\b""",
+            """\bhas\s+a\s+credit\s+balance\b|""" +
+            // A bounced auto-debit: "NACH debit towards MONTHLYSMALLCAS for INR 2,200 … has been
+            // returned today" — the money never left, but it was counted as spent.
+            """\bdebit\b.{0,120}\bhas\s+been\s+returned\b""",
         RegexOption.DOT_MATCHES_ALL
     )
 

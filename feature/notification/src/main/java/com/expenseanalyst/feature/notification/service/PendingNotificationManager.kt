@@ -21,6 +21,7 @@ import com.expenseanalyst.domain.util.CategoryInference
 import com.expenseanalyst.domain.util.CurrencyConversion
 import com.expenseanalyst.domain.util.MerchantRuleMatcher
 import com.expenseanalyst.domain.util.NeedsReviewEvaluator
+import com.expenseanalyst.domain.util.MandateDebitMatcher
 import com.expenseanalyst.domain.util.PaymentMethodInference
 import com.expenseanalyst.domain.util.ReviewReason
 import com.expenseanalyst.domain.util.ReimbursementMatcher
@@ -121,6 +122,14 @@ class PendingNotificationManager @Inject constructor(
                         isSameCalendarDay(expense.date.toEpochMilliseconds(), now)
                 }
             if (isDuplicate) return@launch
+
+            // ── Two messages for one auto-debit (MandateDebitMatcher) ──
+            if (normalized.type == TransactionDirection.DEBIT &&
+                MandateDebitMatcher.findTwin(
+                    normalized.amount, normalized.currencyCode, now, normalized.rawBody,
+                    expenseRepository.getExpensesSnapshot()
+                ) != null
+            ) return@launch
 
             // ── Auto-link bills for PAYMENT type ──
             val linkedBillId: Long? = if (normalized.type == TransactionDirection.PAYMENT) {
