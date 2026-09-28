@@ -55,7 +55,7 @@ These rules apply at all times, without exception.
 
 ## Database
 
-- **Room** — entities in `data/local/entity/`. **Current version: 33**. All migrations inline in `ExpenseAnalystDatabase.kt`.
+- **Room** — entities in `data/local/entity/`. **Current version: 34**. All migrations inline in `ExpenseAnalystDatabase.kt`.
 - **`categories.name` is not unique** (no indices on that table) — `INSERT OR IGNORE` cannot dedupe by name. Use UPDATE-then-`INSERT … WHERE NOT EXISTS` for any category a user may already have created (`MIGRATION_20_21`).
 - Dates: **UTC epoch milliseconds** (`Long`). Display converts via `TimeZone.currentSystemDefault()`
 - **Soft delete** — `isDeleted: Boolean` flag. Never hard-delete.
@@ -64,7 +64,7 @@ These rules apply at all times, without exception.
 - `TransactionType`: `EXPENSE | INCOME | TRANSFER | PAYMENT`
 - `AccountType`: `SAVINGS | CURRENT | CREDIT_CARD | DEBIT_CARD | FOREX_CARD | WALLET | OTHER`
 - 15 entities: Expense, Category, EmiGroup, CurrencyRate, **Account**, **MerchantRule**, **PendingNotification**, **Bill**, **Tag**, **ExpenseTagCrossRef**, **SalaryEntry**, **PlannedExpense**, **LentItem**, **MerchantRuleTagCrossRef**, **TransferRecipientRule**
-- Pre-seeded categories: Food & Drinks, Transport, Shopping, Bills, Entertainment, Health, Education, Groceries, Rent, Salary, Transfer, Other, **Refund**, **Fuel**, **Leisure**, **Split Payments**, **Investments**, **EMI**, **People** (v31 — all three count toward Spent)
+- Pre-seeded categories: Food & Drinks, Transport, Shopping, Bills, Entertainment, Health, Education, Groceries, Rent, Salary, Transfer, Other, **Refund**, **Fuel**, **Leisure**, **Split Payments**, **Investments**, **EMI**, **People** (v31 — all three count toward Spent), **Interest** (v34 — counted as Received)
 
 ---
 
@@ -162,6 +162,7 @@ These rules apply at all times, without exception.
 - **Al Rajhi salary credits** ("Credit transfer Salary / Amount:SAR N / To:1234") are INCOME, merchant "Salary", to the user's own `To:` account. No parser matched this shape until 29 Sep 2026, so every salary was silently dropped and Received was understated by a full salary each month (Jul and Aug recovered from the inbox).
 - **A credit from the user's own name is an own-account transfer, not income.** Al Rajhi's "Fund Transfer Credited / From: NAME / … Alrajhi Bank" is parsed with the sender as merchant; if that name has an OWN_ACCOUNT `transfer_recipient_rules` entry (`TransferRecipientMatcher.isFromOwnAccount`), both capture sites store the row as `TRANSFER` + `OWN_ACCOUNT` (counts toward nothing). Credits from anyone else stay INCOME. The user's own name was added as such a rule on 29 Sep 2026 after SAR 11,000 of their own money was counted as July income.
 - **Axis "has a credit balance … will be credited to your Savings Account" is a notice, not a transaction** (`ParserRegistry` non-transaction guard); the actual move arrives later as "Excess amount … credited to A/c" (PAYMENT).
+- **Review audit (29 Sep 2026) — shapes that were read wrong, now covered by `ReviewAuditParsingTest`:** SAB has its own `SabParser` ("By: ***1234;mada / From: ***5678 / At: …"; starred card digits are SAB-only). `EmiratesNbdParser`'s body fingerprint ("Online Purchase … Amount:") is shared by other Saudi banks, so a body-only match now also needs an ENBD marker (`XX1234`, "Remaining limit", "Credit Card: Credited") — it had started claiming SAB's purchases. Refunds are CREDIT with the merchant from the message: ENBD "POS Refund … From:", Al Rajhi "Credit Card Refund … From:", STC "Refund Online Purchase … For X" (was read as a purchase), Amazon "Refund Issued" → "Amazon" (`normalize`). HDFC "deposited … for Interest paid" is income named "Interest" (was a debit; "subject to clearing" had become the payee). ACH auto-debits get NET_BANKING (`normalize`). `sanitizeMerchant` strips symbol runs ("HUNGERSTATION LLC××").
 - **A parser's `accountLast4` must be the user's own account or card — never a counterparty's.** `StcBankParser` read the "Acc:" in "Internal outward transfer … To:NAME Acc:1234*" as the user's account; it is the recipient's, so every new transfer recipient created another "STC Bank *XXXX" account (4 merged away 27 Sep 2026). STC messages carry no own-account digits, so STC always parses `accountLast4 = null`.
 - **Unresolved-bank accounts collapse onto one single "Unknown Account"** (DB v26, `MIGRATION_25_26`): `AccountRepositoryImpl.findOrCreate` always passes `lastFour = null` when `bankName == "Unknown Bank"`, so every unidentifiable SMS lands on the same account instead of fragmenting into a new "Unknown Bank *XXXX" row per distinct last-4 digit the parser happened to extract.
 - **`domain/util/SpendClassifier.kt` is the single source of truth for "does this row count as spending"** — used by `ExpenseListViewModel`, `AnalyticsViewModel` and `BudgetViewModel`. Each used to hand-roll `transactionType == EXPENSE` independently, which is how 19 TRANSFER rows worth SAR 51,896 ended up invisible to every total at once while still rendering as red minus-amounts in the list. Neither `:feature:expenses` nor `:feature:analytics` has a test source set, so totals math **must** live in `:domain` to be testable at all. `SpendBreakdown`/`ReceivedBreakdown` also feed the home-card breakdown sheets, so the sheet can never disagree with the figure it explains.
@@ -196,7 +197,7 @@ These rules apply at all times, without exception.
 app/src/main/              → MainActivity, NavGraph, DI wiring, MainBottomNav
 core/src/main/             → Theme, reusable components, CurrencyFormatter, DateTimeUtil, CurrencyCatalog
 domain/src/main/           → Models, repository interfaces, use cases, CurrencyConversion
-data/src/main/             → Room DB (15 entities, v33), repositories, CurrencyApiService, SeedCurrencyRates
+data/src/main/             → Room DB (15 entities, v34), repositories, CurrencyApiService, SeedCurrencyRates
 feature/expenses/          → Expense list, add, edit, detail screens + ViewModels
 feature/emi/               → EMI create, list, detail screens + ViewModels
 feature/notification/      → NotificationListenerService, parsers, banner UI

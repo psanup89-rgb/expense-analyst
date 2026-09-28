@@ -44,7 +44,9 @@ class HdfcParser : TransactionParser {
         // Detect payment confirmations: "PAYMENT OF Rs. X RECEIVED TOWARDS YOUR CREDIT CARD"
         val isPayment = Regex("""(?i)\bpayment\b.*\breceived\b.*\b(?:card|credit)\b""").containsMatchIn(body)
         val isDebit = !isPayment && Regex("""(?i)\b(?:debited|deducted|sent|spent)\b""").containsMatchIn(body)
-        val isCredit = !isPayment && Regex("""(?i)\b(?:credited|received)\b""").containsMatchIn(body)
+        // "INR 7,384.00 deposited in HDFC Bank A/c XX1234 … for Interest paid till …" is money in;
+        // "deposited" was unknown here, so a fallback parser read it as a debit.
+        val isCredit = !isPayment && Regex("""(?i)\b(?:credited|received|deposited)\b""").containsMatchIn(body)
 
         if (!isDebit && !isCredit && !isPayment) return null
 
@@ -53,7 +55,8 @@ class HdfcParser : TransactionParser {
 
         val accountLast4 = accountPattern.find(body)?.groupValues?.get(1)
         val ref = refPattern.find(body)?.groupValues?.get(1)
-        val merchant = extractMerchant(body)
+        // Interest first: its "subject to clearing" otherwise reads as a payee named "clearing"
+        val merchant = if (Regex("""(?i)\bfor\s+interest\b""").containsMatchIn(body)) "Interest" else extractMerchant(body)
 
         val direction = when {
             isPayment -> TransactionDirection.PAYMENT

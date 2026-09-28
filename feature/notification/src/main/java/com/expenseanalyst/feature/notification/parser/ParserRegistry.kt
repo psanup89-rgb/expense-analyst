@@ -21,6 +21,7 @@ object ParserRegistry {
         StcBankParser(),
         AlinmaParser(),
         D360Parser(),
+        SabParser(),
         // UAE banks
         EmiratesNbdParser(),
         // Toll / FASTag
@@ -109,9 +110,19 @@ object ParserRegistry {
     // "ACH D- Groww-0000ZACR1X…" / "ACH D- TP ACH INDIANESIGN-2320147606" → the payee alone
     private val achPattern = Regex("""(?i)^ACH\s*D-\s*(?:TP\s+ACH\s+)?(.+?)-[A-Z0-9]{6,}$""")
 
+    private val symbolRun = Regex("""[\p{Sm}\p{So}]+""")
+    // Amazon's own refund notice names no merchant: "Refund Issued: Amount SAR X (item) will be
+    // credited to your Visa / Amazon Account … amznsa.com/…"
+    private val amazonNotice = Regex("""(?i)\bamazon\b|amznsa\.com""")
+    // "Info: ACH D- Groww-…" — a bank auto-debit (SIP, loan EMI)
+    private val achDebit = Regex("""(?i)\bACH\s*D-""")
+
     /** Cross-bank corrections applied to every parser's result; see the patterns above. */
     internal fun normalize(parsed: ParsedTransaction, body: String): ParsedTransaction {
         val merchant = sanitizeMerchant(parsed.merchant)
+            ?: if (amazonNotice.containsMatchIn(body)) "Amazon" else null
+        val paymentMethod = parsed.paymentMethodName
+            ?: if (achDebit.containsMatchIn(body)) "NET_BANKING" else null
         val type = when {
             parsed.type == TransactionDirection.DEBIT && merchant != null &&
                 cardBillPayeePattern.matches(merchant.trim()) -> TransactionDirection.PAYMENT
@@ -119,11 +130,12 @@ object ParserRegistry {
                 !refundWording.containsMatchIn(body) -> TransactionDirection.PAYMENT
             else -> parsed.type
         }
-        return parsed.copy(merchant = merchant, type = type)
+        return parsed.copy(merchant = merchant, type = type, paymentMethodName = paymentMethod)
     }
 
     internal fun sanitizeMerchant(merchant: String?): String? {
-        var m = merchant?.trim()?.takeIf { it.isNotEmpty() } ?: return null
+        // Banks pad descriptors with symbols ("HUNGERSTATION LLC××", "HungerStation××Riya")
+        var m = merchant?.replace(symbolRun, " ")?.replace(Regex("""\s+"""), " ")?.trim()?.takeIf { it.isNotEmpty() } ?: return null
         achPattern.find(m)?.let { m = it.groupValues[1].trim() }
         m = m.replace(usingYourSuffix, "").trim()
         if (m.isEmpty() || identifierInMerchant.containsMatchIn(m)) return null

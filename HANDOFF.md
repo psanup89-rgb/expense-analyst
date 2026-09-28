@@ -1,10 +1,22 @@
 # Expense Analyst — Handoff
 
 **Last updated**: 2026-09-27
-**DB version**: 33
+**DB version**: 34
 **Build**: `./gradlew clean assembleDebug` ✅
 **Repo**: `https://github.com/psanup89-rgb/expense-analyst` (public)
 **Release**: v0.7.14-debug (GitHub Release with APK)
+
+---
+
+## Session Summary (2026-09-29) — Review tab audit (uncommitted, after v0.7.14)
+
+All 83 Review items resolved (backup taken first). 54 were fixable from the data (card-bill
+payment pairs, refunds with the merchant in the message, SAB HungerStation, ACH payment method,
+interest, stale flags); the rest were answered by the owner and remembered as rules (4 recipient
+rules, 3 merchant rules) or loans (Ashwin, Mohamathu Pillai — settled, repayments not recorded).
+Parser bugs found on the way: STC refunds counted as purchases, HDFC interest as a debit, SAB
+purchases filed under Emirates NBD (from the v0.7.13 ENBD "By/At" change). Spending by month is now
+visible in full: May 2026 stands out at ~SAR 108.6k.
 
 ---
 

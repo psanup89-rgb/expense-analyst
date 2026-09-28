@@ -23,14 +23,19 @@ class EmiratesNbdParser : TransactionParser {
 
     private val senderPattern = Regex("""(?i)(?:emirates\s*nbd|enbd|emiratesnbd)""")
     private val bodyFingerprintPattern = Regex(
-        """(?i)(?:(?:POS|Online)\s+Purchase|POS\s+Reversal|Credit\s+Card:\s*Credited).*(?:Card\s*:|Merchant:|Amount:|To:)""",
+        """(?i)(?:(?:POS|Online)\s+Purchase|POS\s+(?:Reversal|Refund)|Credit\s+Card:\s*Credited).*(?:Card\s*:|Merchant:|Amount:|To:)""",
         RegexOption.DOT_MATCHES_ALL
     )
+    // The fingerprint above is a shape many Saudi banks share ("Online Purchase … Amount:"), so a
+    // body-only match must also carry something only Emirates NBD writes: an "XX1234" card, a
+    // "Remaining limit", or "Credit Card: Credited". Without this it claimed SAB's mada purchases
+    // ("By: ***1234;mada") and filed them under the wrong bank.
+    private val enbdMarker = Regex("""(?i)\bXX\s*\d{4}|Remaining\s+limit|Credit\s+Card\s*:\s*Credited""")
 
     private val purchasePattern = Regex("""(?i)(POS|Online)\s+Purchase""")
 
     // "POS Reversal" — money returned to card
-    private val reversalPattern = Regex("""(?i)POS\s+Reversal""")
+    private val reversalPattern = Regex("""(?i)POS\s+(?:Reversal|Refund)""")
     // "To: XX9731; Visa Credit"
     private val reversalCardPattern = Regex("""(?i)To:\s*XX(\d{4})""")
     // "From: Air New Zealand"
@@ -51,7 +56,8 @@ class EmiratesNbdParser : TransactionParser {
     private val remainingLimitPattern = Regex("""(?i)Remaining\s+limit""")
 
     override fun canParse(sender: String, body: String): Boolean =
-        senderPattern.containsMatchIn(sender) || bodyFingerprintPattern.containsMatchIn(body)
+        senderPattern.containsMatchIn(sender) ||
+            (bodyFingerprintPattern.containsMatchIn(body) && enbdMarker.containsMatchIn(body))
 
     private fun inferCardType(body: String): String? {
         // "Card: Visa card XX4388" → Visa = could be credit or debit, but Emirates NBD Visa is typically credit

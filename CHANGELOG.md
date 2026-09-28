@@ -5,6 +5,12 @@ Format: `[Date] — Summary`
 ---
 
 
+## 2026-09-29 — Review tab cleared (83 → 0)
+
+- Parsing fixes: SAB card purchases (own parser; were filed under Emirates NBD), refunds now read as money in with their merchant (ENBD, Al Rajhi, STC — which was counting a refund as a purchase — and Amazon), HDFC interest deposits (were a debit), ACH auto-debits → Net Banking, symbol junk stripped from merchant names.
+- New **Interest** category (DB v34).
+- Resolved with the owner: transfers to ANOOP SASEEDHARAN → own account; STC transfers to Saran, Numeer, Abdullah, Ashok → sent to someone; Ashwin Surendranath (SAR 13,100) and Mohamathu Pillai (SAR 15,000) → settled loans; paw-champ.com → Joey, Altra → Groceries, AMAAL ROZ → Food (remembered as rules); June HDFC UPI credits → income; DBS INR 191 → interest.
+
 ## 2026-09-29 — v0.7.14
 
 Released as v0.7.14-debug (DB v33): the four entries below (reimbursement linking, Dues tab, salary / own transfers / loan repayments).

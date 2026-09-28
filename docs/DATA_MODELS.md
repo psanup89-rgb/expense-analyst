@@ -2,9 +2,9 @@
 
 ## Database: Room (SQLite)
 - Database class: `ExpenseAnalystDatabase`
-- **Current schema version: `33`** (v32→v33: `expenses.reimbursed_by_id`, `expenses.reimbursement_cover` — reimbursement linking; v31→v32: `bills.reminder_count`, `bills.last_reminder_at_millis`, `pending_notifications.reminder_count`; v30→v31 seeds the Investments, EMI and People categories)
+- **Current schema version: `34`** (v33→v34 seeds the Interest category; v32→v33: `expenses.reimbursed_by_id`, `expenses.reimbursement_cover` — reimbursement linking; v31→v32: `bills.reminder_count`, `bills.last_reminder_at_millis`, `pending_notifications.reminder_count`; v30→v31 seeds the Investments, EMI and People categories)
 - Room schema export is enabled under `data/schemas/`
-- All migrations are inline in `ExpenseAnalystDatabase.kt` (v1→v2→...→v33)
+- All migrations are inline in `ExpenseAnalystDatabase.kt` (v1→v2→...→v34)
 - Home currency preference is stored separately in DataStore, not in Room
 
 ---

@@ -257,4 +257,14 @@ class CategoryInferenceTest {
         // same name on a card is a truncated business descriptor, not a person
         assertEquals(null, infer("RAYMOND L".replace("RAYMOND", "ROHAN"), withNew))
     }
+
+    @Test
+    fun `bank interest goes to Interest`() {
+        val cats = allCategories + cat(21, "Interest")
+        assertEquals("Interest", infer("Interest", cats))
+        assertEquals(
+            "Interest",
+            CategoryInference.infer("DBS Bank", null, cats, smsBody = "Monthly interest of INR 58 credited")?.name
+        )
+    }
 }

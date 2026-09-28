@@ -171,6 +171,8 @@ object CategoryInference {
         ),
         "EMI" to listOf("home loan", "housing loan", "loan emi", "car loan", "personal loan"),
         "Refund" to listOf("refund", "reversal", "cashback", "cash back", "reimburs"),
+        // Bank interest: IDFC's parser names the merchant "Interest"; HDFC's "… for Interest paid"
+        "Interest" to listOf("interest"),
         "Salary" to listOf("salary", "payroll", "stipend"),
         "Transfer" to listOf(
             "neft", "rtgs", "imps", "sarie", "loan repayment", "emi payment",
@@ -276,7 +278,10 @@ object CategoryInference {
             // AlRajhiParser names these "MOI Payment"; the fine is only in the body
             bodyLower.contains("traffic violation") ->
                 findCategory(categories, "Vehicle") ?: findCategory(categories, "Transport")
-            bodyLower.contains("salary")|| bodyLower.contains("payroll") ||
+            bodyLower.contains("interest paid") || bodyLower.contains("interest credited") ||
+                bodyLower.contains("monthly interest") ->
+                findCategory(categories, "Interest")
+            bodyLower.contains("salary") || bodyLower.contains("payroll") ||
                 bodyLower.contains("stipend") ->
                 findCategory(categories, "Salary")
             bodyLower.contains("neft") || bodyLower.contains("rtgs") ||

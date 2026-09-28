@@ -54,7 +54,7 @@ import com.expenseanalyst.data.local.entity.TransferRecipientRuleEntity
         MerchantRuleTagCrossRef::class,
         TransferRecipientRuleEntity::class
     ],
-    version = 33,
+    version = 34,
     exportSchema = true
 )
 abstract class ExpenseAnalystDatabase : RoomDatabase() {
@@ -652,13 +652,32 @@ abstract class ExpenseAnalystDatabase : RoomDatabase() {
             }
         }
 
+        /**
+         * Interest: bank interest credits had no category and sat in Misc. Counted as Received.
+         * Same UPDATE-then-conditional-INSERT shape as MIGRATION_30_31.
+         */
+        private val MIGRATION_33_34 = object : Migration(33, 34) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    "UPDATE categories SET icon_name = 'savings' " +
+                        "WHERE LOWER(name) = 'interest' AND icon_name = 'more_horiz'"
+                )
+                db.execSQL(
+                    "INSERT INTO categories (name, icon_name, color_hex, is_default, sort_order) " +
+                        "SELECT 'Interest', 'savings', '#26A69A', 1, " +
+                        "(SELECT COALESCE(MAX(sort_order), -1) + 1 FROM categories) " +
+                        "WHERE NOT EXISTS (SELECT 1 FROM categories WHERE LOWER(name) = 'interest')"
+                )
+            }
+        }
+
         fun buildDatabase(context: Context): ExpenseAnalystDatabase {
             return Room.databaseBuilder(
                 context.applicationContext,
                 ExpenseAnalystDatabase::class.java,
                 DATABASE_NAME
             )
-                .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13, MIGRATION_13_14, MIGRATION_14_15, MIGRATION_15_16, MIGRATION_16_17, MIGRATION_17_18, MIGRATION_18_19, MIGRATION_19_20, MIGRATION_20_21, MIGRATION_21_22, MIGRATION_22_23, MIGRATION_23_24, MIGRATION_24_25, MIGRATION_25_26, MIGRATION_26_27, MIGRATION_27_28, MIGRATION_28_29, MIGRATION_29_30, MIGRATION_30_31, MIGRATION_31_32, MIGRATION_32_33)
+                .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13, MIGRATION_13_14, MIGRATION_14_15, MIGRATION_15_16, MIGRATION_16_17, MIGRATION_17_18, MIGRATION_18_19, MIGRATION_19_20, MIGRATION_20_21, MIGRATION_21_22, MIGRATION_22_23, MIGRATION_23_24, MIGRATION_24_25, MIGRATION_25_26, MIGRATION_26_27, MIGRATION_27_28, MIGRATION_28_29, MIGRATION_29_30, MIGRATION_30_31, MIGRATION_31_32, MIGRATION_32_33, MIGRATION_33_34)
                 .addCallback(SeedDatabaseCallback())
                 .build()
         }
@@ -687,7 +706,8 @@ abstract class ExpenseAnalystDatabase : RoomDatabase() {
                 "('Split Payments', 'credit_card', '#5C6BC0', 1, 16)",
                 "('Investments', 'trending_up', '#43A047', 1, 17)",
                 "('EMI', 'account_balance', '#6D4C41', 1, 18)",
-                "('People', 'groups', '#EC407A', 1, 19)"
+                "('People', 'groups', '#EC407A', 1, 19)",
+                "('Interest', 'savings', '#26A69A', 1, 20)"
             )
             defaultCategories.forEach { values ->
                 db.execSQL("INSERT INTO categories (name, icon_name, color_hex, is_default, sort_order) VALUES $values")

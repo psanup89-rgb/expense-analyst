@@ -42,6 +42,8 @@ class StcBankParser : TransactionParser {
         // next line's "From:" reads as currency "FRO".
         """(?i)Transaction\s+Amount[ \t]*:?[ \t]*(?:(?-i:([A-Z]{3}))[ \t]*)?([\d,]+(?:\.\d+)?)(?:[ \t]*(?-i:([A-Z]{3}))\b)?"""
     )
+    private val refundPattern = Regex("""(?i)\brefund\b""")
+    private val refundForPattern = Regex("""(?i)\bFor\s+([A-Za-z][^\n]*?)\s*(?:\n|$)""")
     private val purchaseMerchantPattern = Regex("""(?i)From\s*:\s*(.+?)\s*(?:\n|Card\s*:|Date\b|$)""")
 
     override fun parse(sender: String, body: String): ParsedTransaction? {
@@ -51,12 +53,16 @@ class StcBankParser : TransactionParser {
             transactionAmountPattern.find(body)?.let { m ->
                 val amount = m.groupValues[2].replace(",", "").toDoubleOrNull() ?: return null
                 val currency = m.groupValues[1].ifBlank { m.groupValues[3] }.ifBlank { "SAR" }.uppercase()
-                val merchant = purchaseMerchantPattern.find(body)?.groupValues?.get(1)?.trim()
+                // "Refund Online Purchase / Transaction Amount 8.95 SAR / For Hungerstation …" is money
+                // back — it was being read as a purchase. The merchant is on "For" there.
+                val isRefund = refundPattern.containsMatchIn(body)
+                val merchant = (purchaseMerchantPattern.find(body) ?: if (isRefund) refundForPattern.find(body) else null)
+                    ?.groupValues?.get(1)?.trim()
                     ?.takeIf { it.isNotBlank() && it.length < 60 }
                 return ParsedTransaction(
                     amount = amount,
                     currencyCode = currency,
-                    type = TransactionDirection.DEBIT,
+                    type = if (isRefund) TransactionDirection.CREDIT else TransactionDirection.DEBIT,
                     merchant = merchant,
                     accountLast4 = null, // one STC account; see KDoc
                     referenceNumber = null,

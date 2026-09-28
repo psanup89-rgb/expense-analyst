@@ -253,7 +253,10 @@ class AlRajhiParser : TransactionParser {
         }
 
         val isDebit = Regex("""(?i)\b(?:pos\s+purchase|purchase|purchased|debited|deducted|خصم|مشتريات)\b""").containsMatchIn(body)
-        val isCredit = Regex("""(?i)\b(?:credited|received|أضيف|إيداع)\b""").containsMatchIn(body)
+        // "Credit Card Refund / Card: 1234; Visa / Amount: 39.98 SAR / From: Amazon SA" — a refund is
+        // money in, and its merchant is on "From:" (a name here, not the account digits)
+        val isRefund = Regex("""(?i)\brefund\b""").containsMatchIn(body)
+        val isCredit = isRefund || Regex("""(?i)\b(?:credited|received|أضيف|إيداع)\b""").containsMatchIn(body)
         if (!isDebit && !isCredit) return null
 
         val amountMatch = amountSarPattern.find(body)
@@ -263,7 +266,8 @@ class AlRajhiParser : TransactionParser {
 
         val accountLast4 = cardPattern.find(body)?.groupValues?.get(1)
         val ref = refPattern.find(body)?.groupValues?.get(1)
-        val merchant = atPattern.find(body)?.groupValues?.get(1)?.trim()
+        val merchant = (atPattern.find(body) ?: if (isRefund) transferFromNamePattern.find(body) else null)
+            ?.groupValues?.get(1)?.trim()
             ?.takeIf { it.isNotBlank() && it.length < 60 }
 
         val detectedPaymentMethod = PaymentMethodDetector.detect(body)
@@ -271,7 +275,7 @@ class AlRajhiParser : TransactionParser {
         return ParsedTransaction(
             amount = amount,
             currencyCode = "SAR",
-            type = if (isDebit) TransactionDirection.DEBIT else TransactionDirection.CREDIT,
+            type = if (isDebit && !isRefund) TransactionDirection.DEBIT else TransactionDirection.CREDIT,
             merchant = merchant,
             accountLast4 = accountLast4,
             referenceNumber = ref,
