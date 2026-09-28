@@ -22,6 +22,8 @@ import com.expenseanalyst.domain.util.CurrencyConversion
 import com.expenseanalyst.domain.util.MerchantRuleMatcher
 import com.expenseanalyst.domain.util.NeedsReviewEvaluator
 import com.expenseanalyst.domain.util.PaymentMethodInference
+import com.expenseanalyst.domain.util.ReviewReason
+import com.expenseanalyst.domain.util.ReimbursementMatcher
 import com.expenseanalyst.domain.util.RefundMatcher
 import com.expenseanalyst.domain.util.TransferRecipientMatcher
 import com.expenseanalyst.feature.notification.parser.ParsedTransaction
@@ -239,7 +241,7 @@ class PendingNotificationManager @Inject constructor(
                 transferClassification = transferClassification,
                 accountIdentified = (refundMatch?.accountLastFour ?: normalized.accountLast4) != null ||
                     isOnlyAccountOfBank(effectiveAccountId, normalized.bankName)
-            )
+            ) + possibleReimbursementReason(transactionType, category.name, normalized, now)
             val needsReview = reviewReasons.isNotEmpty()
 
             val stubExpense = Expense(
@@ -375,6 +377,23 @@ class PendingNotificationManager @Inject constructor(
         )
         // The first instalment often lands on the card seconds BEFORE this confirmation; link it now.
         runCatching { bnplReconciler.reconcile() }
+    }
+
+    /**
+     * An incoming payment matching pending reimbursable expenses is flagged "Reimbursement?" so
+     * the user can link it from Review — suggested, never linked automatically (owner's choice).
+     */
+    private suspend fun possibleReimbursementReason(
+        type: TransactionType,
+        categoryName: String,
+        parsed: ParsedTransaction,
+        atMillis: Long
+    ): List<ReviewReason> {
+        if (type != TransactionType.INCOME || categoryName == SpendClassifier.REFUND_CATEGORY) return emptyList()
+        val match = ReimbursementMatcher.suggest(
+            parsed.amount, parsed.currencyCode, atMillis, expenseRepository.getExpensesSnapshot()
+        )
+        return if (match != null) listOf(ReviewReason.POSSIBLE_REIMBURSEMENT) else emptyList()
     }
 
     /** A digit-less message still names its account when the bank has just one (STC). */

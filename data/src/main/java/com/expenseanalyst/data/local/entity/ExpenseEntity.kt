@@ -59,5 +59,7 @@ data class ExpenseEntity(
     @ColumnInfo(name = "refund_original_expense_id") val refundOriginalExpenseId: Long? = null,
     @ColumnInfo(name = "transfer_classification") val transferClassification: String? = null,
     @ColumnInfo(name = "loan_id") val loanId: Long? = null,
-    @ColumnInfo(name = "bnpl_purchase_id") val bnplPurchaseId: Long? = null
+    @ColumnInfo(name = "bnpl_purchase_id") val bnplPurchaseId: Long? = null,
+    @ColumnInfo(name = "reimbursed_by_id") val reimbursedById: Long? = null,
+    @ColumnInfo(name = "reimbursement_cover") val reimbursementCover: Double? = null
 )

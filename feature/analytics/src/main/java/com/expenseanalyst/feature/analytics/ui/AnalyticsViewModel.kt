@@ -83,7 +83,7 @@ class AnalyticsViewModel @Inject constructor(
             .groupBy { it.category.id }
             .map { (_, items) ->
                 val cat = items.first().category
-                val total = items.sumOf(SpendClassifier::homeValue)
+                val total = items.sumOf(SpendClassifier::spendValue)
                 Triple(cat, total, items.size)
             }
             .sortedByDescending { it.second }
@@ -140,7 +140,7 @@ class AnalyticsViewModel @Inject constructor(
         val dailyMap = active
             .filter(SpendClassifier::isSpend)
             .groupBy { it.date.toLocalDateTime(timeZone).date.dayOfMonth }
-            .mapValues { (_, items) -> items.sumOf(SpendClassifier::homeValue) }
+            .mapValues { (_, items) -> items.sumOf(SpendClassifier::spendValue) }
 
         val dailySpend = (1..daysInMonth).map { day ->
             DailySpend(day = day, amount = dailyMap[day] ?: 0.0)
@@ -153,7 +153,7 @@ class AnalyticsViewModel @Inject constructor(
             .map { (name, items) ->
                 MerchantSpend(
                     name = name,
-                    amount = items.sumOf { it.homeAmount ?: it.amount },
+                    amount = items.sumOf(SpendClassifier::spendValue),
                     count = items.size
                 )
             }

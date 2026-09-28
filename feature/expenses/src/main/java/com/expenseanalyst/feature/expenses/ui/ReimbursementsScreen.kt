@@ -2,6 +2,10 @@ package com.expenseanalyst.feature.expenses.ui
 
 import com.expenseanalyst.core.theme.expenseColors
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -56,6 +60,19 @@ fun ReimbursementsScreen(
     val pending by viewModel.pending.collectAsStateWithLifecycle()
     val reimbursed by viewModel.reimbursed.collectAsStateWithLifecycle()
     val homeCurrencyCode by viewModel.homeCurrencyCode.collectAsStateWithLifecycle()
+    val paybacks by viewModel.paybacks.collectAsStateWithLifecycle()
+    val picking by viewModel.picking.collectAsStateWithLifecycle()
+    val candidates by viewModel.paymentCandidates.collectAsStateWithLifecycle()
+
+    picking?.let { expense ->
+        PaymentPickerSheet(
+            expense = expense,
+            candidates = candidates,
+            onPick = viewModel::linkTo,
+            onPaidOutside = viewModel::markPaidOutsideApp,
+            onDismiss = viewModel::cancelPicking
+        )
+    }
 
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
@@ -129,7 +146,7 @@ fun ReimbursementsScreen(
                             homeCurrencyCode = homeCurrencyCode,
                             isReimbursed = false,
                             onClick = { onExpenseClick(expense.id) },
-                            onToggle = { viewModel.markReimbursed(expense.id) }
+                            onToggle = { viewModel.startMarkReimbursed(expense) }
                         )
                     }
                 }
@@ -140,8 +157,9 @@ fun ReimbursementsScreen(
                             expense = expense,
                             homeCurrencyCode = homeCurrencyCode,
                             isReimbursed = true,
+                            paidBy = expense.reimbursedById?.let { paybacks[it] },
                             onClick = { onExpenseClick(expense.id) },
-                            onToggle = { viewModel.undoReimbursed(expense.id) }
+                            onToggle = { viewModel.undoReimbursed(expense) }
                         )
                     }
                 }
@@ -168,7 +186,8 @@ private fun ReimbursementCard(
     homeCurrencyCode: String,
     isReimbursed: Boolean,
     onClick: () -> Unit,
-    onToggle: () -> Unit
+    onToggle: () -> Unit,
+    paidBy: Expense? = null
 ) {
     Card(
         onClick = onClick,
@@ -197,7 +216,9 @@ private fun ReimbursementCard(
                 )
                 Spacer(Modifier.height(2.dp))
                 val reimbursedDate = expense.reimbursedDate
-                val dateLabel = if (isReimbursed && reimbursedDate != null) {
+                val dateLabel = if (isReimbursed && paidBy != null) {
+                    "Paid back by ${paidBy.merchantName ?: "payment"} · ${DateTimeUtil.formatDateHeader(paidBy.date)}"
+                } else if (isReimbursed && reimbursedDate != null) {
                     "Reimbursed ${DateTimeUtil.formatDateHeader(reimbursedDate)}"
                 } else {
                     DateTimeUtil.formatDateHeader(expense.date)
@@ -205,7 +226,9 @@ private fun ReimbursementCard(
                 Text(
                     text = "${expense.category.name} · $dateLabel",
                     style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
                 )
             }
             Column(horizontalAlignment = Alignment.End) {
@@ -230,6 +253,86 @@ private fun ReimbursementCard(
                     tint = MaterialTheme.colorScheme.outline,
                     modifier = Modifier.size(22.dp)
                 )
+            }
+        }
+    }
+}
+
+/**
+ * "Which payment repaid this?" — recent incoming payments, closest amount first, plus "paid back
+ * outside the app" for cash or anything the app never saw.
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun PaymentPickerSheet(
+    expense: Expense,
+    candidates: List<Expense>,
+    onPick: (Long) -> Unit,
+    onPaidOutside: () -> Unit,
+    onDismiss: () -> Unit
+) {
+    ModalBottomSheet(onDismissRequest = onDismiss) {
+        Column(Modifier.padding(horizontal = 20.dp).padding(bottom = 24.dp)) {
+            Text("Which payment repaid this?", style = MaterialTheme.typography.titleMedium)
+            Text(
+                "${expense.merchantName ?: "Expense"} · ${CurrencyFormatter.format(expense.amount, expense.currencyCode)}",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Spacer(Modifier.height(12.dp))
+            if (candidates.isEmpty()) {
+                Text(
+                    "No incoming payments since this expense.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(vertical = 8.dp)
+                )
+            }
+            LazyColumn(Modifier.heightIn(max = 360.dp)) {
+                items(candidates, key = { it.id }) { payment ->
+                    val exact = kotlin.math.abs(payment.amount - expense.amount) < 0.01 &&
+                        payment.currencyCode == expense.currencyCode
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable { onPick(payment.id) }
+                            .padding(vertical = 10.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(Modifier.weight(1f)) {
+                            Text(
+                                payment.merchantName ?: "Payment",
+                                style = MaterialTheme.typography.titleSmall,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                            Text(
+                                DateTimeUtil.formatDateHeader(payment.date) +
+                                    (if (payment.reimbursementCover != null) " · already repays other items" else ""),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                        Column(horizontalAlignment = Alignment.End) {
+                            Text(
+                                "+${CurrencyFormatter.format(payment.amount, payment.currencyCode)}",
+                                style = MaterialTheme.typography.titleSmall,
+                                color = MaterialTheme.expenseColors.received
+                            )
+                            if (exact) {
+                                Text(
+                                    "Same amount",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.primary
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+            Spacer(Modifier.height(8.dp))
+            TextButton(onClick = onPaidOutside, modifier = Modifier.fillMaxWidth()) {
+                Text("Paid back outside the app")
             }
         }
     }

@@ -16,7 +16,14 @@ enum class ReviewReason(val label: String) {
      * resolved after capture, which is why ExpenseDao.classifyTransfer recomputes the persisted
      * reason list on that explicit user mutation.
      */
-    UNCLASSIFIED_TRANSFER("Transfer type")
+    UNCLASSIFIED_TRANSFER("Transfer type"),
+
+    /**
+     * An incoming payment that matches pending reimbursable expenses (ReimbursementMatcher).
+     * The owner chose to be asked, not auto-linked; resolved after capture by linking it or by
+     * dismissing the suggestion (ExpenseDao.linkReimbursement / dropReviewReason).
+     */
+    POSSIBLE_REIMBURSEMENT("Reimbursement?")
 }
 
 object NeedsReviewEvaluator {

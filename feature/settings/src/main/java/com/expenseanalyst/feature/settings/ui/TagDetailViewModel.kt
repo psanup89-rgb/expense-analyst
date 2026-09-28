@@ -40,7 +40,7 @@ class TagDetailViewModel @Inject constructor(
             tagName = tag?.name.orEmpty(),
             expenses = expenses,
             homeCurrencyCode = home,
-            spentTotal = spend.sumOf(SpendClassifier::homeValue),
+            spentTotal = spend.sumOf(SpendClassifier::spendValue),
             notCountedCount = expenses.size - spend.size,
             tagMissing = tag == null
         )

@@ -29,12 +29,34 @@ import com.expenseanalyst.domain.model.TransferClassification
  * - PAYMENT (card/bill settlement) counts as neither — it settles existing debt.
  * - Refunds are INCOME rows in the "Refund" category and net out of *Spent* rather than
  *   inflating Received (issue #12).
+ * - A reimbursable expense linked to the payment that repaid it ([Expense.reimbursedById]) and
+ *   that payment ([Expense.reimbursementCover]) both leave the totals — the user is even. Only the
+ *   difference counts, on the payment's row and so in its month: a shortfall as spent, an excess
+ *   as received. Owner's choice (Sep 2026) over netting like a refund, which would make the
+ *   payback's month dip. An unlinked reimbursable expense still counts: the user is out of pocket.
+ *
+ * Sum spending with [spendValue] and receipts with [receivedValue], never `filter(isSpend)` +
+ * [homeValue]: for a reimbursement payment only the difference counts, not the full amount.
  */
 object SpendClassifier {
 
     const val REFUND_CATEGORY = "Refund"
 
     fun isLoanLeg(e: Expense): Boolean = e.loanId != null
+
+    /** An expense already paid back through a linked payment. */
+    fun isReimbursedExpense(e: Expense): Boolean = e.reimbursedById != null
+
+    /** An incoming payment linked as the repayment of one or more reimbursable expenses. */
+    fun isReimbursementPayback(e: Expense): Boolean = e.reimbursementCover != null
+
+    /** What a payment fell short of the expenses it repaid; this part stays spent. */
+    fun reimbursementShortfall(e: Expense): Double =
+        e.reimbursementCover?.let { (it - homeValue(e)).coerceAtLeast(0.0) } ?: 0.0
+
+    /** What a payment exceeded the expenses it repaid by; this part is received. */
+    fun reimbursementExcess(e: Expense): Double =
+        e.reimbursementCover?.let { (homeValue(e) - it).coerceAtLeast(0.0) } ?: 0.0
 
     /**
      * The inbound leg of a loan. Direction comes from the type/classification the link step
@@ -45,11 +67,22 @@ object SpendClassifier {
         (e.transactionType == TransactionType.INCOME ||
             e.transferClassification == TransferClassification.EXTERNAL_IN)
 
-    fun isSpend(e: Expense): Boolean = if (isLoanLeg(e)) false else when (e.transactionType) {
-        TransactionType.EXPENSE -> true
-        TransactionType.TRANSFER -> e.transferClassification == TransferClassification.EXTERNAL
-        else -> false
+    fun isSpend(e: Expense): Boolean = spendValue(e) > 0.0 || isPlainSpend(e)
+
+    /** The amount this row adds to Spent, in home currency. */
+    fun spendValue(e: Expense): Double = when {
+        isLoanLeg(e) || isReimbursedExpense(e) -> 0.0
+        isReimbursementPayback(e) -> reimbursementShortfall(e)
+        isPlainSpend(e) -> homeValue(e)
+        else -> 0.0
     }
+
+    private fun isPlainSpend(e: Expense): Boolean =
+        !isLoanLeg(e) && !isReimbursedExpense(e) && !isReimbursementPayback(e) && when (e.transactionType) {
+            TransactionType.EXPENSE -> true
+            TransactionType.TRANSFER -> e.transferClassification == TransferClassification.EXTERNAL
+            else -> false
+        }
 
     fun isOwnTransfer(e: Expense): Boolean =
         !isLoanLeg(e) && e.transactionType == TransactionType.TRANSFER &&
@@ -59,13 +92,25 @@ object SpendClassifier {
         !isLoanLeg(e) && e.transactionType == TransactionType.TRANSFER && e.transferClassification == null
 
     fun isRefund(e: Expense): Boolean =
-        !isLoanLeg(e) && e.transactionType == TransactionType.INCOME && e.category.name == REFUND_CATEGORY
+        !isLoanLeg(e) && !isReimbursementPayback(e) &&
+            e.transactionType == TransactionType.INCOME && e.category.name == REFUND_CATEGORY
 
-    fun isReceived(e: Expense): Boolean = if (isLoanLeg(e)) false else when (e.transactionType) {
-        TransactionType.INCOME -> e.category.name != REFUND_CATEGORY
-        TransactionType.TRANSFER -> e.transferClassification == TransferClassification.EXTERNAL_IN
-        else -> false
+    fun isReceived(e: Expense): Boolean = receivedValue(e) > 0.0 || isPlainReceived(e)
+
+    /** The amount this row adds to Received, in home currency. */
+    fun receivedValue(e: Expense): Double = when {
+        isLoanLeg(e) -> 0.0
+        isReimbursementPayback(e) -> reimbursementExcess(e)
+        isPlainReceived(e) -> homeValue(e)
+        else -> 0.0
     }
+
+    private fun isPlainReceived(e: Expense): Boolean =
+        !isLoanLeg(e) && !isReimbursementPayback(e) && when (e.transactionType) {
+            TransactionType.INCOME -> e.category.name != REFUND_CATEGORY
+            TransactionType.TRANSFER -> e.transferClassification == TransferClassification.EXTERNAL_IN
+            else -> false
+        }
 
     /**
      * The value to aggregate, in the user's home currency.
@@ -91,6 +136,9 @@ object SpendClassifier {
         var unclassifiedTransferCount = 0
         var loanOutTotal = 0.0
         var loanOutCount = 0
+        var reimbursedTotal = 0.0
+        var reimbursedCount = 0
+        var reimbursementShortfallTotal = 0.0
 
         for (e in expenses) {
             val value = homeValue(e)
@@ -100,6 +148,15 @@ object SpendClassifier {
                     loanOutTotal += value
                     loanOutCount++
                 }
+                continue
+            }
+            if (isReimbursedExpense(e)) {
+                reimbursedTotal += value
+                reimbursedCount++
+                continue
+            }
+            if (isReimbursementPayback(e)) {
+                reimbursementShortfallTotal += reimbursementShortfall(e)
                 continue
             }
             when {
@@ -138,7 +195,10 @@ object SpendClassifier {
             unclassifiedTransferTotal = unclassifiedTransferTotal,
             unclassifiedTransferCount = unclassifiedTransferCount,
             loanOutTotal = loanOutTotal,
-            loanOutCount = loanOutCount
+            loanOutCount = loanOutCount,
+            reimbursedTotal = reimbursedTotal,
+            reimbursedCount = reimbursedCount,
+            reimbursementShortfallTotal = reimbursementShortfallTotal
         )
     }
 
@@ -151,6 +211,9 @@ object SpendClassifier {
         var refundCount = 0
         var loanRepaidTotal = 0.0
         var loanRepaidCount = 0
+        var reimbursementPaybackTotal = 0.0
+        var reimbursementPaybackCount = 0
+        var reimbursementExcessTotal = 0.0
 
         for (e in expenses) {
             val value = homeValue(e)
@@ -159,6 +222,12 @@ object SpendClassifier {
                     loanRepaidTotal += value
                     loanRepaidCount++
                 }
+                continue
+            }
+            if (isReimbursementPayback(e)) {
+                reimbursementPaybackTotal += value
+                reimbursementPaybackCount++
+                reimbursementExcessTotal += reimbursementExcess(e)
                 continue
             }
             when {
@@ -185,7 +254,10 @@ object SpendClassifier {
             refundTotal = refundTotal,
             refundCount = refundCount,
             loanRepaidTotal = loanRepaidTotal,
-            loanRepaidCount = loanRepaidCount
+            loanRepaidCount = loanRepaidCount,
+            reimbursementPaybackTotal = reimbursementPaybackTotal,
+            reimbursementPaybackCount = reimbursementPaybackCount,
+            reimbursementExcessTotal = reimbursementExcessTotal
         )
     }
 }
@@ -208,10 +280,15 @@ data class SpendBreakdown(
     val unclassifiedTransferTotal: Double = 0.0,
     val unclassifiedTransferCount: Int = 0,
     val loanOutTotal: Double = 0.0,
-    val loanOutCount: Int = 0
+    val loanOutCount: Int = 0,
+    /** Reimbursable expenses already repaid by a linked payment — reported, not counted. */
+    val reimbursedTotal: Double = 0.0,
+    val reimbursedCount: Int = 0,
+    /** Where a linked payment repaid less than the expenses: that part stays spent. */
+    val reimbursementShortfallTotal: Double = 0.0
 ) {
     val net: Double =
-        (expenseTotal + externalTransferTotal - refundTotal).coerceAtLeast(0.0)
+        (expenseTotal + externalTransferTotal + reimbursementShortfallTotal - refundTotal).coerceAtLeast(0.0)
 }
 
 /**
@@ -227,7 +304,11 @@ data class ReceivedBreakdown(
     val refundTotal: Double = 0.0,
     val refundCount: Int = 0,
     val loanRepaidTotal: Double = 0.0,
-    val loanRepaidCount: Int = 0
+    val loanRepaidCount: Int = 0,
+    /** Payments linked as reimbursements — reported, not counted (only [reimbursementExcessTotal] is). */
+    val reimbursementPaybackTotal: Double = 0.0,
+    val reimbursementPaybackCount: Int = 0,
+    val reimbursementExcessTotal: Double = 0.0
 ) {
-    val net: Double = incomeTotal + transferInTotal
+    val net: Double = incomeTotal + transferInTotal + reimbursementExcessTotal
 }

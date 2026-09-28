@@ -230,6 +230,99 @@ interface ExpenseDao {
     suspend fun updateReimbursedDate(id: Long, reimbursedDateMillis: Long?, updatedAt: Long): Int
 
     /**
+     * Links reimbursable expenses to the incoming payment that repaid them, in one transaction:
+     * each expense gets `reimbursed_by_id` and the payment's date as its reimbursed date; the
+     * payment's `reimbursement_cover` is recomputed from everything now linked to it; and the
+     * payment's POSSIBLE_REIMBURSEMENT review reason is dropped. Only rows still marked
+     * reimbursable are linked. Returns how many expenses were linked.
+     */
+    @Transaction
+    suspend fun linkReimbursement(paybackId: Long, expenseIds: List<Long>, updatedAt: Long): Int {
+        val payback = getExpenseEntityById(paybackId) ?: return 0
+        if (payback.isDeleted) return 0
+        var linked = 0
+        for (id in expenseIds) linked += setReimbursedBy(id, paybackId, payback.dateUtcMillis, updatedAt)
+        refreshReimbursementCover(paybackId, updatedAt)
+        dropReviewReason(paybackId, ReviewReason.POSSIBLE_REIMBURSEMENT, updatedAt)
+        return linked
+    }
+
+    /** Undoes one expense's link and recomputes (or clears) its former payment's cover. */
+    @Transaction
+    suspend fun unlinkReimbursement(expenseId: Long, updatedAt: Long) {
+        val expense = getExpenseEntityById(expenseId) ?: return
+        val paybackId = expense.reimbursedById ?: return
+        clearReimbursedBy(expenseId, updatedAt)
+        refreshReimbursementCover(paybackId, updatedAt)
+    }
+
+    /**
+     * Before a payment is soft-deleted: release the expenses it repaid, or they would stay
+     * excluded from Spent with nothing left to show for it.
+     */
+    @Query(
+        """
+        UPDATE expenses SET reimbursed_by_id = NULL, reimbursed_date_millis = NULL, updated_at_utc_millis = :updatedAt
+        WHERE reimbursed_by_id = :paybackId
+        """
+    )
+    suspend fun releaseReimbursementsOf(paybackId: Long, updatedAt: Long)
+
+    @Query(
+        """
+        UPDATE expenses
+        SET reimbursed_by_id = :paybackId, reimbursed_date_millis = :paidAtMillis, updated_at_utc_millis = :updatedAt
+        WHERE id = :id AND id <> :paybackId AND is_deleted = 0 AND is_reimbursable = 1
+        """
+    )
+    suspend fun setReimbursedBy(id: Long, paybackId: Long, paidAtMillis: Long, updatedAt: Long): Int
+
+    @Query(
+        """
+        UPDATE expenses SET reimbursed_by_id = NULL, reimbursed_date_millis = NULL, updated_at_utc_millis = :updatedAt
+        WHERE id = :id
+        """
+    )
+    suspend fun clearReimbursedBy(id: Long, updatedAt: Long)
+
+    /** SUM over no rows is NULL, so a payment left with nothing linked stops being a payback. */
+    @Query(
+        """
+        UPDATE expenses
+        SET reimbursement_cover =
+                (SELECT SUM(COALESCE(e.home_amount, e.amount)) FROM expenses e
+                 WHERE e.reimbursed_by_id = :paybackId AND e.is_deleted = 0),
+            updated_at_utc_millis = :updatedAt
+        WHERE id = :paybackId
+        """
+    )
+    suspend fun refreshReimbursementCover(paybackId: Long, updatedAt: Long)
+
+    /**
+     * Removes one persisted review reason after an explicit user action (linking, or dismissing a
+     * suggestion) and clears `needs_review` if none remain — the same rule classifyTransfer uses.
+     */
+    @Transaction
+    suspend fun dropReviewReason(id: Long, reason: ReviewReason, updatedAt: Long) {
+        val existing = getExpenseEntityById(id) ?: return
+        val remaining = NeedsReviewEvaluator.remove(existing.needsReviewReasons, reason)
+        setReviewState(
+            id,
+            NeedsReviewEvaluator.encode(remaining).takeIf { it.isNotBlank() },
+            remaining.isNotEmpty(),
+            updatedAt
+        )
+    }
+
+    @Query(
+        """
+        UPDATE expenses SET needs_review_reasons = :reasons, needs_review = :needsReview, updated_at_utc_millis = :updatedAt
+        WHERE id = :id
+        """
+    )
+    suspend fun setReviewState(id: Long, reasons: String?, needsReview: Boolean, updatedAt: Long)
+
+    /**
      * Reclassifies an already-recorded expense as a BNPL split payment: category + type only.
      * Targeted update for the same reason as [updateDescription] — a full-row updateExpense
      * would null account_number (via the entity mapper) and rewrite the tag join table.

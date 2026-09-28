@@ -134,8 +134,7 @@ class ExpenseListViewModel @Inject constructor(
                 ExpenseGroup(
                     header = header,
                     expenses = list.sortedByDescending { it.date },
-                    daySpendTotal = list.filter(SpendClassifier::isSpend)
-                        .sumOf(SpendClassifier::homeValue)
+                    daySpendTotal = list.sumOf(SpendClassifier::spendValue)
                 )
             }
 

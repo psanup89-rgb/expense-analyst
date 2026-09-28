@@ -49,6 +49,15 @@ fun transactionAmountStyle(expense: Expense): TransactionAmountStyle {
         return TransactionAmountStyle(transferGrey, sign, "Loan", null)
     }
 
+    // A linked reimbursement is out of both totals too (only a payment's difference counts),
+    // so it gets the same neutral treatment as a loan leg.
+    if (SpendClassifier.isReimbursedExpense(expense)) {
+        return TransactionAmountStyle(transferGrey, "-", "Reimbursed", null)
+    }
+    if (SpendClassifier.isReimbursementPayback(expense)) {
+        return TransactionAmountStyle(transferGrey, "+", "Reimbursement", null)
+    }
+
     return when (expense.transactionType) {
         TransactionType.INCOME ->
             TransactionAmountStyle(income, "+", null, null)

@@ -5,6 +5,17 @@ Format: `[Date] — Summary`
 ---
 
 
+## 2026-09-29 — v0.7.14
+
+Released as v0.7.14-debug (DB v33): the four entries below (reimbursement linking, Dues tab, salary / own transfers / loan repayments).
+
+## 2026-09-29 — Reimbursements are linked to the payment that repays them
+
+- A reimbursable expense can be linked to the incoming payment that paid it back — from Dues › Reimbursements ("Which payment repaid this?", or "Paid back outside the app") or from the payment's detail ("This is a reimbursement for…", several expenses per payment).
+- Once linked, both leave Spent and Received; only a shortfall (counts as spent) or surplus (counts as received) remains. Breakdown sheets show "Reimbursed" / "Reimbursements" under Not counted.
+- A payment matching pending reimbursable expenses shows in Review as "Reimbursement?" with one-tap Link. DB v33.
+- Cleanup: the Samuel R loan repayment and the Magrabi purchase record were wrongly ticked reimbursable; unticked.
+
 ## 2026-09-29 — Dues tab
 
 - The **EMI** tab is now **Dues**: EMIs, Loans and Reimbursements as swipeable sub-tabs, each with a pending count; opens on the last sub-tab used.

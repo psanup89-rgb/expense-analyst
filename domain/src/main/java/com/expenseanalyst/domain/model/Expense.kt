@@ -66,5 +66,17 @@ data class Expense(
      * (see domain/util/BnplInstallmentMatcher). The charge still counts toward Spent — linking only
      * gives it the shop's name, "n of N" and category. Null on everything else.
      */
-    val bnplPurchaseId: Long? = null
+    val bnplPurchaseId: Long? = null,
+    /**
+     * On a reimbursable expense: the incoming payment that paid it back. Several expenses may
+     * point at one payment (an employer repaying a whole claim). A linked expense leaves Spent —
+     * see [com.expenseanalyst.domain.util.SpendClassifier.spendValue].
+     */
+    val reimbursedById: Long? = null,
+    /**
+     * On an incoming payment that repays reimbursable expenses: the total (home currency) of the
+     * expenses it covers, kept in step by the link/unlink DAO calls. The payment leaves Received;
+     * only a shortfall (counts as spent) or an excess (counts as received) remains.
+     */
+    val reimbursementCover: Double? = null
 )

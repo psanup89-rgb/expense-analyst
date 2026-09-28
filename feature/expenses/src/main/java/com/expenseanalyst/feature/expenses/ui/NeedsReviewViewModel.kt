@@ -12,6 +12,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import com.expenseanalyst.domain.util.ReimbursementMatcher
 import javax.inject.Inject
 
 @HiltViewModel
@@ -56,6 +57,30 @@ class NeedsReviewViewModel @Inject constructor(
                 transferRecipientRuleRepository.saveRule(name, classification)
             }
         }
+    }
+
+    /**
+     * "Reimbursement?" → Link: links this payment to the expenses ReimbursementMatcher suggests
+     * right now (the suggestion is recomputed, since pending items may have changed since
+     * capture). Nothing to link any more → the flag is simply dropped.
+     */
+    fun linkSuggestedReimbursement(paymentId: Long) {
+        viewModelScope.launch {
+            val all = expenseRepository.getExpensesSnapshot()
+            val payment = all.find { it.id == paymentId } ?: return@launch
+            val match = ReimbursementMatcher.suggest(
+                payment.amount, payment.currencyCode, payment.date.toEpochMilliseconds(), all
+            )
+            if (match.isNullOrEmpty()) {
+                expenseRepository.dismissReimbursementSuggestion(paymentId)
+            } else {
+                expenseRepository.linkReimbursement(paymentId, match.map { it.id })
+            }
+        }
+    }
+
+    fun dismissReimbursementSuggestion(paymentId: Long) {
+        viewModelScope.launch { expenseRepository.dismissReimbursementSuggestion(paymentId) }
     }
 
     fun markAllReviewed() {

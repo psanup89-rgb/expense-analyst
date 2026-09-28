@@ -27,6 +27,7 @@ import com.expenseanalyst.domain.usecase.SoftDeleteExpenseUseCase
 import com.expenseanalyst.domain.util.MerchantRuleMatcher
 import com.expenseanalyst.domain.util.SpendClassifier
 import com.expenseanalyst.domain.util.TransferRecipientMatcher
+import com.expenseanalyst.domain.util.ReimbursementMatcher
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -64,6 +65,19 @@ data class ExpenseDetailUiState(
     val showTransferSheet: Boolean = false,
     /** Non-null when a remembered rule already exists for this transfer's recipient. */
     val existingTransferRule: TransferRecipientRule? = null
+)
+
+/**
+ * Reimbursement links around this row. For an incoming payment: what it repays ([repays]) or
+ * could repay ([pendingReimbursables], with [suggested] from ReimbursementMatcher). For a
+ * reimbursable expense: the payment that repaid it ([paidBy]).
+ */
+data class ReimbursementDetail(
+    val repays: List<Expense> = emptyList(),
+    val paidBy: Expense? = null,
+    val pendingReimbursables: List<Expense> = emptyList(),
+    val suggested: Set<Long> = emptySet(),
+    val showSheet: Boolean = false
 )
 
 @HiltViewModel
@@ -132,6 +146,60 @@ class ExpenseDetailViewModel @Inject constructor(
         started = SharingStarted.WhileSubscribed(5_000),
         initialValue = ExpenseDetailUiState()
     )
+
+    private val showReimbursementSheet = MutableStateFlow(false)
+
+    val reimbursement: StateFlow<ReimbursementDetail> = combine(
+        getExpenseByIdUseCase(expenseId),
+        expenseRepository.getExpenses(),
+        showReimbursementSheet
+    ) { expense, all, showSheet ->
+        if (expense == null) return@combine ReimbursementDetail()
+        val isPayment = expense.transactionType == TransactionType.INCOME && !SpendClassifier.isLoanLeg(expense)
+        val paymentMillis = expense.date.toEpochMilliseconds()
+        val pending = if (isPayment) {
+            all.filter {
+                ReimbursementMatcher.isPending(it) && it.id != expense.id &&
+                    it.date.toEpochMilliseconds() <= paymentMillis + DAY_MS &&
+                    it.date.toEpochMilliseconds() >= paymentMillis - ReimbursementMatcher.WINDOW_DAYS * DAY_MS
+            }.sortedByDescending { it.date }
+        } else {
+            emptyList()
+        }
+        ReimbursementDetail(
+            repays = all.filter { it.reimbursedById == expense.id },
+            paidBy = expense.reimbursedById?.let { id -> all.find { it.id == id } },
+            pendingReimbursables = pending,
+            suggested = if (isPayment) {
+                ReimbursementMatcher.suggest(expense.amount, expense.currencyCode, paymentMillis, all)
+                    ?.map { it.id }?.toSet().orEmpty()
+            } else {
+                emptySet()
+            },
+            showSheet = showSheet
+        )
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), ReimbursementDetail())
+
+    fun showReimbursementSheet() { showReimbursementSheet.value = true }
+    fun dismissReimbursementSheet() { showReimbursementSheet.value = false }
+
+    /** This incoming payment repaid [expenseIds]. */
+    fun linkAsReimbursement(expenseIds: List<Long>) {
+        viewModelScope.launch {
+            expenseRepository.linkReimbursement(expenseId, expenseIds)
+            showReimbursementSheet.value = false
+        }
+    }
+
+    /** Undo one link — from either side (the payment's list, or the expense itself). */
+    fun unlinkReimbursement(reimbursedExpenseId: Long) {
+        viewModelScope.launch { expenseRepository.unlinkReimbursement(reimbursedExpenseId) }
+    }
+
+    /** "Not a reimbursement": clears the Possible-reimbursement review flag. */
+    fun dismissReimbursementSuggestion() {
+        viewModelScope.launch { expenseRepository.dismissReimbursementSuggestion(expenseId) }
+    }
 
     fun showDeleteConfirm() = _ui.update { it.copy(showDeleteConfirm = true) }
     fun dismissDeleteConfirm() = _ui.update { it.copy(showDeleteConfirm = false) }
@@ -328,3 +396,5 @@ private data class DetailSideData(
     val transferRules: List<TransferRecipientRule>,
     val lentItems: List<LentItem>
 )
+
+private const val DAY_MS = 24L * 60 * 60 * 1000

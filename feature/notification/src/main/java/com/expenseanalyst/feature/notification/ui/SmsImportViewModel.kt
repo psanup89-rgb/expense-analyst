@@ -22,6 +22,8 @@ import com.expenseanalyst.domain.util.CategoryInference
 import com.expenseanalyst.domain.util.CurrencyConversion
 import com.expenseanalyst.domain.util.MerchantRuleMatcher
 import com.expenseanalyst.domain.util.PaymentMethodInference
+import com.expenseanalyst.domain.util.SpendClassifier
+import com.expenseanalyst.domain.util.ReimbursementMatcher
 import com.expenseanalyst.domain.util.ReviewReason
 import com.expenseanalyst.domain.util.TransferRecipientMatcher
 import com.expenseanalyst.domain.util.RefundMatcher
@@ -287,6 +289,16 @@ class SmsImportViewModel @Inject constructor(
                     } else {
                         emptyList()
                     }
+                // Same "Reimbursement?" suggestion as live capture, against expenses already saved
+                // (a reimbursable expense is marked by hand, so it can't be in this batch).
+                val reimbursementReasons =
+                    if (transactionType == TransactionType.INCOME && category.name != SpendClassifier.REFUND_CATEGORY &&
+                        ReimbursementMatcher.suggest(parsed.amount, parsed.currencyCode, sms.timestampMs, fullSnapshot) != null
+                    ) {
+                        listOf(ReviewReason.POSSIBLE_REIMBURSEMENT)
+                    } else {
+                        emptyList()
+                    }
 
                 // Build a stub expense to run CurrencyConversion.resolve()
                 val stubExpense = Expense(
@@ -312,8 +324,8 @@ class SmsImportViewModel @Inject constructor(
                     // rows at once on a full-history import. Do not "fix" this asymmetry
                     // without deciding what that import should look like.
                     transferClassification = transferClassification,
-                    needsReview = transferReviewReasons.isNotEmpty(),
-                    reviewReasons = transferReviewReasons
+                    needsReview = (transferReviewReasons + reimbursementReasons).isNotEmpty(),
+                    reviewReasons = transferReviewReasons + reimbursementReasons
                 )
                 val conversion = CurrencyConversion.resolve(stubExpense, homeCurrencyCode, ratesByCode)
 

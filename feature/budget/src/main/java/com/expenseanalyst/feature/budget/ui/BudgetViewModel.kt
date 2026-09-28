@@ -87,7 +87,7 @@ class BudgetViewModel @Inject constructor(
                     val cat = categories.find { it.id == catId }
                     val plannedTotal = items.sumOf { it.amount }
                     val actualTotal = actual.filter { it.category.id == catId }
-                        .sumOf { it.homeAmount ?: it.amount }
+                        .sumOf(SpendClassifier::spendValue)
                     CategoryComparison(
                         categoryId = catId,
                         categoryName = cat?.name ?: "Unknown",
@@ -111,7 +111,7 @@ class BudgetViewModel @Inject constructor(
                     categoryComparisons = comparisons,
                     unplannedExpenses = unplanned,
                     totalPlanned = planned.sumOf { it.amount },
-                    totalActual = actual.sumOf { it.homeAmount ?: it.amount },
+                    totalActual = actual.sumOf(SpendClassifier::spendValue),
                     showCarryForwardPrompt = showCarry,
                     isLoading = false
                 )

@@ -794,10 +794,18 @@ private fun TotalsBreakdownSheet(
                     "Transfers to others", spend.externalTransferCount,
                     spend.externalTransferTotal, "+", currencyCode
                 )
+                if (spend.reimbursementShortfallTotal > 0.0) {
+                    BreakdownRow(
+                        "Reimbursement shortfall", 0, spend.reimbursementShortfallTotal, "+", currencyCode,
+                        caption = "Paid back less than you spent"
+                    )
+                }
                 BreakdownRow("Refunds", spend.refundCount, spend.refundTotal, "\u2212", currencyCode)
                 BreakdownTotal("Spent", spend.net, currencyCode)
 
-                if (spend.ownTransferCount > 0 || spend.unclassifiedTransferCount > 0 || spend.loanOutCount > 0) {
+                if (spend.ownTransferCount > 0 || spend.unclassifiedTransferCount > 0 || spend.loanOutCount > 0 ||
+                    spend.reimbursedCount > 0
+                ) {
                     Spacer(Modifier.height(20.dp))
                     Text(
                         text = "NOT COUNTED",
@@ -810,6 +818,13 @@ private fun TotalsBreakdownSheet(
                             "Loans lent out", spend.loanOutCount,
                             spend.loanOutTotal, "", currencyCode, muted = true,
                             caption = "Money lent, not spent"
+                        )
+                    }
+                    if (spend.reimbursedCount > 0) {
+                        BreakdownRow(
+                            "Reimbursed", spend.reimbursedCount,
+                            spend.reimbursedTotal, "", currencyCode, muted = true,
+                            caption = "Paid back to you — you're even"
                         )
                     }
                     if (spend.ownTransferCount > 0) {
@@ -834,9 +849,15 @@ private fun TotalsBreakdownSheet(
                     "Transfers received", received.transferInCount,
                     received.transferInTotal, "+", currencyCode
                 )
+                if (received.reimbursementExcessTotal > 0.0) {
+                    BreakdownRow(
+                        "Reimbursement surplus", 0, received.reimbursementExcessTotal, "+", currencyCode,
+                        caption = "Paid back more than you spent"
+                    )
+                }
                 BreakdownTotal("Received", received.net, currencyCode)
 
-                if (received.refundCount > 0 || received.loanRepaidCount > 0) {
+                if (received.refundCount > 0 || received.loanRepaidCount > 0 || received.reimbursementPaybackCount > 0) {
                     Spacer(Modifier.height(20.dp))
                     Text(
                         text = "NOT COUNTED",
@@ -852,6 +873,12 @@ private fun TotalsBreakdownSheet(
                         "Refunds", received.refundCount, received.refundTotal, "",
                         currencyCode, muted = true, caption = "Netted out of Spent instead"
                     )
+                    if (received.reimbursementPaybackCount > 0) {
+                        BreakdownRow(
+                            "Reimbursements", received.reimbursementPaybackCount, received.reimbursementPaybackTotal, "",
+                            currencyCode, muted = true, caption = "Paying back what you spent, not income"
+                        )
+                    }
                 }
             }
         }
@@ -868,7 +895,9 @@ private fun BreakdownRow(
     muted: Boolean = false,
     caption: String? = null
 ) {
-    if (count == 0) return
+    // A line with no rows and no amount says nothing; the shortfall/surplus lines carry an
+    // amount but no meaningful count, so they show without "(n)".
+    if (count == 0 && amount == 0.0) return
     val color = if (muted) MaterialTheme.colorScheme.onSurfaceVariant
     else MaterialTheme.colorScheme.onSurface
     Row(
@@ -877,7 +906,7 @@ private fun BreakdownRow(
         verticalAlignment = Alignment.Top
     ) {
         Column(modifier = Modifier.weight(1f)) {
-            Text("$label ($count)", style = MaterialTheme.typography.bodyMedium, color = color)
+            Text(if (count > 0) "$label ($count)" else label, style = MaterialTheme.typography.bodyMedium, color = color)
             caption?.let {
                 Text(
                     text = it,

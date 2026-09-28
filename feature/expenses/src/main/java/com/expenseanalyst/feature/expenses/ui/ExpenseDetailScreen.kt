@@ -1,5 +1,7 @@
 package com.expenseanalyst.feature.expenses.ui
 
+import androidx.compose.ui.text.style.TextOverflow
+import com.expenseanalyst.domain.util.ReviewReason
 import com.expenseanalyst.core.theme.expenseColors
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -149,6 +151,16 @@ fun ExpenseDetailScreen(
         }
     }
 
+    val reimbursement by viewModel.reimbursement.collectAsStateWithLifecycle()
+    if (reimbursement.showSheet) {
+        ReimbursementLinkSheet(
+            candidates = reimbursement.pendingReimbursables,
+            preselected = reimbursement.suggested,
+            onLink = viewModel::linkAsReimbursement,
+            onDismiss = viewModel::dismissReimbursementSheet
+        )
+    }
+
     if (uiState.showLoanSheet) {
         val expense = uiState.expense
         if (expense != null) {
@@ -257,6 +269,10 @@ fun ExpenseDetailScreen(
                 linkedLoan = uiState.linkedLoan,
                 onLinkLoan = viewModel::showLoanSheet,
                 onUnlinkLoan = viewModel::unlinkFromLoan,
+                reimbursement = reimbursement,
+                onLinkReimbursement = viewModel::showReimbursementSheet,
+                onUnlinkReimbursement = viewModel::unlinkReimbursement,
+                onDismissReimbursementSuggestion = viewModel::dismissReimbursementSuggestion,
                 onLinkBill = viewModel::showLinkBillSheet,
                 onViewBill = onViewBill,
                 modifier = Modifier.padding(padding)
@@ -278,6 +294,10 @@ private fun ExpenseDetailContent(
     linkedLoan: LentItem?,
     onLinkLoan: () -> Unit,
     onUnlinkLoan: () -> Unit,
+    reimbursement: ReimbursementDetail,
+    onLinkReimbursement: () -> Unit,
+    onUnlinkReimbursement: (Long) -> Unit,
+    onDismissReimbursementSuggestion: () -> Unit,
     onConvertToEmi: () -> Unit,
     onSetRule: () -> Unit,
     onDeleteRule: () -> Unit,
@@ -495,6 +515,96 @@ private fun ExpenseDetailContent(
                                 onClick = onLinkLoan,
                                 contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 8.dp, vertical = 0.dp)
                             ) { Text("Link to loan", style = MaterialTheme.typography.labelMedium) }
+                        }
+                    }
+                }
+
+                // Reimbursement link. An incoming payment can be linked as the repayment of one or
+                // more reimbursable expenses; both then leave the totals and only the difference
+                // counts (SpendClassifier.spendValue / receivedValue).
+                val paidBy = reimbursement.paidBy
+                val isPayment = expense.transactionType == TransactionType.INCOME && expense.loanId == null
+                if (paidBy != null || isPayment) {
+                    DetailDivider()
+                    Column(Modifier.fillMaxWidth().padding(vertical = 10.dp)) {
+                        Text(
+                            text = "Reimbursement",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        when {
+                            paidBy != null -> Row(verticalAlignment = Alignment.CenterVertically) {
+                                Text(
+                                    text = "Paid back by ${paidBy.merchantName ?: "payment"} · " +
+                                        DateTimeUtil.formatDateHeader(paidBy.date),
+                                    style = MaterialTheme.typography.bodySmall,
+                                    fontWeight = FontWeight.Medium,
+                                    modifier = Modifier.weight(1f)
+                                )
+                                TextButton(
+                                    onClick = { onUnlinkReimbursement(expense.id) },
+                                    colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.expenseColors.spend)
+                                ) { Text("Unlink", style = MaterialTheme.typography.labelMedium) }
+                            }
+                            reimbursement.repays.isNotEmpty() -> {
+                                val cover = reimbursement.repays.sumOf(SpendClassifier::homeValue)
+                                val diff = SpendClassifier.homeValue(expense) - cover
+                                Text(
+                                    text = "Repays ${reimbursement.repays.size} " +
+                                        (if (reimbursement.repays.size == 1) "expense" else "expenses") +
+                                        " · " + CurrencyFormatter.format(cover, homeCurrency),
+                                    style = MaterialTheme.typography.bodySmall,
+                                    fontWeight = FontWeight.Medium
+                                )
+                                Text(
+                                    text = when {
+                                        diff > 0.005 -> "${CurrencyFormatter.format(diff, homeCurrency)} more than spent — counts as received"
+                                        diff < -0.005 -> "${CurrencyFormatter.format(-diff, homeCurrency)} short — still counts as spent"
+                                        else -> "Not counted in Spent or Received"
+                                    },
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                                reimbursement.repays.forEach { item ->
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        Text(
+                                            text = "${item.merchantName ?: "Expense"} · " +
+                                                CurrencyFormatter.format(item.amount, item.currencyCode),
+                                            style = MaterialTheme.typography.bodySmall,
+                                            maxLines = 1,
+                                            overflow = TextOverflow.Ellipsis,
+                                            modifier = Modifier.weight(1f)
+                                        )
+                                        TextButton(
+                                            onClick = { onUnlinkReimbursement(item.id) },
+                                            colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.expenseColors.spend)
+                                        ) { Text("Unlink", style = MaterialTheme.typography.labelMedium) }
+                                    }
+                                }
+                                TextButton(onClick = onLinkReimbursement) {
+                                    Text("Add another expense", style = MaterialTheme.typography.labelMedium)
+                                }
+                            }
+                            else -> {
+                                val suggested = reimbursement.pendingReimbursables.filter { it.id in reimbursement.suggested }
+                                if (ReviewReason.POSSIBLE_REIMBURSEMENT in expense.reviewReasons && suggested.isNotEmpty()) {
+                                    Text(
+                                        text = "Looks like it repays " + suggested.joinToString { it.merchantName ?: "an expense" },
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.expenseColors.review
+                                    )
+                                }
+                                Row {
+                                    TextButton(onClick = onLinkReimbursement) {
+                                        Text("This is a reimbursement for…", style = MaterialTheme.typography.labelMedium)
+                                    }
+                                    if (ReviewReason.POSSIBLE_REIMBURSEMENT in expense.reviewReasons) {
+                                        TextButton(onClick = onDismissReimbursementSuggestion) {
+                                            Text("Not a reimbursement", style = MaterialTheme.typography.labelMedium)
+                                        }
+                                    }
+                                }
+                            }
                         }
                     }
                 }
@@ -1052,7 +1162,7 @@ private fun LoanLinkSheet(
             }
             if (pendingLoans.isEmpty()) {
                 Text(
-                    text = "No pending loans. Add one from Settings → Loans & Lending (with the amount " +
+                    text = "No pending loans. Add one from Dues → Loans (with the amount " +
                         "originally lent), then come back to link this repayment.",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -1063,3 +1173,74 @@ private fun LoanLinkSheet(
     }
 }
 
+/** Picks the reimbursable expenses an incoming payment repaid; the suggestion is pre-ticked. */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun ReimbursementLinkSheet(
+    candidates: List<Expense>,
+    preselected: Set<Long>,
+    onLink: (List<Long>) -> Unit,
+    onDismiss: () -> Unit
+) {
+    var selected by remember(preselected) { mutableStateOf(preselected) }
+    ModalBottomSheet(onDismissRequest = onDismiss) {
+        Column(Modifier.padding(horizontal = 20.dp).padding(bottom = 24.dp)) {
+            Text("Which expenses does this repay?", style = MaterialTheme.typography.titleMedium)
+            Text(
+                "Pending reimbursable expenses from before this payment",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Spacer(Modifier.height(8.dp))
+            if (candidates.isEmpty()) {
+                Text(
+                    "Nothing is waiting to be reimbursed. Mark an expense as reimbursable when " +
+                        "adding or editing it.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(vertical = 8.dp)
+                )
+            }
+            candidates.forEach { item ->
+                val checked = item.id in selected
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable { selected = if (checked) selected - item.id else selected + item.id }
+                        .padding(vertical = 6.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    androidx.compose.material3.Checkbox(
+                        checked = checked,
+                        onCheckedChange = { selected = if (checked) selected - item.id else selected + item.id }
+                    )
+                    Column(Modifier.weight(1f)) {
+                        Text(
+                            item.merchantName ?: "Expense",
+                            style = MaterialTheme.typography.titleSmall,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                        Text(
+                            DateTimeUtil.formatDateHeader(item.date),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                    Text(
+                        CurrencyFormatter.format(item.amount, item.currencyCode),
+                        style = MaterialTheme.typography.titleSmall
+                    )
+                }
+            }
+            Spacer(Modifier.height(12.dp))
+            androidx.compose.material3.Button(
+                onClick = { onLink(selected.toList()) },
+                enabled = selected.isNotEmpty(),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text(if (selected.size <= 1) "Link" else "Link ${selected.size} expenses")
+            }
+        }
+    }
+}

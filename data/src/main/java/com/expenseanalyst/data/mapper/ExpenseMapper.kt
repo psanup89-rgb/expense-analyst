@@ -44,7 +44,9 @@ fun ExpenseWithCategory.toDomain() = Expense(
     transferClassification = expense.transferClassification
         ?.let { runCatching { TransferClassification.valueOf(it) }.getOrNull() },
     loanId = expense.loanId,
-    bnplPurchaseId = expense.bnplPurchaseId
+    bnplPurchaseId = expense.bnplPurchaseId,
+    reimbursedById = expense.reimbursedById,
+    reimbursementCover = expense.reimbursementCover
 )
 
 fun Expense.toEntity(createdAt: Long, updatedAt: Long) = ExpenseEntity(
@@ -83,5 +85,8 @@ fun Expense.toEntity(createdAt: Long, updatedAt: Long) = ExpenseEntity(
     // leg on the next full-row updateExpense (repairExpenseConversions runs on every launch).
     loanId = loanId,
     // Same full-row round-trip rule as transferClassification and loanId above.
-    bnplPurchaseId = bnplPurchaseId
+    bnplPurchaseId = bnplPurchaseId,
+    // Same full-row round-trip rule again: dropping these would unlink every reimbursement.
+    reimbursedById = reimbursedById,
+    reimbursementCover = reimbursementCover
 )

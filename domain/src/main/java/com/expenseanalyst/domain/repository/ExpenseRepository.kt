@@ -38,6 +38,15 @@ interface ExpenseRepository {
      */
     suspend fun markReimbursed(id: Long, reimbursedDate: Instant?): Int
 
+    /** Links reimbursable expenses to the payment that repaid them (see ExpenseDao.linkReimbursement). */
+    suspend fun linkReimbursement(paybackId: Long, expenseIds: List<Long>): Int
+
+    /** Undoes one expense's reimbursement link. */
+    suspend fun unlinkReimbursement(expenseId: Long)
+
+    /** "Not a reimbursement": drops the POSSIBLE_REIMBURSEMENT review reason from a payment. */
+    suspend fun dismissReimbursementSuggestion(id: Long)
+
     /**
      * Reclassifies an already-recorded expense as a BNPL split payment (category + type only,
      * targeted update). Returns rows affected (0 if missing or soft-deleted).

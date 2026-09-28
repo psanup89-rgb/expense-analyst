@@ -3,6 +3,7 @@ package com.expenseanalyst.data.repository
 import com.expenseanalyst.core.util.DateTimeUtil
 import com.expenseanalyst.data.local.dao.ExpenseDao
 import com.expenseanalyst.data.local.dao.TagDao
+import com.expenseanalyst.domain.util.ReviewReason
 import com.expenseanalyst.data.mapper.toDomain
 import com.expenseanalyst.data.mapper.toEntity
 import com.expenseanalyst.domain.model.Expense
@@ -75,6 +76,8 @@ class ExpenseRepositoryImpl @Inject constructor(
     }
 
     override suspend fun softDeleteExpense(id: Long) {
+        // A deleted payment must not keep its expenses excluded from Spent.
+        expenseDao.releaseReimbursementsOf(paybackId = id, updatedAt = DateTimeUtil.nowMillis())
         expenseDao.softDelete(id = id, updatedAt = DateTimeUtil.nowMillis())
     }
 
@@ -111,6 +114,15 @@ class ExpenseRepositoryImpl @Inject constructor(
 
     override fun getReimbursableExpenses(): Flow<List<Expense>> =
         expenseDao.getReimbursableExpensesWithCategory().map { list -> list.map { it.toDomain() } }
+
+    override suspend fun linkReimbursement(paybackId: Long, expenseIds: List<Long>): Int =
+        expenseDao.linkReimbursement(paybackId, expenseIds, DateTimeUtil.nowMillis())
+
+    override suspend fun unlinkReimbursement(expenseId: Long) =
+        expenseDao.unlinkReimbursement(expenseId, DateTimeUtil.nowMillis())
+
+    override suspend fun dismissReimbursementSuggestion(id: Long) =
+        expenseDao.dropReviewReason(id, ReviewReason.POSSIBLE_REIMBURSEMENT, DateTimeUtil.nowMillis())
 
     override suspend fun markReimbursed(id: Long, reimbursedDate: Instant?): Int =
         expenseDao.updateReimbursedDate(

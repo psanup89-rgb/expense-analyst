@@ -129,7 +129,9 @@ fun NeedsReviewScreen(
                         homeCurrencyCode = homeCurrencyCode,
                         onClick = { onExpenseClick(expense.id) },
                         onMarkDone = { viewModel.markReviewed(expense.id) },
-                        onClassifyTransfer = { viewModel.classifyTransfer(expense.id, it) }
+                        onClassifyTransfer = { viewModel.classifyTransfer(expense.id, it) },
+                        onLinkReimbursement = { viewModel.linkSuggestedReimbursement(expense.id) },
+                        onNotReimbursement = { viewModel.dismissReimbursementSuggestion(expense.id) }
                     )
                 }
                 item { Spacer(Modifier.height(88.dp)) }
@@ -144,7 +146,9 @@ private fun NeedsReviewCard(
     homeCurrencyCode: String,
     onClick: () -> Unit,
     onMarkDone: () -> Unit,
-    onClassifyTransfer: (TransferClassification) -> Unit
+    onClassifyTransfer: (TransferClassification) -> Unit,
+    onLinkReimbursement: () -> Unit = {},
+    onNotReimbursement: () -> Unit = {}
 ) {
     val style = transactionAmountStyle(expense)
     val amountColor = style.color
@@ -259,6 +263,33 @@ private fun NeedsReviewCard(
                     contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp)
                 ) {
                     Text("My account", style = MaterialTheme.typography.labelMedium)
+                }
+            }
+        }
+
+        // "Reimbursement?" — a payment matching pending reimbursable expenses. One tap links it
+        // to the suggested expenses (both then leave the totals); the detail screen offers a
+        // different pick.
+        if (ReviewReason.POSSIBLE_REIMBURSEMENT in expense.reviewReasons) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(start = 44.dp, end = 14.dp, bottom = 10.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                FilledTonalButton(
+                    onClick = onLinkReimbursement,
+                    modifier = Modifier.weight(1f),
+                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp)
+                ) {
+                    Text("Link reimbursement", style = MaterialTheme.typography.labelMedium)
+                }
+                FilledTonalButton(
+                    onClick = onNotReimbursement,
+                    modifier = Modifier.weight(1f),
+                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp)
+                ) {
+                    Text("Not one", style = MaterialTheme.typography.labelMedium)
                 }
             }
         }

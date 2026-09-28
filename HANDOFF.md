@@ -1,10 +1,21 @@
 # Expense Analyst — Handoff
 
 **Last updated**: 2026-09-27
-**DB version**: 32
+**DB version**: 33
 **Build**: `./gradlew clean assembleDebug` ✅
 **Repo**: `https://github.com/psanup89-rgb/expense-analyst` (public)
-**Release**: v0.7.13-debug (GitHub Release with APK)
+**Release**: v0.7.14-debug (GitHub Release with APK)
+
+---
+
+## Session Summary (2026-09-29) — reimbursement linking (released in v0.7.14)
+
+Owner's choices: take both sides out and count only the difference; suggest in Review (never
+auto-link); one payment may repay several expenses. Verified on device with a SAR 77.77 test
+expense + payment: flagged "Reimbursement?" → linked from Review → Spent sheet "Reimbursed (1)"
+→ undone and re-linked via the Dues picker ("Same amount" first) → payment detail "Repays 1
+expense" → deleting the payment released the expense. Test rows soft-deleted. September's salary
+(SAR 50,292.10) had arrived and was captured by the new salary parser.
 
 ---
 
