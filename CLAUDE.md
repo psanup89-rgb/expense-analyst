@@ -81,8 +81,8 @@ These rules apply at all times, without exception.
 
 - Routes defined in `core/navigation/NavRoutes.kt`
 - All routes registered in `app/navigation/AppNavGraph.kt`
-- Bottom nav: **Home · Review · Bills · EMI · Settings** (shown only on those five destinations). "Review" is `NavRoutes.NEEDS_REVIEW`, badged with the needs-review count.
-- Reimbursements is `NavRoutes.REIMBURSEMENTS`, reached from Settings (not a bottom-nav item — same pattern as "Loans & Lending")
+- Bottom nav: **Home · Review · Bills · Dues · Settings** (shown only on those five destinations). "Review" is `NavRoutes.NEEDS_REVIEW`, badged with the needs-review count.
+- **Dues** (`NavRoutes.DUES`, `app/ui/DuesScreen`) holds **EMIs · Loans · Reimbursements** as swipeable sub-tabs with pending counts; the last sub-tab used is remembered (SharedPreferences `dues_ui`). It lives in `:app` because the three lists come from three feature modules that may not import each other; each list screen has an `embedded` flag (no top bar / back arrow) and its ViewModel is created by DuesScreen so the tab row can count. Detail and add/edit screens stay full-screen routes. The old `LOANS` / `REIMBURSEMENTS` routes and their Settings cards are gone. A loan reminder tap opens that loan's detail (`LentReminderNotification.EXTRA_LOAN_ID`, read in `MainActivity.handleIntent`).
 - Onboarding gate: `MainActivity` reads `OnboardingRepository.isOnboardingCompleted()` before rendering nav
 - Notification pre-fill: `ADD_EXPENSE_ROUTE` has optional args `?amount=&currency=&merchant=&type=` (still used for manual add-from-banner paths). Auto-saved transaction notifications now tap through to `ACTION_OPEN_EXPENSE_DETAIL` (expense detail screen) instead, since the expense is already saved.
 

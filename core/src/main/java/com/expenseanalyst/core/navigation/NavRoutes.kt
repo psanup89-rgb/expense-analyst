@@ -8,7 +8,8 @@ object NavRoutes {
     const val ADD_EXPENSE_ROUTE = "add_expense?amount={amount}&currency={currency}&merchant={merchant}&type={type}&account={account}&pendingId={pendingId}&paymentMethod={paymentMethod}"
     const val EDIT_EXPENSE = "edit_expense/{expenseId}"
     const val EXPENSE_DETAIL = "expense_detail/{expenseId}"
-    const val EMI_LIST = "emi_list"
+    /** Bottom-nav "Dues": EMIs, Loans and Reimbursements as sub-tabs (app/ui/DuesScreen). */
+    const val DUES = "dues"
     const val EMI_DETAIL = "emi_detail/{emiGroupId}"
     const val EMI_CREATE = "emi_create/{expenseId}"
     const val SETTINGS = "settings"
@@ -26,11 +27,9 @@ object NavRoutes {
     const val SMS_IMPORT = "sms_import"
     const val SMS_IMPORT_ROUTE = "sms_import?autoStart={autoStart}"
     const val NEEDS_REVIEW = "needs_review"
-    const val LOANS = "loans"
     const val LOAN_DETAIL = "loan_detail/{loanId}"
     const val ADD_LOAN = "add_loan"
     const val EDIT_LOAN = "edit_loan/{loanId}"
-    const val REIMBURSEMENTS = "reimbursements"
 
     fun smsImport(autoStart: String? = null) =
         if (autoStart != null) "sms_import?autoStart=$autoStart" else "sms_import"

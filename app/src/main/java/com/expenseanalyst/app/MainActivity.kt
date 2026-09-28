@@ -2,6 +2,7 @@ package com.expenseanalyst.app
 
 import android.Manifest
 import android.content.Intent
+import com.expenseanalyst.feature.loans.service.LentReminderNotification
 import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
@@ -81,7 +82,7 @@ class MainActivity : ComponentActivity() {
                     NavRoutes.EXPENSE_LIST,
                     NavRoutes.NEEDS_REVIEW,
                     NavRoutes.BILLS,
-                    NavRoutes.EMI_LIST,
+                    NavRoutes.DUES,
                     NavRoutes.SETTINGS
                 )
                 val needsReviewCount by viewModel.needsReviewCount.collectAsStateWithLifecycle()
@@ -122,6 +123,12 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun handleIntent(intent: Intent?) {
+        // Loan reminder tap (LentReminderNotification): a launcher intent carrying the loan id.
+        // Nothing read it before, so the tap only opened Home.
+        intent?.getLongExtra(LentReminderNotification.EXTRA_LOAN_ID, -1L)?.takeIf { it > 0 }?.let { loanId ->
+            viewModel.setPendingRoute(NavRoutes.loanDetail(loanId))
+            return
+        }
         when (intent?.action) {
             TransactionAlertNotification.ACTION_OPEN_EXPENSE_DETAIL -> {
                 val expenseId = intent.getLongExtra(TransactionAlertNotification.EXTRA_EXPENSE_ID, -1L)

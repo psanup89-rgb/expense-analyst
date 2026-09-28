@@ -51,13 +51,15 @@ fun LoanListScreen(
     onAddLoan: () -> Unit,
     onLoanClick: (Long) -> Unit,
     onBack: () -> Unit,
-    viewModel: LoanListViewModel = hiltViewModel()
+    viewModel: LoanListViewModel = hiltViewModel(),
+    /** Inside the Dues tab: the host draws the title and tabs, so no top bar or back arrow. */
+    embedded: Boolean = false
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
 
     Scaffold(
         topBar = {
-            TopAppBar(
+            if (!embedded) TopAppBar(
                 title = { Text("Loans & Lending") },
                 navigationIcon = {
                     IconButton(onClick = onBack) {

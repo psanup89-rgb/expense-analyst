@@ -5,6 +5,12 @@ Format: `[Date] — Summary`
 ---
 
 
+## 2026-09-29 — Dues tab
+
+- The **EMI** tab is now **Dues**: EMIs, Loans and Reimbursements as swipeable sub-tabs, each with a pending count; opens on the last sub-tab used.
+- Loans and Reimbursements are no longer in Settings.
+- Tapping a loan reminder opens that loan (it used to open Home).
+
 ## 2026-09-29 — Salary was never counted
 
 - Al Rajhi's "Credit transfer Salary" message was parsed by nothing and dropped, so Received never included salary. Now recorded as income under Salary. July and August salaries recovered from the inbox. September's salary SMS had not arrived yet.

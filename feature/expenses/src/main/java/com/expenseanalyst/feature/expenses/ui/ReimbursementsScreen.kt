@@ -49,7 +49,9 @@ import com.expenseanalyst.domain.model.Expense
 fun ReimbursementsScreen(
     onBack: () -> Unit,
     onExpenseClick: (Long) -> Unit,
-    viewModel: ReimbursementsViewModel = hiltViewModel()
+    viewModel: ReimbursementsViewModel = hiltViewModel(),
+    /** Inside the Dues tab: the host draws the title and tabs, so no top bar or back arrow. */
+    embedded: Boolean = false
 ) {
     val pending by viewModel.pending.collectAsStateWithLifecycle()
     val reimbursed by viewModel.reimbursed.collectAsStateWithLifecycle()
@@ -58,7 +60,7 @@ fun ReimbursementsScreen(
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
         topBar = {
-            TopAppBar(
+            if (!embedded) TopAppBar(
                 title = {
                     Column {
                         Text("Reimbursements", style = MaterialTheme.typography.titleLarge)

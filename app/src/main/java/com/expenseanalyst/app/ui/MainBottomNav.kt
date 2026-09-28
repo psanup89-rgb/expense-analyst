@@ -47,7 +47,7 @@ fun MainBottomNav(
         BottomNavItem(NavRoutes.EXPENSE_LIST, Icons.Default.Home, "Home"),
         BottomNavItem(NavRoutes.NEEDS_REVIEW, Icons.Default.RateReview, "Review", badge = needsReviewCount),
         BottomNavItem(NavRoutes.BILLS, Icons.Default.Receipt, "Bills"),
-        BottomNavItem(NavRoutes.EMI_LIST, Icons.Default.CalendarMonth, "EMI"),
+        BottomNavItem(NavRoutes.DUES, Icons.Default.CalendarMonth, "Dues"),
         BottomNavItem(NavRoutes.SETTINGS, Icons.Default.Settings, "Settings")
     )
 

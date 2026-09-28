@@ -53,13 +53,15 @@ import com.expenseanalyst.domain.model.EmiGroup
 @Composable
 fun EmiListScreen(
     onNavigateToDetail: (Long) -> Unit,
-    viewModel: EmiListViewModel = hiltViewModel()
+    viewModel: EmiListViewModel = hiltViewModel(),
+    /** Inside the Dues tab: the host draws the title and tabs, so no top bar. */
+    embedded: Boolean = false
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
 
     Scaffold(
         topBar = {
-            TopAppBar(
+            if (!embedded) TopAppBar(
                 title = { Text("EMI Tracker", fontWeight = FontWeight.Bold) },
                 windowInsets = androidx.compose.foundation.layout.WindowInsets(0, 0, 0, 0),
                 colors = TopAppBarDefaults.topAppBarColors(

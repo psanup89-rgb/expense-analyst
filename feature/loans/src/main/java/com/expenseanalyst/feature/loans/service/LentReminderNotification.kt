@@ -11,6 +11,9 @@ import com.expenseanalyst.domain.model.LentItem
 
 object LentReminderNotification {
 
+    /** Read by MainActivity to open this loan's detail screen from the reminder. */
+    const val EXTRA_LOAN_ID = "loan_id"
+
     private const val CHANNEL_ID = "lent_reminders"
     private const val CHANNEL_NAME = "Loan Reminders"
 
@@ -33,7 +36,7 @@ object LentReminderNotification {
             .getLaunchIntentForPackage(context.packageName)
             ?.apply {
                 flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
-                putExtra("loan_id", item.id)
+                putExtra(EXTRA_LOAN_ID, item.id)
             }
 
         val pendingIntent = PendingIntent.getActivity(

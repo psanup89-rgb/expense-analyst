@@ -16,8 +16,8 @@ import androidx.navigation.navArgument
 import com.expenseanalyst.app.MainViewModel
 import com.expenseanalyst.core.navigation.NavRoutes
 import com.expenseanalyst.feature.emi.ui.EmiCreateScreen
+import com.expenseanalyst.app.ui.DuesScreen
 import com.expenseanalyst.feature.emi.ui.EmiDetailScreen
-import com.expenseanalyst.feature.emi.ui.EmiListScreen
 import com.expenseanalyst.feature.expenses.ui.AddExpenseScreen
 import com.expenseanalyst.feature.expenses.ui.BillDetailScreen
 import com.expenseanalyst.feature.expenses.ui.BillsScreen
@@ -36,10 +36,8 @@ import com.expenseanalyst.feature.settings.ui.CategoryManagementScreen
 import com.expenseanalyst.feature.settings.ui.TagDetailScreen
 import com.expenseanalyst.feature.settings.ui.TagManagementScreen
 import com.expenseanalyst.feature.settings.ui.SettingsScreen
-import com.expenseanalyst.feature.loans.ui.LoanListScreen
 import com.expenseanalyst.feature.loans.ui.AddLoanScreen
 import com.expenseanalyst.feature.expenses.ui.NeedsReviewScreen
-import com.expenseanalyst.feature.expenses.ui.ReimbursementsScreen
 import com.expenseanalyst.feature.loans.ui.LoanDetailScreen
 
 @Composable
@@ -197,9 +195,12 @@ fun AppNavGraph(
             )
         }
 
-        composable(NavRoutes.EMI_LIST) {
-            EmiListScreen(
-                onNavigateToDetail = { id -> navController.navigate(NavRoutes.emiDetail(id)) }
+        composable(NavRoutes.DUES) {
+            DuesScreen(
+                onEmiClick = { id -> navController.navigate(NavRoutes.emiDetail(id)) },
+                onAddLoan = { navController.navigate(NavRoutes.ADD_LOAN) },
+                onLoanClick = { id -> navController.navigate(NavRoutes.loanDetail(id)) },
+                onExpenseClick = { id -> navController.navigate(NavRoutes.expenseDetail(id)) }
             )
         }
 
@@ -226,9 +227,7 @@ fun AppNavGraph(
                 onNavigateToCategoryManagement = { navController.navigate(NavRoutes.CATEGORY_MANAGEMENT) },
                 onNavigateToTagManagement = { navController.navigate(NavRoutes.TAG_MANAGEMENT) },
                 onNavigateToAccountManagement = { navController.navigate(NavRoutes.ACCOUNT_MANAGEMENT) },
-                onNavigateToBudget = { navController.navigate(NavRoutes.BUDGET) },
-                onNavigateToLoans = { navController.navigate(NavRoutes.LOANS) },
-                onNavigateToReimbursements = { navController.navigate(NavRoutes.REIMBURSEMENTS) }
+                onNavigateToBudget = { navController.navigate(NavRoutes.BUDGET) }
             )
         }
 
@@ -271,14 +270,6 @@ fun AppNavGraph(
             BudgetScreen(onBack = { navController.popBackStack() })
         }
 
-        composable(NavRoutes.LOANS) {
-            LoanListScreen(
-                onAddLoan = { navController.navigate(NavRoutes.ADD_LOAN) },
-                onLoanClick = { id -> navController.navigate(NavRoutes.loanDetail(id)) },
-                onBack = { navController.popBackStack() }
-            )
-        }
-
         composable(NavRoutes.ADD_LOAN) {
             AddLoanScreen(
                 loanId = null,
@@ -308,13 +299,6 @@ fun AppNavGraph(
                 loanId = loanId,
                 onBack = { navController.popBackStack() },
                 onEdit = { id -> navController.navigate(NavRoutes.editLoan(id)) }
-            )
-        }
-
-        composable(NavRoutes.REIMBURSEMENTS) {
-            ReimbursementsScreen(
-                onBack = { navController.popBackStack() },
-                onExpenseClick = { id -> navController.navigate(NavRoutes.expenseDetail(id)) }
             )
         }
 

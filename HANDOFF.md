@@ -8,6 +8,16 @@
 
 ---
 
+## Session Summary (2026-09-29) — Dues tab
+
+- EMI tab → **Dues** with EMIs · Loans · Reimbursements sub-tabs (user's choices: name "Dues",
+  reopen last sub-tab, remove the Settings cards, no combined summary). Verified on device: tabs,
+  swipe, counts (label "Reimburse… 2" truncates to keep its badge), last tab remembered across
+  restarts, detail → back returns to the same sub-tab, Settings cards gone, loan-reminder
+  intent opens the loan detail. No DB change.
+
+---
+
 ## Session Summary (2026-09-29) — Received was wrong (uncommitted → committed, not released)
 
 - Salary never counted: Al Rajhi "Credit transfer Salary" parsed by nothing. Fixed; Jul/Aug
