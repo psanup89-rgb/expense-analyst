@@ -5,6 +5,10 @@ Format: `[Date] — Summary`
 ---
 
 
+## 2026-09-29 — v0.7.15
+
+Released as v0.7.15-debug (DB v34): the two entries below (May breakdown fixes, Review tab audit).
+
 ## 2026-09-29 — May breakdown: auto-debits counted twice
 
 - May's SAR 108,596 is SAR 85,000 of Ejar rent (7 payments, 1–8 May) — genuine; a rent flow is on the backlog (HANDOFF → Next steps).

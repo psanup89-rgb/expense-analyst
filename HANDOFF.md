@@ -4,7 +4,7 @@
 **DB version**: 34
 **Build**: `./gradlew clean assembleDebug` ✅
 **Repo**: `https://github.com/psanup89-rgb/expense-analyst` (public)
-**Release**: v0.7.14-debug (GitHub Release with APK)
+**Release**: v0.7.15-debug (GitHub Release with APK)
 
 ---
 
@@ -25,7 +25,7 @@
 
 ---
 
-## Session Summary (2026-09-29) — Review tab audit (committed faa5465, after v0.7.14)
+## Session Summary (2026-09-29) — Review tab audit (released in v0.7.15)
 
 All 83 Review items resolved (backup taken first). 54 were fixable from the data (card-bill
 payment pairs, refunds with the merchant in the message, SAB HungerStation, ACH payment method,
