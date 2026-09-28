@@ -8,7 +8,7 @@
 
 ---
 
-## Session Summary (2026-09-28) — three Notion issues (uncommitted, after v0.7.13)
+## Session Summary (2026-09-28) — three Notion issues (shipped in v0.7.13)
 
 All verified on device (backup taken first).
 - **Payment method missing** (Al Rajhi "By:…;Visa"): method now falls back to the matched
@@ -25,7 +25,8 @@ All verified on device (backup taken first).
 - The saved Axis Bank bill (295.00) had been saved as SAR under the home-currency bug; switched
   to INR at the user's request (the only affected bill).
 - Past Mobily bills were not back-filled (the Sep bill appears paid).
-- v0.7.13 is committed (811aaf8) but **not pushed** — the push was blocked by the permission check.
+- Released as **v0.7.13-debug** (tag on 4df4fe9, includes this session). Git and `gh` for this repo
+  always use the **psanup89-rgb** account (origin URL and credential username are pinned in the repo config).
 
 ---
 
