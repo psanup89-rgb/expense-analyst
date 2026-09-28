@@ -163,4 +163,44 @@ class AlRajhiParserTest {
         assertEquals("SAMUEL RAJASEKAR", result.merchant)
         assertEquals("Al Rajhi Bank", result.bankName)
     }
+
+    // Real layout (Jul/Aug 2026, numbers changed). Was parsed by nobody, so salaries were dropped.
+    @org.junit.jupiter.api.Test
+    fun `salary credit is income to the user's own account`() {
+        val body = "Credit transfer Salary\nAmount:SAR 10,000.50\nTo:1234\n27/8/26 01:52"
+        for (sender in listOf("AlRajhiBank", "")) {
+            val r = ParserRegistry.parse(sender, body)
+            org.junit.jupiter.api.Assertions.assertNotNull(r, sender)
+            org.junit.jupiter.api.Assertions.assertEquals(TransactionDirection.CREDIT, r!!.type)
+            org.junit.jupiter.api.Assertions.assertEquals(10000.50, r.amount, 0.001)
+            org.junit.jupiter.api.Assertions.assertEquals("Salary", r.merchant)
+            org.junit.jupiter.api.Assertions.assertEquals("1234", r.accountLast4)
+            org.junit.jupiter.api.Assertions.assertEquals("Al Rajhi Bank", r.bankName)
+        }
+    }
+
+    // Real layouts (Jul 2026, names and numbers changed)
+    @org.junit.jupiter.api.Test
+    fun `fund transfer credited keeps the sender's name and the user's account`() {
+        val bodies = listOf(
+            "Fund Transfer Credited (sarie)\nFrom: JOHN SAMPLE PERSON\nAlrajhi Bank\nTo: 123451234\nIBAN: 99\nAlrajhi Bank\nAmount: SAR 10000\nOn: 2026-07-29 11:30:36",
+            "Fund Transfer Credited\nFrom: JOHN SAMPLE PERSON\nTo: **1234\nIBAN: **99\nAlrajhi Bank\nAmount: SAR 1000\nOn: 2026-07-11 10:00:00"
+        )
+        for (body in bodies) for (sender in listOf("AlRajhiBank", "")) {
+            val r = ParserRegistry.parse(sender, body)
+            org.junit.jupiter.api.Assertions.assertNotNull(r, sender)
+            org.junit.jupiter.api.Assertions.assertEquals(TransactionDirection.CREDIT, r!!.type)
+            org.junit.jupiter.api.Assertions.assertEquals("JOHN SAMPLE PERSON", r.merchant)
+            org.junit.jupiter.api.Assertions.assertEquals("1234", r.accountLast4)
+            org.junit.jupiter.api.Assertions.assertEquals("Al Rajhi Bank", r.bankName)
+        }
+    }
+
+    @org.junit.jupiter.api.Test
+    fun `an Axis credit-balance notice is not a transaction`() {
+        org.junit.jupiter.api.Assertions.assertNull(ParserRegistry.parse(
+            "AX-AXISBK",
+            "Your Axis Bank Credit Card no. XX 1234 has a credit balance of INR 1445/-. The amount will be credited to your Savings Account if not used within 30 days."
+        ))
+    }
 }

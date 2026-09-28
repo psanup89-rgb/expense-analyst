@@ -73,8 +73,24 @@ class AlRajhiParser : TransactionParser {
     // Payments, Standing Order, Bill Payment+Biller/Service, Credit/Debit Transfer
     // Internal) precisely so this parser only self-claims a message when the sender
     // doesn't match AND the body itself is unambiguously an Al Rajhi shape.
+    // Salary credit (real layout, Jul/Aug 2026): "Credit transfer Salary / Amount:SAR N / To:1234 /
+    // date". No parser matched it, and unparsed messages are never saved — so every salary was
+    // silently missing from Received. To: is the user's own account here (the receiving side).
+    private val salaryCreditPattern = Regex("""(?i)Credit\s+transfer\s+Salary""")
+
+    // Incoming transfer (real layout, Jul 2026): "Fund Transfer Credited (sarie) / From: NAME /
+    // Alrajhi Bank / To: 1234… / IBAN: … / Amount: SAR N / On: …". The sender's name is kept as
+    // the merchant so a credit from the user's OWN name can become an own-account transfer
+    // (TransferRecipientMatcher.isFromOwnAccount) instead of income.
+    private val fundTransferCreditedPattern = Regex("""(?i)Fund\s+Transfer\s+Credited""")
+    private val alRajhiInBody = Regex("""(?i)al\s*rajhi""")
+    private val fundTransferFromPattern = Regex("""(?i)From\s*:\s*([A-Za-z][A-Za-z .'-]{1,79}?)\s*(?:\n|$)""")
+    private val fundTransferToDigitsPattern = Regex("""(?i)\bTo\s*:\s*\**\s*(\d{4,})""")
+
     override fun canParse(sender: String, body: String): Boolean =
         senderPattern.containsMatchIn(sender) ||
+        (fundTransferCreditedPattern.containsMatchIn(body) && alRajhiInBody.containsMatchIn(body)) ||
+        salaryCreditPattern.containsMatchIn(body) ||
         transferFingerprintPattern.containsMatchIn(body) ||
         internalTransferPattern.containsMatchIn(body) ||
         moiFingerprintPattern.containsMatchIn(body) ||
@@ -103,6 +119,40 @@ class AlRajhiParser : TransactionParser {
                 type = TransactionDirection.DEBIT,
                 merchant = merchant,
                 accountLast4 = accountLast4,
+                referenceNumber = null,
+                bankName = bankName,
+                paymentMethodName = "NET_BANKING"
+            )
+        }
+
+        if (fundTransferCreditedPattern.containsMatchIn(body)) {
+            val amountMatch = amountSarPattern.find(body)
+            val amount = (amountMatch?.groupValues?.get(1)?.takeIf { it.isNotBlank() }
+                ?: amountMatch?.groupValues?.get(2)?.takeIf { it.isNotBlank() })
+                ?.replace(",", "")?.toDoubleOrNull() ?: return null
+            return ParsedTransaction(
+                amount = amount,
+                currencyCode = "SAR",
+                type = TransactionDirection.CREDIT,
+                merchant = fundTransferFromPattern.find(body)?.groupValues?.get(1)?.trim(),
+                accountLast4 = fundTransferToDigitsPattern.find(body)?.groupValues?.get(1)?.takeLast(4),
+                referenceNumber = null,
+                bankName = bankName,
+                paymentMethodName = "NET_BANKING"
+            )
+        }
+
+        if (salaryCreditPattern.containsMatchIn(body)) {
+            val amountMatch = amountSarPattern.find(body)
+            val amount = (amountMatch?.groupValues?.get(1)?.takeIf { it.isNotBlank() }
+                ?: amountMatch?.groupValues?.get(2)?.takeIf { it.isNotBlank() })
+                ?.replace(",", "")?.toDoubleOrNull() ?: return null
+            return ParsedTransaction(
+                amount = amount,
+                currencyCode = "SAR",
+                type = TransactionDirection.CREDIT,
+                merchant = "Salary",
+                accountLast4 = transferToPattern.find(body)?.groupValues?.get(1),
                 referenceNumber = null,
                 bankName = bankName,
                 paymentMethodName = "NET_BANKING"

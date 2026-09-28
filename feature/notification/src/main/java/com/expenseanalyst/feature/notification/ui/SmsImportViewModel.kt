@@ -185,12 +185,20 @@ class SmsImportViewModel @Inject constructor(
                 }
                 existingBodyKeys.add(bodyKey)
 
-                val transactionType = when (parsed.type) {
+                val parsedType = when (parsed.type) {
                     TransactionDirection.CREDIT -> TransactionType.INCOME
                     TransactionDirection.DEBIT -> TransactionType.EXPENSE
                     TransactionDirection.PAYMENT -> TransactionType.PAYMENT
                     TransactionDirection.TRANSFER -> TransactionType.TRANSFER
                 }
+                // Same rule as live capture: a credit from the user's own name is an own-account
+                // transfer, not income.
+                val transactionType =
+                    if (parsedType == TransactionType.INCOME && TransferRecipientMatcher.isFromOwnAccount(parsed.merchant, transferRules)) {
+                        TransactionType.TRANSFER
+                    } else {
+                        parsedType
+                    }
 
                 // Resolve account: find or create by bank name + last4
                 val bankDisplay = if (parsed.bankName != "Unknown Bank") parsed.bankName

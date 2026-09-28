@@ -180,12 +180,21 @@ class PendingNotificationManager @Inject constructor(
                 ?: PaymentMethod.OTHER
 
             // ── Map transaction type ──
-            val transactionType = when (normalized.type) {
+            val transferRules = transferRecipientRuleRepository.getRules().first()
+            val parsedType = when (normalized.type) {
                 TransactionDirection.CREDIT -> TransactionType.INCOME
                 TransactionDirection.DEBIT -> TransactionType.EXPENSE
                 TransactionDirection.PAYMENT -> TransactionType.PAYMENT
                 TransactionDirection.TRANSFER -> TransactionType.TRANSFER
             }
+            // A credit from the user's own name (a remembered OWN_ACCOUNT rule) is money moved
+            // between their accounts, not income — it becomes an own-account transfer below.
+            val transactionType =
+                if (parsedType == TransactionType.INCOME && TransferRecipientMatcher.isFromOwnAccount(normalized.merchant, transferRules)) {
+                    TransactionType.TRANSFER
+                } else {
+                    parsedType
+                }
 
             // ── Transfer classification from the remembered recipient rule ──
             // Keyed on the recipient NAME, not the account: for an outgoing transfer the row's
@@ -195,10 +204,7 @@ class PendingNotificationManager @Inject constructor(
             // EXTERNAL_IN is never produced here: it can only come from a rule the user set by
             // hand, because the parsers discard inbound/outbound direction for transfers.
             val transferClassification = if (transactionType == TransactionType.TRANSFER) {
-                TransferRecipientMatcher.findRule(
-                    normalized.merchant,
-                    transferRecipientRuleRepository.getRules().first()
-                )?.classification
+                TransferRecipientMatcher.findRule(normalized.merchant, transferRules)?.classification
             } else {
                 null
             }

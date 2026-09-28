@@ -68,4 +68,20 @@ class TransferRecipientMatcherTest {
             TransferRecipientMatcher.findRule("Anoop Saseedharan", rules)?.classification
         )
     }
+
+    @org.junit.jupiter.api.Test
+    fun `a credit is from an own account only when the sender has an OWN_ACCOUNT rule`() {
+        fun rule(name: String, c: com.expenseanalyst.domain.model.TransferClassification) =
+            com.expenseanalyst.domain.model.TransferRecipientRule(
+                recipientKey = TransferRecipientMatcher.normalize(name)!!, recipientDisplayName = name,
+                classification = c, createdAt = 0L
+            )
+        val rules = listOf(
+            rule("JOHN SAMPLE PERSON", com.expenseanalyst.domain.model.TransferClassification.OWN_ACCOUNT),
+            rule("OTHER PERSON", com.expenseanalyst.domain.model.TransferClassification.EXTERNAL)
+        )
+        org.junit.jupiter.api.Assertions.assertTrue(TransferRecipientMatcher.isFromOwnAccount("john  sample person", rules))
+        org.junit.jupiter.api.Assertions.assertFalse(TransferRecipientMatcher.isFromOwnAccount("OTHER PERSON", rules))
+        org.junit.jupiter.api.Assertions.assertFalse(TransferRecipientMatcher.isFromOwnAccount("SOMEONE ELSE", rules))
+    }
 }

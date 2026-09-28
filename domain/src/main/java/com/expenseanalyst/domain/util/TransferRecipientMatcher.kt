@@ -1,5 +1,6 @@
 package com.expenseanalyst.domain.util
 
+import com.expenseanalyst.domain.model.TransferClassification
 import com.expenseanalyst.domain.model.TransferRecipientRule
 
 /**
@@ -28,6 +29,15 @@ object TransferRecipientMatcher {
         val key = normalize(recipientName) ?: return null
         return rules.firstOrNull { it.recipientKey == key }
     }
+
+    /**
+     * True when an incoming credit comes from a name the user marked as their OWN account — Al
+     * Rajhi's "Fund Transfer Credited / From: <the user's own name>" is money moved from another of
+     * the user's accounts, which was being counted as income. Such a credit is recorded as an
+     * OWN_ACCOUNT transfer (counts toward nothing). Credits from anyone else stay income.
+     */
+    fun isFromOwnAccount(senderName: String?, rules: List<TransferRecipientRule>): Boolean =
+        findRule(senderName, rules)?.classification == TransferClassification.OWN_ACCOUNT
 
     private val WHITESPACE_RUN = Regex("""\s+""")
 }

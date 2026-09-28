@@ -78,7 +78,11 @@ object ParserRegistry {
             // being saved as INCOME. Not "total due amount" alone — Al Rajhi's foreign-purchase
             // SMS carries that line too.
             """\bbill\s+has\s+been\s+issued\b|\bwill\s+be\s+(?:temporarily\s+)?(?:suspended|deactivated)\b|""" +
-            """\bhas\s+been\s+temporarily\s+suspended\b""",
+            """\bhas\s+been\s+temporarily\s+suspended\b|""" +
+            // Axis: "Your Credit Card … has a credit balance of INR 1445. The amount will be
+            // credited to your Savings Account if not used" — a notice; the actual move arrives
+            // later as "Excess amount … has been credited to A/c".
+            """\bhas\s+a\s+credit\s+balance\b""",
         RegexOption.DOT_MATCHES_ALL
     )
 

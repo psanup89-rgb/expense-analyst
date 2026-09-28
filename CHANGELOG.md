@@ -5,6 +5,14 @@ Format: `[Date] — Summary`
 ---
 
 
+## 2026-09-29 — Salary was never counted
+
+- Al Rajhi's "Credit transfer Salary" message was parsed by nothing and dropped, so Received never included salary. Now recorded as income under Salary. July and August salaries recovered from the inbox. September's salary SMS had not arrived yet.
+- **Money from your own accounts is no longer income**: "Fund Transfer Credited" from the user's own name → own-account transfer (SAR 11,000 in July).
+- **Axis "credit balance" notice** is no longer a transaction (1 row removed).
+- **Loan repayments**: three HDFC UPI credits (INR 253,000 ≈ SAR 11,417) linked as repayments of a new, settled loan (Shwetha Ravindran), so they count toward neither Received nor Spent.
+- Received is now: July SAR 38,007 · August SAR 38,407 (salary + interest).
+
 ## 2026-09-28 — Notion: payment method, STC purchases, Mobily bills and reminders
 
 - **Payment method no longer missing on card messages that only name the network** — taken from the matched account (credit card → Credit Card). 215 past rows filled in; 83 left Review.

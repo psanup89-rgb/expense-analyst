@@ -8,6 +8,19 @@
 
 ---
 
+## Session Summary (2026-09-29) — Received was wrong (uncommitted → committed, not released)
+
+- Salary never counted: Al Rajhi "Credit transfer Salary" parsed by nothing. Fixed; Jul/Aug
+  salaries recovered from the inbox. Sep's salary SMS hadn't arrived yet.
+- July Received was inflated to 60k: own-account "Fund Transfer Credited" (SAR 11,000) and an
+  Axis credit-balance notice counted as income, plus INR loan repayments. Fixed via an
+  OWN_ACCOUNT recipient rule for the user's name, a non-transaction guard, and a new settled
+  loan "Shwetha Ravindran" (SAR 11,416.98 = the three repayments; lent date unknown, set to the
+  first repayment, 1 Jul — user can edit) with the three HDFC credits linked as legs.
+- Received now: Jul 38,007 · Aug 38,407 · Sep 2.62. No salary SMS exists for Jan–Jun 2026.
+
+---
+
 ## Session Summary (2026-09-28) — three Notion issues (shipped in v0.7.13)
 
 All verified on device (backup taken first).
