@@ -303,6 +303,13 @@ private fun BillCard(
                 }
             }
 
+            if (bill.reminderCount > 0) {
+                BillDetailRow(
+                    "Reminders",
+                    if (bill.reminderCount == 1) "1 reminder" else "${bill.reminderCount} reminders"
+                )
+            }
+
             // Paid amount
             if (bwp.totalPaid > 0) {
                 BillDetailRow(

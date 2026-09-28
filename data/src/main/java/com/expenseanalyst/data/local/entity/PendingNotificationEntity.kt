@@ -20,5 +20,6 @@ data class PendingNotificationEntity(
     @ColumnInfo(name = "pending_type", defaultValue = "TRANSACTION") val pendingType: String = "TRANSACTION",
     @ColumnInfo(name = "biller_name") val billerName: String? = null,
     @ColumnInfo(name = "due_date_millis") val dueDateMillis: Long? = null,
-    @ColumnInfo(name = "linked_bill_id") val linkedBillId: Long? = null
+    @ColumnInfo(name = "linked_bill_id") val linkedBillId: Long? = null,
+    @ColumnInfo(name = "reminder_count", defaultValue = "0") val reminderCount: Int = 0
 )

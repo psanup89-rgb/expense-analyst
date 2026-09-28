@@ -217,6 +217,10 @@ fun BillDetailScreen(
                                 }
                             }
                         }
+                        if (bill.reminderCount > 0) {
+                            val last = bill.lastReminderAtMillis?.let { " · last ${dateFormat.format(Date(it))}" }.orEmpty()
+                            DetailInfoRow("Reminders", "${bill.reminderCount} linked$last")
+                        }
                         if (statementStart != null && statementEnd != null) {
                             DetailInfoRow(
                                 "Statement Period",

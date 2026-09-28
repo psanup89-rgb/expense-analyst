@@ -37,6 +37,25 @@ interface BillDao {
     @Update
     suspend fun update(bill: BillEntity)
 
+    /** A saved bill for the same biller and amount — a re-sent statement or reminder of it. */
+    @Query("""
+        SELECT * FROM bills
+        WHERE is_deleted = 0
+          AND biller_name = :billerName
+          AND ABS(COALESCE(total_due, 0) - :amount) < 0.01
+          AND created_at_millis >= :sinceMillis
+        ORDER BY created_at_millis DESC
+        LIMIT 1
+    """)
+    suspend fun findRecentByBillerAndAmount(billerName: String, amount: Double, sinceMillis: Long): BillEntity?
+
+    @Query("""
+        UPDATE bills
+        SET reminder_count = reminder_count + :count, last_reminder_at_millis = :atMillis
+        WHERE id = :id AND is_deleted = 0
+    """)
+    suspend fun addReminders(id: Long, count: Int, atMillis: Long)
+
     @Query("UPDATE bills SET is_deleted = 1 WHERE id = :id")
     suspend fun softDelete(id: Long)
 }

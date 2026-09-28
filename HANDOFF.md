@@ -1,10 +1,31 @@
 # Expense Analyst — Handoff
 
 **Last updated**: 2026-09-27
-**DB version**: 31
+**DB version**: 32
 **Build**: `./gradlew clean assembleDebug` ✅
 **Repo**: `https://github.com/psanup89-rgb/expense-analyst` (public)
 **Release**: v0.7.13-debug (GitHub Release with APK)
+
+---
+
+## Session Summary (2026-09-28) — three Notion issues (uncommitted, after v0.7.13)
+
+All verified on device (backup taken first).
+- **Payment method missing** (Al Rajhi "By:…;Visa"): method now falls back to the matched
+  account's type; 215 rows filled.
+- **STC transaction not detected**: new card-purchase layout parsed; 7 purchases recovered.
+  Also fixed: every STC row was flagged "Account" (single-account banks now count as identified).
+- **Mobily bill not detected** + reminder linking: `MobilyStatementParser`; reminders of a saved
+  bill become a "Link to bill" card; bills show a reminder count (DB v32). Tested end to end with
+  a SAR 1.23 test bill (queued → reminder counted → saved → 2 reminders stacked → linked → 3
+  shown), then deleted.
+- Removed a Mobily suspension notice that had been saved as income.
+
+**Open**
+- The saved Axis Bank bill (295.00) had been saved as SAR under the home-currency bug; switched
+  to INR at the user's request (the only affected bill).
+- Past Mobily bills were not back-filled (the Sep bill appears paid).
+- v0.7.13 is committed (811aaf8) but **not pushed** — the push was blocked by the permission check.
 
 ---
 

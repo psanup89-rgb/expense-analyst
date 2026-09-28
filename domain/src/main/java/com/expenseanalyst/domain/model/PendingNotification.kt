@@ -12,8 +12,13 @@ data class PendingNotification(
     val rawBody: String? = null,
     val paymentMethod: String? = null,  // PaymentMethod enum name, e.g. "APPLE_PAY"
     val isPossibleDuplicate: Boolean = false,
-    val pendingType: String = "TRANSACTION",  // "TRANSACTION" | "BILL"
+    val pendingType: String = "TRANSACTION",  // "TRANSACTION" | "BILL" | "BILL_REMINDER"
     val billerName: String? = null,
     val dueDateMillis: Long? = null,
-    val linkedBillId: Long? = null
+    val linkedBillId: Long? = null,
+    /**
+     * BILL: reminders that arrived while the statement was still waiting here (carried onto the
+     * bill when saved). BILL_REMINDER: how many reminders this one card stands for (≥ 1).
+     */
+    val reminderCount: Int = 0
 )

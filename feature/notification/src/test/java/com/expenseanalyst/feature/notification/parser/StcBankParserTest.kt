@@ -83,4 +83,22 @@ class StcBankParserTest {
         assertEquals("JOHN SAMPLE", result.merchant)
         assertNull(result.accountLast4)
     }
+
+    // Real layout (owner's report, 28 Sep 2026; numbers changed): no currency and none of the
+    // paid/debited words, so it used to be dropped.
+    @Test
+    fun `card purchase is a debit with the merchant from the From line`() {
+        val body = "Online Purchase\nTransaction Amount 39.32\nFrom: Hungerstation Online Payment\nCard: ******1234\nDate 28/09/2026"
+        for (sender in listOf("STC Bank", "stcbank")) {
+            val result = ParserRegistry.parse(sender, body)
+            assertNotNull(result, sender)
+            assertEquals("STC Bank", result!!.bankName)
+            assertEquals(39.32, result.amount, 0.001)
+            assertEquals("SAR", result.currencyCode)
+            assertEquals(TransactionDirection.DEBIT, result.type)
+            assertEquals("Hungerstation Online Payment", result.merchant)
+            assertNull(result.accountLast4)
+            assertEquals("DEBIT_CARD", result.paymentMethodName)
+        }
+    }
 }

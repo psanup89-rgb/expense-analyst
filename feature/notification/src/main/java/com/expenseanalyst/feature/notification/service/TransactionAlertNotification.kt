@@ -449,7 +449,15 @@ object TransactionAlertNotification {
      * this alert the detection is entirely silent and the queue just grows unseen.
      * Tapping opens that inbox.
      */
-    fun postForBill(context: Context, pendingId: Long, billerName: String, amount: Double, currencyCode: String) {
+    fun postForBill(
+        context: Context,
+        pendingId: Long,
+        billerName: String,
+        amount: Double,
+        currencyCode: String,
+        /** Reminders collected on this card; > 0 means it asks to link them to a saved bill. */
+        reminderCount: Int = 0
+    ) {
         val manager = context.getSystemService(NotificationManager::class.java) ?: return
         ensureChannel(manager)
 
@@ -468,13 +476,27 @@ object TransactionAlertNotification {
         )
 
         val amountStr = if (amount > 0) CurrencyFormatter.format(amount, currencyCode) else "amount not detected"
+        val biller = NotificationCopy.displayMerchant(billerName) ?: billerName
         postNotification(
             context = context,
             notifId = notifId,
-            title = "Bill · $amountStr · ${NotificationCopy.displayMerchant(billerName) ?: billerName}",
-            body = "Detected from SMS — confirm to add it",
+            title = if (reminderCount > 0) "Reminder · $amountStr · $biller" else "Bill · $amountStr · $biller",
+            body = if (reminderCount > 0) {
+                val n = if (reminderCount == 1) "A reminder" else "$reminderCount reminders"
+                "$n for a bill you saved — tap to link"
+            } else {
+                "Detected from SMS — confirm to add it"
+            },
             pendingIntent = pendingIntent
         )
+    }
+
+    /**
+     * Clears a bill card's tray notification once the card is handled. The repository's delete
+     * cancels the pending id itself, but bill notifications use [BILL_NOTIF_ID_OFFSET] + id.
+     */
+    fun cancelForBill(context: Context, pendingId: Long) {
+        NotificationManagerCompat.from(context).cancel((BILL_NOTIF_ID_OFFSET + pendingId).toInt())
     }
 
     private fun postNotification(

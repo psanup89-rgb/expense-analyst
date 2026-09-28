@@ -4,6 +4,7 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import com.expenseanalyst.feature.notification.BuildConfig
+import com.expenseanalyst.feature.notification.parser.BillStatementParserRegistry
 import com.expenseanalyst.feature.notification.parser.ParserRegistry
 import dagger.hilt.android.AndroidEntryPoint
 import javax.inject.Inject
@@ -24,11 +25,20 @@ class SmsTestReceiver : BroadcastReceiver() {
     @Inject
     lateinit var pendingManager: PendingNotificationManager
 
+    @Inject
+    lateinit var billStatementManager: BillStatementManager
+
     override fun onReceive(context: Context, intent: Intent) {
         if (!BuildConfig.DEBUG) return
 
         val sender = intent.getStringExtra("sender") ?: return
         val body = intent.getStringExtra("body") ?: return
+
+        // Bills first, the same order as TransactionNotificationService
+        BillStatementParserRegistry.parse(sender = sender, body = body)?.let {
+            billStatementManager.process(it.copy(rawBody = body))
+            return
+        }
 
         val parsed = ParserRegistry.parse(sender = sender, body = body)?.copy(rawBody = body) ?: return
         if (parsed.amount <= 0 || parsed.amount > 10_000_000) return

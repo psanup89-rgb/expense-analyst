@@ -19,5 +19,7 @@ data class BillEntity(
     @ColumnInfo(name = "source_type") val sourceType: String,
     @ColumnInfo(name = "created_at_millis") val createdAtMillis: Long,
     @ColumnInfo(name = "is_deleted", defaultValue = "0") val isDeleted: Boolean = false,
-    @ColumnInfo(name = "reference") val reference: String? = null
+    @ColumnInfo(name = "reference") val reference: String? = null,
+    @ColumnInfo(name = "reminder_count", defaultValue = "0") val reminderCount: Int = 0,
+    @ColumnInfo(name = "last_reminder_at_millis") val lastReminderAtMillis: Long? = null
 )

@@ -2,9 +2,9 @@
 
 ## Database: Room (SQLite)
 - Database class: `ExpenseAnalystDatabase`
-- **Current schema version: `31`** (v30→v31 seeds the Investments, EMI and People categories; no schema change)
+- **Current schema version: `32`** (v31→v32: `bills.reminder_count`, `bills.last_reminder_at_millis`, `pending_notifications.reminder_count`; v30→v31 seeds the Investments, EMI and People categories)
 - Room schema export is enabled under `data/schemas/`
-- All migrations are inline in `ExpenseAnalystDatabase.kt` (v1→v2→...→v31)
+- All migrations are inline in `ExpenseAnalystDatabase.kt` (v1→v2→...→v32)
 - Home currency preference is stored separately in DataStore, not in Room
 
 ---

@@ -96,7 +96,9 @@ Priority: Wallet overlays > UPI > Net Banking > Credit Card > Debit Card.
 
 Some parsers add context-aware fallbacks (e.g. IDFC CC spend → `CREDIT_CARD`, FASTag → `WALLET`, OneCard → `CREDIT_CARD`).
 
-## Bill Statement Parsers (10 total)
+## Bill Statement Parsers (12 total)
+
+Includes `MobilyStatementParser` (bill issued + reminder wordings). Reminders of a saved bill (same biller + amount, 35 days) become a "Link to bill" inbox card — see CLAUDE.md.
 
 Registered in `BillStatementParserRegistry` (tried before transaction parsers). Each implements `BillStatementParser` — returns `ParsedBillStatement` with `billerName`, `totalDue`, `minimumDue`, `dueDateMillis`, `currencyCode`, `reference`.
 
@@ -130,7 +132,7 @@ Registered in `BillStatementParserRegistry` (tried before transaction parsers). 
 | 7 | IdfcFirstBankParser | IDFC First Bank | Sender `idfcfb` | INR | CC spend (fun prefixes), savings debit/credit, card payment, interest |
 | 8 | OneCardParser | OneCard (Federal Bank) | Sender `onecrd` | Multi | `paid X at MERCHANT`, payment received, refund |
 | 9 | AlRajhiParser | Al Rajhi Bank | Sender OR body content | SAR | `PoS/Online Purchase`, `;Visa-Apple Pay`, `At:` merchant |
-| 10 | StcBankParser | STC Bank | Sender `stc` | SAR | `SAR X paid to`, `received`, "Internal outward transfer … To:NAME Acc:1234*". `accountLast4` is always null — "Acc:" is the **recipient's** account |
+| 10 | StcBankParser | STC Bank | Sender `stc` | SAR | `SAR X paid to`, `received`, card purchase "Online Purchase / Transaction Amount X / From: MERCHANT / Card: ****", "Internal outward transfer … To:NAME Acc:1234*". `accountLast4` is always null — "Acc:" is the **recipient's** account |
 | 11 | AlinmaParser | Alinma Bank | Sender `alinma` | SAR | `card ending X used for SAR X at` |
 | 12 | D360Parser | D360 Bank | Sender `d360` | SAR | `SAR X paid to`, Transaction ID |
 | 13 | EmiratesNbdParser | Emirates NBD | Sender OR body fingerprint | Multi | `POS/Online Purchase`, `Card: Visa card XX4388`, `Amount: SAR X`, `Merchant:`; and the "By/At" layout (`By: XX1234;Visa`, `At: Temu.com`). "Remaining limit" ⇒ credit card |

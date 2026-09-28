@@ -35,6 +35,12 @@ class BillRepositoryImpl @Inject constructor(
     override suspend fun findOpenBillByBiller(billerName: String, accountId: Long?): Bill? =
         billDao.findOpenByBiller(billerName, accountId)?.toDomain()
 
+    override suspend fun findRecentBillByBillerAndAmount(billerName: String, amount: Double, sinceMillis: Long): Bill? =
+        billDao.findRecentByBillerAndAmount(billerName, amount, sinceMillis)?.toDomain()
+
+    override suspend fun addReminders(billId: Long, count: Int, atMillis: Long) =
+        billDao.addReminders(billId, count, atMillis)
+
     private fun BillEntity.toDomain() = Bill(
         id = id,
         billerName = billerName,
@@ -49,7 +55,9 @@ class BillRepositoryImpl @Inject constructor(
         sourceType = SourceType.valueOf(sourceType),
         createdAtMillis = createdAtMillis,
         isDeleted = isDeleted,
-        reference = reference
+        reference = reference,
+        reminderCount = reminderCount,
+        lastReminderAtMillis = lastReminderAtMillis
     )
 
     private fun Bill.toEntity() = BillEntity(
@@ -66,6 +74,9 @@ class BillRepositoryImpl @Inject constructor(
         sourceType = sourceType.name,
         createdAtMillis = createdAtMillis,
         isDeleted = isDeleted,
-        reference = reference
+        reference = reference,
+        // updateBill is a full-row write: omitting these would zero the count on every edit
+        reminderCount = reminderCount,
+        lastReminderAtMillis = lastReminderAtMillis
     )
 }

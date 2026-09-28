@@ -36,6 +36,11 @@ class PendingNotificationRepositoryImpl @Inject constructor(
     ): PendingNotification? =
         dao.findRecentBillByBillerAndAmount(billerName, amount, sinceMillis)?.toDomain()
 
+    override suspend fun findReminderCardForBill(billId: Long): PendingNotification? =
+        dao.findReminderCardForBill(billId)?.toDomain()
+
+    override suspend fun addReminder(id: Long) = dao.addReminder(id)
+
     override suspend fun delete(id: Long) {
         dao.deleteById(id)
         // Cancel the system tray notification whose ID equals the pending notification's DB id.
@@ -60,7 +65,8 @@ class PendingNotificationRepositoryImpl @Inject constructor(
         pendingType = pendingType,
         billerName = billerName,
         dueDateMillis = dueDateMillis,
-        linkedBillId = linkedBillId
+        linkedBillId = linkedBillId,
+        reminderCount = reminderCount
     )
 
     private fun PendingNotification.toEntity() = PendingNotificationEntity(
@@ -78,6 +84,7 @@ class PendingNotificationRepositoryImpl @Inject constructor(
         pendingType = pendingType,
         billerName = billerName,
         dueDateMillis = dueDateMillis,
-        linkedBillId = linkedBillId
+        linkedBillId = linkedBillId,
+        reminderCount = reminderCount
     )
 }

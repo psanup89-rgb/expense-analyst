@@ -29,12 +29,18 @@ object NeedsReviewEvaluator {
         paymentMethod: PaymentMethod,
         accountLastFour: String?,
         transactionType: TransactionType = TransactionType.EXPENSE,
-        transferClassification: TransferClassification? = null
+        transferClassification: TransferClassification? = null,
+        /**
+         * Whether the account is known even without digits in the message — true when the bank
+         * has exactly one account in the app (STC: its messages never carry the user's own
+         * account digits, so every STC row was flagged "Account" although it was filed right).
+         */
+        accountIdentified: Boolean = accountLastFour != null
     ): List<ReviewReason> = buildList {
         if (merchantName.isNullOrBlank()) add(ReviewReason.MISSING_MERCHANT)
         if (categoryName in GENERIC_CATEGORY_NAMES) add(ReviewReason.GENERIC_CATEGORY)
         if (paymentMethod == PaymentMethod.OTHER) add(ReviewReason.UNKNOWN_PAYMENT_METHOD)
-        if (accountLastFour == null) add(ReviewReason.UNRESOLVED_ACCOUNT)
+        if (!accountIdentified) add(ReviewReason.UNRESOLVED_ACCOUNT)
         if (transactionType == TransactionType.TRANSFER && transferClassification == null) {
             add(ReviewReason.UNCLASSIFIED_TRANSFER)
         }

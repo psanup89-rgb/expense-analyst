@@ -57,6 +57,18 @@ interface PendingNotificationDao {
         sinceMillis: Long
     ): PendingNotificationEntity?
 
+    @Query(
+        """SELECT * FROM pending_notifications
+           WHERE pending_type = 'BILL_REMINDER' AND linked_bill_id = :billId
+           LIMIT 1"""
+    )
+    suspend fun findReminderCardForBill(billId: Long): PendingNotificationEntity?
+
+    // detected_at is left alone on purpose: bumping it would slide the 35-day reminder window
+    // forward forever, and next month's bill for the same amount would be swallowed as a reminder.
+    @Query("UPDATE pending_notifications SET reminder_count = reminder_count + 1 WHERE id = :id")
+    suspend fun addReminder(id: Long)
+
     @Query("DELETE FROM pending_notifications")
     suspend fun deleteAll()
 }

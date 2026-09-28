@@ -19,6 +19,7 @@ object BillStatementParserRegistry {
         SaudiEnergyStatementParser(),
         EjarStatementParser(),
         AirtelStatementParser(),
+        MobilyStatementParser(),
         GenericStatementParser()
     )
 

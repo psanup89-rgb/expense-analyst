@@ -199,6 +199,7 @@ fun PendingInboxScreen(
                         item = item,
                         onSaveAsNew = { viewModel.requestSaveBill(item.id) },
                         onUpdate = { viewModel.requestUpdateBill(item.id) },
+                        onLinkReminder = { viewModel.linkReminder(item.id) },
                         onDismiss = { viewModel.requestDismiss(item.id) }
                     )
                 }
@@ -212,8 +213,10 @@ private fun PendingBillItem(
     item: PendingNotification,
     onSaveAsNew: () -> Unit,
     onUpdate: () -> Unit,
+    onLinkReminder: () -> Unit,
     onDismiss: () -> Unit
 ) {
+    val isReminder = item.pendingType == "BILL_REMINDER"
     val timeStr = remember(item.detectedAtMillis) {
         SimpleDateFormat("dd MMM, hh:mm a", Locale.getDefault())
             .format(Date(item.detectedAtMillis))
@@ -246,13 +249,21 @@ private fun PendingBillItem(
                     Column {
                         // "Bill Statement" badge
                         Surface(
-                            color = MaterialTheme.colorScheme.primaryContainer,
+                            color = if (isReminder) {
+                                MaterialTheme.expenseColors.review.copy(alpha = 0.18f)
+                            } else {
+                                MaterialTheme.colorScheme.primaryContainer
+                            },
                             shape = RoundedCornerShape(4.dp)
                         ) {
                             Text(
-                                text = "Bill Statement",
+                                text = if (isReminder) "Reminder" else "Bill Statement",
                                 fontSize = 11.sp,
-                                color = MaterialTheme.colorScheme.onPrimaryContainer,
+                                color = if (isReminder) {
+                                    MaterialTheme.expenseColors.review
+                                } else {
+                                    MaterialTheme.colorScheme.onPrimaryContainer
+                                },
                                 fontWeight = FontWeight.Medium,
                                 modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
                             )
@@ -278,7 +289,20 @@ private fun PendingBillItem(
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                         }
-                        if (item.linkedBillId != null) {
+                        if (isReminder || item.reminderCount > 0) {
+                            val n = item.reminderCount.coerceAtLeast(1)
+                            Text(
+                                text = when {
+                                    isReminder && n == 1 -> "A reminder for a bill you already saved"
+                                    isReminder -> "$n reminders for a bill you already saved"
+                                    n == 1 -> "1 reminder received since"
+                                    else -> "$n reminders received since"
+                                },
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.expenseColors.review
+                            )
+                        }
+                        if (item.linkedBillId != null && !isReminder) {
                             Spacer(Modifier.height(4.dp))
                             Surface(
                                 color = MaterialTheme.expenseColors.received.copy(alpha = 0.15f),
@@ -352,7 +376,14 @@ private fun PendingBillItem(
                 ) {
                     Text("Dismiss")
                 }
-                if (item.linkedBillId != null) {
+                if (isReminder) {
+                    Button(
+                        onClick = onLinkReminder,
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Text("Link to bill")
+                    }
+                } else if (item.linkedBillId != null) {
                     Button(
                         onClick = onUpdate,
                         modifier = Modifier.weight(1f),

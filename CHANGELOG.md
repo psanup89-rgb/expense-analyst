@@ -5,6 +5,15 @@ Format: `[Date] — Summary`
 ---
 
 
+## 2026-09-28 — Notion: payment method, STC purchases, Mobily bills and reminders
+
+- **Payment method no longer missing on card messages that only name the network** — taken from the matched account (credit card → Credit Card). 215 past rows filled in; 83 left Review.
+- **STC card purchases detected** ("Online Purchase / Transaction Amount / From: …"). 7 missed purchases (Jun–Sep) recovered from the inbox. STC rows are no longer flagged "Account".
+- **Mobily bills detected**, and **reminders link to the saved bill**: a reminder for a bill you saved asks "Link to bill" (several stack on one card); the bill shows how many reminders it has had. DB v32.
+- A Mobily service-suspension notice saved as income (SAR 37.49) removed; such notices are no longer transactions.
+- Fix: a bill saved from the inbox took the home currency instead of the statement's.
+- Fix: handling an inbox card now clears its tray notification.
+
 ## 2026-09-27 — v0.7.13: Ledger redesign, Tamara, Misc clean-up, account de-duplication
 
 Released as v0.7.13-debug (DB v31). Also contains the Ledger redesign and the Tabby fix below.

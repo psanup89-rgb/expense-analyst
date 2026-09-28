@@ -137,4 +137,14 @@ class NeedsReviewEvaluatorTest {
             NeedsReviewEvaluator.decode("MISSING_MERCHANT,GARBAGE")
         )
     }
+
+    @org.junit.jupiter.api.Test
+    fun `a digit-less message is not flagged when its account is otherwise identified`() {
+        val flagged = NeedsReviewEvaluator.evaluate("Shop", "Food", com.expenseanalyst.domain.model.PaymentMethod.DEBIT_CARD, null)
+        org.junit.jupiter.api.Assertions.assertTrue(ReviewReason.UNRESOLVED_ACCOUNT in flagged)
+        val identified = NeedsReviewEvaluator.evaluate(
+            "Shop", "Food", com.expenseanalyst.domain.model.PaymentMethod.DEBIT_CARD, null, accountIdentified = true
+        )
+        org.junit.jupiter.api.Assertions.assertTrue(identified.isEmpty())
+    }
 }

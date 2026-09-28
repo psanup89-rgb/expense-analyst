@@ -54,7 +54,7 @@ import com.expenseanalyst.data.local.entity.TransferRecipientRuleEntity
         MerchantRuleTagCrossRef::class,
         TransferRecipientRuleEntity::class
     ],
-    version = 31,
+    version = 32,
     exportSchema = true
 )
 abstract class ExpenseAnalystDatabase : RoomDatabase() {
@@ -625,13 +625,27 @@ abstract class ExpenseAnalystDatabase : RoomDatabase() {
             }
         }
 
+        /**
+         * Bill reminders. A biller re-sends a bill as reminders ("kindly remind you…", "will be
+         * suspended in 48 hours…"); the user links them to the saved bill from the inbox and the
+         * bill shows how many it has had. `pending_notifications.reminder_count` holds reminders
+         * that arrived while the statement was still queued, or the size of a reminder card.
+         */
+        private val MIGRATION_31_32 = object : Migration(31, 32) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE bills ADD COLUMN reminder_count INTEGER NOT NULL DEFAULT 0")
+                db.execSQL("ALTER TABLE bills ADD COLUMN last_reminder_at_millis INTEGER")
+                db.execSQL("ALTER TABLE pending_notifications ADD COLUMN reminder_count INTEGER NOT NULL DEFAULT 0")
+            }
+        }
+
         fun buildDatabase(context: Context): ExpenseAnalystDatabase {
             return Room.databaseBuilder(
                 context.applicationContext,
                 ExpenseAnalystDatabase::class.java,
                 DATABASE_NAME
             )
-                .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13, MIGRATION_13_14, MIGRATION_14_15, MIGRATION_15_16, MIGRATION_16_17, MIGRATION_17_18, MIGRATION_18_19, MIGRATION_19_20, MIGRATION_20_21, MIGRATION_21_22, MIGRATION_22_23, MIGRATION_23_24, MIGRATION_24_25, MIGRATION_25_26, MIGRATION_26_27, MIGRATION_27_28, MIGRATION_28_29, MIGRATION_29_30, MIGRATION_30_31)
+                .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13, MIGRATION_13_14, MIGRATION_14_15, MIGRATION_15_16, MIGRATION_16_17, MIGRATION_17_18, MIGRATION_18_19, MIGRATION_19_20, MIGRATION_20_21, MIGRATION_21_22, MIGRATION_22_23, MIGRATION_23_24, MIGRATION_24_25, MIGRATION_25_26, MIGRATION_26_27, MIGRATION_27_28, MIGRATION_28_29, MIGRATION_29_30, MIGRATION_30_31, MIGRATION_31_32)
                 .addCallback(SeedDatabaseCallback())
                 .build()
         }

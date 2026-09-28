@@ -21,6 +21,7 @@ import com.expenseanalyst.domain.util.CategoryInference
 import com.expenseanalyst.domain.util.CurrencyConversion
 import com.expenseanalyst.domain.util.MerchantRuleMatcher
 import com.expenseanalyst.domain.util.NeedsReviewEvaluator
+import com.expenseanalyst.domain.util.PaymentMethodInference
 import com.expenseanalyst.domain.util.RefundMatcher
 import com.expenseanalyst.domain.util.TransferRecipientMatcher
 import com.expenseanalyst.feature.notification.parser.ParsedTransaction
@@ -147,9 +148,9 @@ class PendingNotificationManager @Inject constructor(
             val matchedRule = MerchantRuleMatcher.findMatch(merchantName, merchantRules)
 
             // ── Resolve payment method ──
-            val paymentMethod = normalized.paymentMethodName?.let { name ->
+            val parsedPaymentMethod = normalized.paymentMethodName?.let { name ->
                 runCatching { PaymentMethod.valueOf(name) }.getOrNull()
-            } ?: PaymentMethod.OTHER
+            }
 
             // ── Resolve account ──
             val inferredAccountType = when {
@@ -168,6 +169,15 @@ class PendingNotificationManager @Inject constructor(
                     accountType = inferredAccountType
                 )
             }.getOrNull()
+            // A message that names only the network ("By:1234 ;Visa") leaves the method unsaid;
+            // the matched account's type answers it (PaymentMethodInference).
+            val paymentMethod = parsedPaymentMethod
+                ?: resolvedAccountId?.let { id ->
+                    PaymentMethodInference.fromAccountType(
+                        runCatching { accountRepository.getAccountById(id).first()?.accountType }.getOrNull()
+                    )
+                }
+                ?: PaymentMethod.OTHER
 
             // ── Map transaction type ──
             val transactionType = when (normalized.type) {
@@ -220,7 +230,9 @@ class PendingNotificationManager @Inject constructor(
                 paymentMethod = effectivePaymentMethod,
                 accountLastFour = refundMatch?.accountLastFour ?: normalized.accountLast4,
                 transactionType = transactionType,
-                transferClassification = transferClassification
+                transferClassification = transferClassification,
+                accountIdentified = (refundMatch?.accountLastFour ?: normalized.accountLast4) != null ||
+                    isOnlyAccountOfBank(effectiveAccountId, normalized.bankName)
             )
             val needsReview = reviewReasons.isNotEmpty()
 
@@ -359,7 +371,15 @@ class PendingNotificationManager @Inject constructor(
         runCatching { bnplReconciler.reconcile() }
     }
 
-    private fun isSameCalendarDay(millis1: Long, millis2: Long): Boolean {
+    /** A digit-less message still names its account when the bank has just one (STC). */
+    private suspend fun isOnlyAccountOfBank(accountId: Long?, bankName: String): Boolean {
+        if (accountId == null || bankName == "Unknown Bank") return false
+        val ofBank = runCatching { accountRepository.getAccounts().first() }.getOrElse { return false }
+            .filter { it.bankName == bankName }
+        return ofBank.size == 1 && ofBank.single().id == accountId
+    }
+
+        private fun isSameCalendarDay(millis1: Long, millis2: Long): Boolean {
         val c1 = Calendar.getInstance(); c1.timeInMillis = millis1
         val c2 = Calendar.getInstance(); c2.timeInMillis = millis2
         return c1.get(Calendar.YEAR) == c2.get(Calendar.YEAR) &&

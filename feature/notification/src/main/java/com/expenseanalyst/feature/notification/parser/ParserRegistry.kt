@@ -68,11 +68,17 @@ object ParserRegistry {
     // Messages that mention an amount but move no money: a card-due reminder (the debit comes
     // later in its own SMS — BillStatementParserRegistry still gets these, it runs on a null
     // here), a failed auto-debit, a low-balance notice, a UPI collect *request*, a bill-download
-    // link. Each was being saved as spending (Sep 2026 Misc audit: 13 rows).
+    // link, a biller's bill/suspension notice. Each was being saved as a transaction.
     private val nonTransactionPattern = Regex(
         """(?i)\bis\s+due\s+for\s+payment\b|auto\s*debit\s+instruction.*\bhas\s+failed|""" +
             """\bbalance\s+is\s+almost\s+consumed|\bhas\s+requested\s+money\b|""" +
-            """\bto\s+download\s+your\s+bill\b""",
+            """\bto\s+download\s+your\s+bill\b|""" +
+            // A biller's notice, not a payment: "bill has been issued", "service will be
+            // suspended / has been temporarily suspended". The Mobily suspension notice was
+            // being saved as INCOME. Not "total due amount" alone — Al Rajhi's foreign-purchase
+            // SMS carries that line too.
+            """\bbill\s+has\s+been\s+issued\b|\bwill\s+be\s+(?:temporarily\s+)?(?:suspended|deactivated)\b|""" +
+            """\bhas\s+been\s+temporarily\s+suspended\b""",
         RegexOption.DOT_MATCHES_ALL
     )
 

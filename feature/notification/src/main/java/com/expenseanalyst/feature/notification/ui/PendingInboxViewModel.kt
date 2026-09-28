@@ -1,14 +1,16 @@
 package com.expenseanalyst.feature.notification.ui
 
+import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.expenseanalyst.domain.model.Bill
 import com.expenseanalyst.domain.model.BillStatus
 import com.expenseanalyst.domain.model.SourceType
 import com.expenseanalyst.domain.repository.BillRepository
-import com.expenseanalyst.domain.repository.CurrencyRepository
 import com.expenseanalyst.domain.repository.PendingNotificationRepository
+import com.expenseanalyst.feature.notification.service.TransactionAlertNotification
 import dagger.hilt.android.lifecycle.HiltViewModel
+import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.combine
@@ -20,15 +22,15 @@ import javax.inject.Inject
 
 @HiltViewModel
 class PendingInboxViewModel @Inject constructor(
+    @ApplicationContext private val context: Context,
     private val repository: PendingNotificationRepository,
-    private val billRepository: BillRepository,
-    private val currencyRepository: CurrencyRepository
+    private val billRepository: BillRepository
 ) : ViewModel() {
 
     private val _ui = MutableStateFlow(PendingInboxUiState())
 
     val uiState = combine(repository.getAll(), _ui) { items, ui ->
-        ui.copy(items = items.filter { it.pendingType == "BILL" }, isLoading = false)
+        ui.copy(items = items.filter { it.pendingType == "BILL" || it.pendingType == "BILL_REMINDER" }, isLoading = false)
     }.stateIn(
         scope = viewModelScope,
         started = SharingStarted.WhileSubscribed(5_000),
@@ -40,7 +42,10 @@ class PendingInboxViewModel @Inject constructor(
     fun confirmDismiss() {
         val id = _ui.value.pendingDismissId ?: return
         _ui.update { it.copy(pendingDismissId = null) }
-        viewModelScope.launch { repository.delete(id) }
+        viewModelScope.launch {
+            repository.delete(id)
+            TransactionAlertNotification.cancelForBill(context, id)
+        }
     }
 
     fun requestDismissAll() = _ui.update { it.copy(showDismissAllConfirm = true) }
@@ -59,25 +64,42 @@ class PendingInboxViewModel @Inject constructor(
         _ui.update { it.copy(pendingSaveBillId = null) }
         viewModelScope.launch {
             val item = repository.getById(id) ?: return@launch
-            val homeCurrency = currencyRepository.getHomeCurrency().first()
+            val now = System.currentTimeMillis()
             billRepository.saveBill(
                 Bill(
                     billerName = item.billerName ?: item.merchantName ?: "Unknown",
                     accountId = null,
                     totalDue = if (item.amount > 0) item.amount else null,
                     minimumDue = null,
-                    currencyCode = homeCurrency,
+                    // The statement's own currency — an Airtel bill is INR whatever the home
+                    // currency is. (This used the home currency before.)
+                    currencyCode = item.currencyCode,
                     dueDateMillis = item.dueDateMillis,
                     statementPeriodStart = null,
                     statementPeriodEnd = null,
                     status = BillStatus.PENDING,
                     sourceType = SourceType.SMS_AUTO,
-                    createdAtMillis = System.currentTimeMillis(),
+                    createdAtMillis = now,
                     isDeleted = false,
-                    reference = null
+                    reference = null,
+                    // reminders that arrived while the statement waited here
+                    reminderCount = item.reminderCount,
+                    lastReminderAtMillis = if (item.reminderCount > 0) now else null
                 )
             )
             repository.delete(id)
+            TransactionAlertNotification.cancelForBill(context, id)
+        }
+    }
+
+    /** A BILL_REMINDER card: count its reminders on the saved bill, then clear the card. */
+    fun linkReminder(id: Long) {
+        viewModelScope.launch {
+            val item = repository.getById(id) ?: return@launch
+            val billId = item.linkedBillId ?: return@launch
+            billRepository.addReminders(billId, item.reminderCount.coerceAtLeast(1), System.currentTimeMillis())
+            repository.delete(id)
+            TransactionAlertNotification.cancelForBill(context, id)
         }
     }
 
@@ -96,7 +118,9 @@ class PendingInboxViewModel @Inject constructor(
                     dueDateMillis = item.dueDateMillis ?: existing.dueDateMillis
                 )
             )
+            if (item.reminderCount > 0) billRepository.addReminders(billId, item.reminderCount, System.currentTimeMillis())
             repository.delete(id)
+            TransactionAlertNotification.cancelForBill(context, id)
         }
     }
 }

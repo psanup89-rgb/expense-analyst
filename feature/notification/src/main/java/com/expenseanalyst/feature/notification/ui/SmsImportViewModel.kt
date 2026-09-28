@@ -21,6 +21,7 @@ import com.expenseanalyst.domain.repository.MerchantSearchRepository
 import com.expenseanalyst.domain.util.CategoryInference
 import com.expenseanalyst.domain.util.CurrencyConversion
 import com.expenseanalyst.domain.util.MerchantRuleMatcher
+import com.expenseanalyst.domain.util.PaymentMethodInference
 import com.expenseanalyst.domain.util.ReviewReason
 import com.expenseanalyst.domain.util.TransferRecipientMatcher
 import com.expenseanalyst.domain.util.RefundMatcher
@@ -241,9 +242,13 @@ class SmsImportViewModel @Inject constructor(
                 }
 
                 // Map parsed payment method name to PaymentMethod enum
+                // …or, when the message names only the network, from the matched account's type
+                // (same rule as live capture — PaymentMethodInference)
                 val paymentMethod = parsed.paymentMethodName?.let { name ->
                     runCatching { PaymentMethod.valueOf(name) }.getOrNull()
-                } ?: PaymentMethod.OTHER
+                } ?: PaymentMethodInference.fromAccountType(
+                    runCatching { accountRepository.getAccountById(resolvedAccountId).first()?.accountType }.getOrNull()
+                ) ?: PaymentMethod.OTHER
 
                 // Refund matching: for a Refund-category INCOME, find the original expense it
                 // refunds and inherit its account/payment method — same rule as live capture,
