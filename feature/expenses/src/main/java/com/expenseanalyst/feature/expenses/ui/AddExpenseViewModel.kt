@@ -27,6 +27,7 @@ import com.expenseanalyst.domain.repository.CurrencyRepository
 import com.expenseanalyst.domain.repository.MerchantRuleRepository
 import com.expenseanalyst.domain.repository.PendingNotificationRepository
 import com.expenseanalyst.domain.repository.TagRepository
+import com.expenseanalyst.domain.usecase.LinkBillPaymentUseCase
 import com.expenseanalyst.domain.usecase.AddExpenseUseCase
 import com.expenseanalyst.domain.usecase.GetAccountsUseCase
 import com.expenseanalyst.domain.usecase.GetCategoriesUseCase
@@ -64,7 +65,8 @@ class AddExpenseViewModel @Inject constructor(
     private val inferCategoryUseCase: InferCategoryUseCase,
     private val merchantRuleRepository: MerchantRuleRepository,
     private val tagRepository: TagRepository,
-    private val categoryRepository: CategoryRepository
+    private val categoryRepository: CategoryRepository,
+    private val linkBillPayment: LinkBillPaymentUseCase
 ) : ViewModel() {
 
     private var inferenceJob: Job? = null
@@ -505,19 +507,9 @@ class AddExpenseViewModel @Inject constructor(
                 val merchantName = state.merchantName.trim().ifEmpty { null }
                 val sourceType = if (fromNotification) SourceType.NOTIFICATION_AUTO else SourceType.MANUAL
 
-                // Bill linking — use whatever the user explicitly linked (auto or manual)
-                var billId = state.linkedBillId
-                if (state.transactionType == TransactionType.PAYMENT && billId != null) {
-                    val linkedBill = billRepository.getBillById(billId).first()
-                    if (linkedBill != null) {
-                        // Bills are always stored in home currency; compare using homeAmount
-                        val paid = state.computedHomeAmount ?: state.parsedAmount
-                        val billTotalDue = linkedBill.totalDue
-                        val newStatus = if (billTotalDue == null || paid >= billTotalDue)
-                            BillStatus.SETTLED else BillStatus.PARTIAL
-                        billRepository.updateBill(linkedBill.copy(status = newStatus))
-                    }
-                }
+                // Bill linking — use whatever the user explicitly linked (auto or manual). The link
+                // and the bill's status are applied after the row exists (LinkBillPaymentUseCase).
+                val billId = state.linkedBillId.takeIf { state.transactionType == TransactionType.PAYMENT }
 
                 val expense = Expense(
                     amount = state.parsedAmount,
@@ -539,6 +531,7 @@ class AddExpenseViewModel @Inject constructor(
                     isReimbursable = state.isReimbursable
                 )
                 val id = addExpenseUseCase(expense)
+                if (billId != null) linkBillPayment.link(id, billId)
 
                 // Clear all matching pending TRANSACTION notifications regardless of how we got here.
                 // This covers: tap-notification flow, banner flow, and manual add with same amount/currency.

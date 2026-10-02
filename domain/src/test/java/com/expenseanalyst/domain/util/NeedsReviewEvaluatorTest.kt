@@ -147,4 +147,35 @@ class NeedsReviewEvaluatorTest {
         )
         org.junit.jupiter.api.Assertions.assertTrue(identified.isEmpty())
     }
+
+    // ── Bill payments (Oct 2026) ──
+
+    @Test
+    fun `a card payment is not flagged for a generic category — it counts toward no total`() {
+        assertTrue(evaluate(categoryName = "Misc", transactionType = TransactionType.PAYMENT).isEmpty())
+        // still flagged for what a payment does need
+        assertEquals(
+            listOf(ReviewReason.UNKNOWN_PAYMENT_METHOD),
+            evaluate(categoryName = "Misc", paymentMethod = PaymentMethod.OTHER, transactionType = TransactionType.PAYMENT)
+        )
+    }
+
+    @Test
+    fun `linking to a bill drops category and method, keeps merchant and account`() {
+        val raw = NeedsReviewEvaluator.encode(
+            listOf(
+                ReviewReason.GENERIC_CATEGORY,
+                ReviewReason.UNKNOWN_PAYMENT_METHOD,
+                ReviewReason.UNRESOLVED_ACCOUNT
+            )
+        )
+        assertEquals(
+            listOf(ReviewReason.UNRESOLVED_ACCOUNT),
+            NeedsReviewEvaluator.removeAll(raw, NeedsReviewEvaluator.RESOLVED_BY_BILL_LINK)
+        )
+        val onlyLinkable = NeedsReviewEvaluator.encode(
+            listOf(ReviewReason.GENERIC_CATEGORY, ReviewReason.UNKNOWN_PAYMENT_METHOD)
+        )
+        assertTrue(NeedsReviewEvaluator.removeAll(onlyLinkable, NeedsReviewEvaluator.RESOLVED_BY_BILL_LINK).isEmpty())
+    }
 }

@@ -25,6 +25,7 @@ import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toInstant
 import kotlinx.datetime.toLocalDateTime
 import com.expenseanalyst.domain.usecase.GetAccountsUseCase
+import com.expenseanalyst.domain.usecase.LinkBillPaymentUseCase
 import com.expenseanalyst.domain.usecase.GetCategoriesUseCase
 import com.expenseanalyst.domain.usecase.GetExpenseByIdUseCase
 import com.expenseanalyst.domain.usecase.SoftDeleteExpenseUseCase
@@ -58,7 +59,8 @@ class EditExpenseViewModel @Inject constructor(
     private val tagRepository: TagRepository,
     private val categoryRepository: CategoryRepository,
     private val billRepository: BillRepository,
-    private val merchantRuleRepository: MerchantRuleRepository
+    private val merchantRuleRepository: MerchantRuleRepository,
+    private val linkBillPayment: LinkBillPaymentUseCase
 ) : ViewModel() {
 
     private val expenseId: Long = checkNotNull(savedStateHandle["expenseId"])
@@ -103,6 +105,19 @@ class EditExpenseViewModel @Inject constructor(
                 expenseSourceType = expense.sourceType,
                 isReimbursable = expense.isReimbursable
             )
+            // The bill picker used to start empty and its choice was never saved, so linking or
+            // unlinking a bill here silently did nothing.
+            if (expense.transactionType == TransactionType.PAYMENT) {
+                val bills = billRepository.getBills().first().filter { !it.isDeleted }
+                val linked = expense.billId?.let { id -> bills.firstOrNull { it.id == id } }
+                _form.update {
+                    it.copy(
+                        linkedBillId = linked?.id,
+                        linkedBill = linked,
+                        availableBills = bills.filter { b -> b.status != BillStatus.SETTLED || b.id == linked?.id }
+                    )
+                }
+            }
         }
     }
 
@@ -363,6 +378,14 @@ class EditExpenseViewModel @Inject constructor(
                     isReimbursable = state.isReimbursable
                 )
                 updateExpenseUseCase(updated)
+                // After the full-row update (which carries the original bill_id), so the link
+                // and the bill's status are the last write.
+                val newBillId = state.linkedBillId
+                when {
+                    newBillId != null && newBillId != original.billId -> linkBillPayment.link(original.id, newBillId)
+                    newBillId == null && original.billId != null -> linkBillPayment.unlink(original.id)
+                    newBillId != null -> linkBillPayment.refreshStatus(newBillId) // the amount may have changed
+                }
                 updateMerchantRule(original, updated)
                 _form.update { it.copy(isSaving = false, savedExpenseId = original.id) }
             } catch (e: Exception) {

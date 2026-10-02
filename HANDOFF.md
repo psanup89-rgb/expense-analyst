@@ -1,10 +1,10 @@
 # Expense Analyst — Handoff
 
-**Last updated**: 2026-09-27
+**Last updated**: 2026-10-02
 **DB version**: 34
 **Build**: `./gradlew clean assembleDebug` ✅
 **Repo**: `https://github.com/psanup89-rgb/expense-analyst` (public)
-**Release**: v0.7.15-debug (GitHub Release with APK)
+**Release**: v0.7.16-debug (GitHub Release with APK)
 
 ---
 
@@ -22,8 +22,18 @@
 4. Review the light ("Paper") theme on device.
 5. Salary messages exist only from Jul 2026; Jan–Jun salaries arrived some other way (ask owner).
 6. Auto-detect inbound transfers (EXTERNAL_IN is manual-only).
+7. `CreateEmiFromExpenseUseCaseTest` "installment with interest" fails (expects 1064.65, gets
+   1066.19) — untouched since the initial commit; check the formula vs the test's expectation.
 
 ---
+
+## Session Summary (2026-10-02) — Bill payment linking (released in v0.7.16)
+
+Owner linked two ENBD card payments to their bills and they stayed in Review. Linking never
+touched review flags, and three of four bill-status writers compared only the payment being
+linked (in home currency); live auto-link never set a status; Edit's bill picker was never saved.
+All now go through `LinkBillPaymentUseCase` + `BillSettlement` (see CLAUDE.md / CHANGELOG).
+The two rows were cleaned on device (backup taken first). Review: 1 item left (an unrelated Misc purchase).
 
 ## Session Summary (2026-09-29) — Review tab audit (released in v0.7.15)
 

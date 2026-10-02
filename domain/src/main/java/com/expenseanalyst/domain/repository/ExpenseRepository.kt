@@ -1,6 +1,7 @@
 package com.expenseanalyst.domain.repository
 
 import com.expenseanalyst.domain.model.Expense
+import com.expenseanalyst.domain.model.PaymentMethod
 import com.expenseanalyst.domain.model.TransferClassification
 import kotlinx.coroutines.flow.Flow
 import kotlinx.datetime.Instant
@@ -59,6 +60,16 @@ interface ExpenseRepository {
      * the expense is missing, soft-deleted, or not a transfer.
      */
     suspend fun classifyTransfer(id: Long, classification: TransferClassification): Int
+
+    /**
+     * Targeted update linking a payment to [billId], clearing the review reasons a bill link
+     * answers and filling an unknown method with [paymentMethodIfUnknown]. See
+     * ExpenseDao.linkBillPayment. Bill status is the caller's job (LinkBillPaymentUseCase).
+     */
+    suspend fun linkBillPayment(id: Long, billId: Long, paymentMethodIfUnknown: PaymentMethod?): Int
+
+    /** Removes a payment's bill link (targeted update). */
+    suspend fun unlinkBillPayment(id: Long): Int
 
     /** See ExpenseDao.convertToBnplPurchase. */
     suspend fun convertToBnplPurchase(id: Long, categoryId: Long, merchantName: String): Int

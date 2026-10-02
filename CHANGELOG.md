@@ -5,6 +5,18 @@ Format: `[Date] — Summary`
 ---
 
 
+## 2026-10-02 — v0.7.16
+
+Released as v0.7.16-debug (DB v34, no migration): the entry below.
+
+## 2026-10-02 — Bill payments: linking clears Review, status from all payments
+
+- Linking a payment to a bill now takes it out of Review for what the link answers (category, payment method); a payment from a savings/current account becomes Net Banking. A missing merchant or account still flags it. Owner's report: two ENBD card payments stayed in Review after linking.
+- Card payments (PAYMENT) are no longer flagged for a generic category at capture — they count toward no total.
+- Bill status is worked out from **all** linked payments, in the bill's currency (`BillSettlement`, `LinkBillPaymentUseCase`) — used by the expense detail link, bill detail unlink, manual add, Edit and live-capture auto-link. Before: only the payment being linked was compared, in home currency, so a bill paid in two parts stayed Partial, unlinking one of two payments marked it Partial, an INR bill was compared to a SAR amount, and an auto-linked payment left its bill Pending.
+- Edit expense: the bill picker now loads the current link and saving applies it (it was never saved).
+- The two linked payments (SAR 4,830 and 4,192) were cleaned on the device.
+
 ## 2026-09-29 — v0.7.15
 
 Released as v0.7.15-debug (DB v34): the two entries below (May breakdown fixes, Review tab audit).

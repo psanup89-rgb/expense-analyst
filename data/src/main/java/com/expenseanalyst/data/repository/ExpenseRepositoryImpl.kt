@@ -7,6 +7,7 @@ import com.expenseanalyst.domain.util.ReviewReason
 import com.expenseanalyst.data.mapper.toDomain
 import com.expenseanalyst.data.mapper.toEntity
 import com.expenseanalyst.domain.model.Expense
+import com.expenseanalyst.domain.model.PaymentMethod
 import com.expenseanalyst.domain.model.TransferClassification
 import com.expenseanalyst.domain.repository.ExpenseRepository
 import kotlinx.coroutines.flow.Flow
@@ -160,6 +161,12 @@ class ExpenseRepositoryImpl @Inject constructor(
 
     override suspend fun unlinkFromLoan(id: Long): Int =
         expenseDao.setLoanId(id = id, loanId = null, updatedAt = DateTimeUtil.nowMillis())
+
+    override suspend fun linkBillPayment(id: Long, billId: Long, paymentMethodIfUnknown: PaymentMethod?): Int =
+        expenseDao.linkBillPayment(id, billId, paymentMethodIfUnknown?.name, DateTimeUtil.nowMillis())
+
+    override suspend fun unlinkBillPayment(id: Long): Int =
+        expenseDao.unlinkBillPayment(id, DateTimeUtil.nowMillis())
 
     override suspend fun classifyTransfer(id: Long, classification: TransferClassification): Int =
         expenseDao.classifyTransfer(

@@ -3,6 +3,7 @@ package com.expenseanalyst.data.local.dao
 import androidx.room.*
 import com.expenseanalyst.data.local.entity.ExpenseEntity
 import com.expenseanalyst.data.local.relation.ExpenseWithCategory
+import com.expenseanalyst.domain.model.PaymentMethod
 import com.expenseanalyst.domain.util.NeedsReviewEvaluator
 import com.expenseanalyst.domain.util.ReviewReason
 import kotlinx.coroutines.flow.Flow
@@ -313,6 +314,56 @@ interface ExpenseDao {
             updatedAt
         )
     }
+
+    /**
+     * Links a payment to the bill it paid and drops the review reasons the link answers
+     * ([NeedsReviewEvaluator.RESOLVED_BY_BILL_LINK]: generic category, unknown payment method).
+     * An "Other" method becomes [paymentMethodIfUnknown] when the caller could infer one from the
+     * account. Targeted rather than updateExpense, which nulls account_number via the mapper and
+     * rewrites the tag join table. Like [classifyTransfer], recomputing reasons here is an explicit
+     * user mutation, not the forbidden display-time recompute. Returns rows affected.
+     */
+    @Transaction
+    suspend fun linkBillPayment(id: Long, billId: Long, paymentMethodIfUnknown: String?, updatedAt: Long): Int {
+        val existing = getExpenseEntityById(id) ?: return 0
+        val remaining = NeedsReviewEvaluator.removeAll(
+            existing.needsReviewReasons,
+            NeedsReviewEvaluator.RESOLVED_BY_BILL_LINK
+        )
+        val method = if (existing.paymentMethod == PaymentMethod.OTHER.name && paymentMethodIfUnknown != null) {
+            paymentMethodIfUnknown
+        } else {
+            existing.paymentMethod
+        }
+        return applyBillLink(
+            id = id,
+            billId = billId,
+            paymentMethod = method,
+            reasons = NeedsReviewEvaluator.encode(remaining).takeIf { it.isNotBlank() },
+            needsReview = remaining.isNotEmpty(),
+            updatedAt = updatedAt
+        )
+    }
+
+    @Query(
+        """
+        UPDATE expenses SET bill_id = :billId, payment_method = :paymentMethod,
+            needs_review_reasons = :reasons, needs_review = :needsReview, updated_at_utc_millis = :updatedAt
+        WHERE id = :id AND is_deleted = 0
+        """
+    )
+    suspend fun applyBillLink(
+        id: Long,
+        billId: Long,
+        paymentMethod: String,
+        reasons: String?,
+        needsReview: Boolean,
+        updatedAt: Long
+    ): Int
+
+    /** Removes a payment's bill link; review state is left alone. */
+    @Query("UPDATE expenses SET bill_id = NULL, updated_at_utc_millis = :updatedAt WHERE id = :id")
+    suspend fun unlinkBillPayment(id: Long, updatedAt: Long): Int
 
     @Query(
         """

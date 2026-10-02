@@ -15,6 +15,7 @@ import com.expenseanalyst.domain.model.TransactionType
 import com.expenseanalyst.domain.model.TransferClassification
 import com.expenseanalyst.domain.model.TransferRecipientRule
 import com.expenseanalyst.domain.repository.BillRepository
+import com.expenseanalyst.domain.usecase.LinkBillPaymentUseCase
 import com.expenseanalyst.domain.repository.CategoryRepository
 import com.expenseanalyst.domain.repository.CurrencyRepository
 import com.expenseanalyst.domain.repository.ExpenseRepository
@@ -92,7 +93,8 @@ class ExpenseDetailViewModel @Inject constructor(
     private val currencyRepository: CurrencyRepository,
     private val tagRepository: TagRepository,
     private val transferRecipientRuleRepository: TransferRecipientRuleRepository,
-    private val lentRepository: LentRepository
+    private val lentRepository: LentRepository,
+    private val linkBillPayment: LinkBillPaymentUseCase
 ) : ViewModel() {
 
     private val expenseId: Long = checkNotNull(savedStateHandle["expenseId"])
@@ -232,18 +234,7 @@ class ExpenseDetailViewModel @Inject constructor(
 
     fun linkToBill(bill: Bill) {
         viewModelScope.launch {
-            val expense = uiState.first().expense ?: return@launch
-            // Update the expense with the bill link
-            expenseRepository.updateExpense(expense.copy(billId = bill.id))
-            // Recalculate bill status based on all payments (including this one)
-            val paid = (expense.homeAmount ?: expense.amount)
-            val billTotalDue = bill.totalDue
-            val newStatus = if (billTotalDue == null || paid >= billTotalDue) {
-                BillStatus.SETTLED
-            } else {
-                BillStatus.PARTIAL
-            }
-            billRepository.updateBill(bill.copy(status = newStatus))
+            linkBillPayment.link(expenseId, bill.id)
             _ui.update { it.copy(showLinkBillSheet = false) }
         }
     }

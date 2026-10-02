@@ -16,6 +16,7 @@ import com.expenseanalyst.domain.repository.ExpenseRepository
 import com.expenseanalyst.domain.repository.MerchantRuleRepository
 import com.expenseanalyst.domain.repository.PendingNotificationRepository
 import com.expenseanalyst.domain.repository.TransferRecipientRuleRepository
+import com.expenseanalyst.domain.usecase.LinkBillPaymentUseCase
 import com.expenseanalyst.domain.util.BillMatcher
 import com.expenseanalyst.domain.util.CategoryInference
 import com.expenseanalyst.domain.util.CurrencyConversion
@@ -73,7 +74,8 @@ class PendingNotificationManager @Inject constructor(
     private val accountRepository: AccountRepository,
     private val currencyRepository: CurrencyRepository,
     private val appPreferencesRepository: AppPreferencesRepository,
-    private val bnplReconciler: BnplReconciler
+    private val bnplReconciler: BnplReconciler,
+    private val linkBillPayment: LinkBillPaymentUseCase
 ) {
     private val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
 
@@ -251,7 +253,7 @@ class PendingNotificationManager @Inject constructor(
                 accountIdentified = (refundMatch?.accountLastFour ?: normalized.accountLast4) != null ||
                     isOnlyAccountOfBank(effectiveAccountId, normalized.bankName)
             ) + possibleReimbursementReason(transactionType, category.name, normalized, now)
-            val needsReview = reviewReasons.isNotEmpty()
+            var needsReview = reviewReasons.isNotEmpty()
 
             val stubExpense = Expense(
                 amount = normalized.amount,
@@ -281,6 +283,13 @@ class PendingNotificationManager @Inject constructor(
                 exchangeRate = conversion.exchangeRate
             )
             val savedId = expenseRepository.addExpense(savedExpense)
+            // An auto-linked bill payment goes through the same path as a manual link: the link
+            // answers category/method (so it doesn't land in Review), and the bill's status is
+            // worked out from all its payments — this path used to leave the bill Pending.
+            if (linkedBillId != null) {
+                linkBillPayment.link(savedId, linkedBillId)
+                needsReview = (reviewReasons - NeedsReviewEvaluator.RESOLVED_BY_BILL_LINK).isNotEmpty()
+            }
 
             _lastAutoSaved.value = AutoSavedEvent(
                 expenseId = savedId,

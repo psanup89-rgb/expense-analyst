@@ -45,7 +45,11 @@ object NeedsReviewEvaluator {
         accountIdentified: Boolean = accountLastFour != null
     ): List<ReviewReason> = buildList {
         if (merchantName.isNullOrBlank()) add(ReviewReason.MISSING_MERCHANT)
-        if (categoryName in GENERIC_CATEGORY_NAMES) add(ReviewReason.GENERIC_CATEGORY)
+        // A PAYMENT (card bill, BNPL purchase) counts toward no total, so its category changes
+        // nothing — flagging it put every card payment in Review as "Misc".
+        if (categoryName in GENERIC_CATEGORY_NAMES && transactionType != TransactionType.PAYMENT) {
+            add(ReviewReason.GENERIC_CATEGORY)
+        }
         if (paymentMethod == PaymentMethod.OTHER) add(ReviewReason.UNKNOWN_PAYMENT_METHOD)
         if (!accountIdentified) add(ReviewReason.UNRESOLVED_ACCOUNT)
         if (transactionType == TransactionType.TRANSFER && transferClassification == null) {
@@ -61,6 +65,18 @@ object NeedsReviewEvaluator {
      */
     fun remove(raw: String?, reason: ReviewReason): List<ReviewReason> =
         decode(raw).filterNot { it == reason }
+
+    /**
+     * Reasons a payment no longer needs once the user has linked it to a bill: the bill says what
+     * the money was for, so a generic category is moot, and the method is settled by the link
+     * (ExpenseDao.linkBillPayment fills it in from the account). A missing merchant or an
+     * unresolved account is not answered by the link and stays.
+     */
+    val RESOLVED_BY_BILL_LINK: Set<ReviewReason> =
+        setOf(ReviewReason.GENERIC_CATEGORY, ReviewReason.UNKNOWN_PAYMENT_METHOD)
+
+    fun removeAll(raw: String?, reasons: Set<ReviewReason>): List<ReviewReason> =
+        decode(raw).filterNot { it in reasons }
 
     fun encode(reasons: List<ReviewReason>): String = reasons.joinToString(",") { it.name }
 
