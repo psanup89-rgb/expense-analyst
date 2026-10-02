@@ -4,7 +4,7 @@
 **DB version**: 34
 **Build**: `./gradlew clean assembleDebug` ✅
 **Repo**: `https://github.com/psanup89-rgb/expense-analyst` (public)
-**Release**: v0.7.17-debug (GitHub Release with APK)
+**Release**: v0.7.18-debug (GitHub Release with APK)
 
 ---
 
@@ -21,7 +21,7 @@
 3. Notification action buttons from the Ledger design ("Edit", "To someone / My account").
 4. Review the light ("Paper") theme on device.
 5. ~~Jan–Jun salaries~~ — found (Oct 2026): paid by "Credit Transfer Local", which no parser read. Recovered.
-8. Al Rajhi layouts still unread (seen in the 2025–2026 inbox): plain "PoS" purchases (3 in 2026), "Reverse Transaction" (refunds, 2 in 2026), "Bill Payment" paid by card (1 in Aug 2026), "Transfer to account" from the card (2), ATM withdrawals/deposits.
+8. ~~Al Rajhi layouts still unread~~ — done (Oct 2026). Deliberately still unread: "Dear customer, your payment has been approved" (confirms an own-account transfer already captured), "Credit Card:Minimum Due" (a reminder), and one 2025 "Online Purchase" whose amount has no currency.
 6. Auto-detect inbound transfers (EXTERNAL_IN is manual-only).
 7. `CreateEmiFromExpenseUseCaseTest` "installment with interest" fails (expects 1064.65, gets
    1066.19) — untouched since the initial commit; check the formula vs the test's expectation.

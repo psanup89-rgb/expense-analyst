@@ -267,4 +267,15 @@ class CategoryInferenceTest {
             CategoryInference.infer("DBS Bank", null, cats, smsBody = "Monthly interest of INR 58 credited")?.name
         )
     }
+
+    @Test
+    fun `an Al Rajhi reversed purchase is a Refund, not the merchant's category`() {
+        val result = CategoryInference.infer(
+            merchant = "CAREEM RIDE",
+            bankName = "Al Rajhi Bank",
+            categories = allCategories,
+            smsBody = "Reverse Transaction\nBy:1234;Visa\nAt: CAREEM RIDE\nAmount: SAR 12.50"
+        )
+        assertEquals("Refund", result?.name)
+    }
 }

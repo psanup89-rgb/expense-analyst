@@ -5,6 +5,15 @@ Format: `[Date] — Summary`
 ---
 
 
+## 2026-10-02 — v0.7.18
+
+Released as v0.7.18-debug (DB v34, no migration): the entry below.
+
+## 2026-10-02 — Al Rajhi: remaining layouts (backlog item 8)
+
+- `AlRajhiParser` now reads: a bare "PoS" / "PoS International" header (no "purchase" word); "Reverse Transaction" (a reversed card charge → money back; `CategoryInference` files it, and "ATM Claims", as Refund); "Bill Payment" paid by card (no Biller/Service → a purchase on the card); "Transfer to account" from the card (a transfer to the At: recipient, fee excluded) and its separate "… fee deduction" message (a fee); "Withdrawal:ATM" / "Deposit:ATM" (cash — a transfer to classify); "ATM Claims Transaction" (money back).
+- Recovered on device for 2026: 3 PoS purchases, 2 reversals, 1 card bill payment, 2 card transfers to the user's own STC account (recipient rule STC BANK → own account).
+
 ## 2026-10-02 — v0.7.17
 
 Released as v0.7.17-debug (DB v34, no migration): the entry below.

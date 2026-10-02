@@ -230,7 +230,9 @@ object CategoryInference {
         smsBody?.lowercase()?.let { body ->
             if (body.contains("refund") || body.contains("reversal") ||
                 body.contains("cashback") || body.contains("cash back") ||
-                body.contains("reimburs")
+                body.contains("reimburs") ||
+                // Al Rajhi: "Reverse Transaction" (a reversed card purchase), "ATM Claims Transaction"
+                body.contains("reverse transaction") || body.contains("atm claims")
             ) {
                 findCategory(categories, "Refund")?.let { return it }
             }

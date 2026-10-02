@@ -111,6 +111,21 @@ class AlRajhiParser : TransactionParser {
     private val creditTransferLocalPattern = Regex("""(?i)\bCredit\s+Transfer\s+Local\b""")
     private val firstFromIsDigitsPattern = Regex("""(?i)\bFrom\s*:\s*\**\d""")
 
+    // Remaining layouts read from the 2025–2026 inbox (Oct 2026), all previously dropped:
+    //   "Bill Payment / Card:1234;Visa / Amount / Balance" — a bill paid by card (no Biller/Service)
+    //   "Transfer to account / Card:1234 Visa / Amount / Fee and VAT / At: STC BANK / Total due amount"
+    //     — money sent from the card to an account; a transfer, recipient on At:
+    //   "Withdrawal:ATM / By:1234;mada / Amount / Place: …" and "Deposit:ATM / Amount / To:1234" — cash
+    //   "ATM Claims Transaction / To:1234 / Amount" — a disputed ATM amount credited back
+    private val cardBillPaymentCardPattern = Regex("""(?i)\bCard\s*:\s*(\d{4})""")
+    private val transferToAccountPattern = Regex("""(?i)^\s*Transfer\s+to\s+account\s*(?:\n|$)""")
+    private val atmWithdrawalPattern = Regex("""(?i)^\s*Withdrawal\s*:\s*ATM""")
+    private val atmDepositPattern = Regex("""(?i)^\s*Deposit\s*:\s*ATM""")
+    private val atmClaimPattern = Regex("""(?i)^\s*ATM\s+Claims?\s+Transaction""")
+    private val byDigitsPattern = Regex("""(?i)\bBy\s*:\s*(\d{4})""")
+    // "Transfer to account fee deduction / Amount & VAT: SAR N / By: … / At: …" — the fee on its own
+    private val transferFeePattern = Regex("""(?i)^\s*Transfer\s+to\s+account\s+fee\s+deduction""")
+
     override fun canParse(sender: String, body: String): Boolean =
         senderPattern.containsMatchIn(sender) ||
         (fundTransferCreditedPattern.containsMatchIn(body) && alRajhiInBody.containsMatchIn(body)) ||
@@ -311,6 +326,81 @@ class AlRajhiParser : TransactionParser {
             )
         }
 
+        // Bill paid by card — the account-paid layout above carries Biller/Service, this one doesn't.
+        if (billPaymentPattern.containsMatchIn(body) && cardBillPaymentCardPattern.containsMatchIn(body)) {
+            val amount = sarAmount(body) ?: return null
+            return ParsedTransaction(
+                amount = amount,
+                currencyCode = "SAR",
+                type = TransactionDirection.DEBIT,
+                merchant = "Bill Payment",
+                accountLast4 = cardBillPaymentCardPattern.find(body)?.groupValues?.get(1),
+                referenceNumber = null,
+                bankName = bankName,
+                // Left to the matched card account (PaymentMethodInference)
+                paymentMethodName = PaymentMethodDetector.detect(body)
+            )
+        }
+
+        if (transferFeePattern.containsMatchIn(body)) {
+            val amount = sarAmount(body) ?: return null
+            return ParsedTransaction(
+                amount = amount,
+                currencyCode = "SAR",
+                type = TransactionDirection.DEBIT,
+                merchant = "Al Rajhi transfer fee",
+                accountLast4 = (cardBillPaymentCardPattern.find(body) ?: byDigitsPattern.find(body))?.groupValues?.get(1),
+                referenceNumber = null,
+                bankName = bankName,
+                paymentMethodName = "CREDIT_CARD"
+            )
+        }
+
+        if (transferToAccountPattern.containsMatchIn(body)) {
+            // "Amount" is the transfer; the fee is a separate line, as for card purchases abroad
+            val amount = sarAmount(body) ?: return null
+            return ParsedTransaction(
+                amount = amount,
+                currencyCode = "SAR",
+                type = TransactionDirection.TRANSFER,
+                merchant = atPattern.find(body)?.groupValues?.get(1)?.trim()?.takeIf { it.isNotBlank() && it.length < 60 },
+                accountLast4 = cardBillPaymentCardPattern.find(body)?.groupValues?.get(1),
+                referenceNumber = null,
+                bankName = bankName,
+                paymentMethodName = "CREDIT_CARD"
+            )
+        }
+
+        // Cash in or out at an ATM moves the user's own money — a transfer they can classify
+        if (atmWithdrawalPattern.containsMatchIn(body) || atmDepositPattern.containsMatchIn(body)) {
+            val amount = sarAmount(body) ?: return null
+            val withdrawal = atmWithdrawalPattern.containsMatchIn(body)
+            return ParsedTransaction(
+                amount = amount,
+                currencyCode = "SAR",
+                type = TransactionDirection.TRANSFER,
+                merchant = if (withdrawal) "ATM withdrawal" else "ATM deposit",
+                accountLast4 = (if (withdrawal) byDigitsPattern else transferToPattern).find(body)?.groupValues?.get(1),
+                referenceNumber = null,
+                bankName = bankName,
+                paymentMethodName = if (withdrawal) PaymentMethodDetector.detect(body) ?: "DEBIT_CARD" else "CASH"
+            )
+        }
+
+        if (atmClaimPattern.containsMatchIn(body)) {
+            val amount = sarAmount(body) ?: return null
+            return ParsedTransaction(
+                amount = amount,
+                currencyCode = "SAR",
+                type = TransactionDirection.CREDIT,
+                merchant = "ATM claim",
+                accountLast4 = transferToPattern.find(body)?.groupValues?.get(1),
+                referenceNumber = null,
+                bankName = bankName,
+                paymentMethodName = "DEBIT_CARD"
+            )
+        }
+
         // Handle internal transfer format: "Credit Transfer Internal / Amount:SAR N / To:XXXX / From:NAME / From:YYYY"
         if (transferFingerprintPattern.containsMatchIn(body)) {
             val amountMatch = amountSarPattern.find(body)
@@ -332,10 +422,12 @@ class AlRajhiParser : TransactionParser {
             )
         }
 
-        val isDebit = Regex("""(?i)\b(?:pos\s+purchase|purchase|purchased|debited|deducted|خصم|مشتريات)\b""").containsMatchIn(body)
+        // A bare "PoS" / "PoS International" header (no "purchase") is a card purchase too
+        val isDebit = Regex("""(?i)\b(?:pos\s+purchase|purchase|purchased|debited|deducted|خصم|مشتريات)\b|^\s*PoS\b""").containsMatchIn(body)
         // "Credit Card Refund / Card: 1234; Visa / Amount: 39.98 SAR / From: Amazon SA" — a refund is
         // money in, and its merchant is on "From:" (a name here, not the account digits)
-        val isRefund = Regex("""(?i)\brefund\b""").containsMatchIn(body)
+        // "Reverse Transaction / By:… / At: CAREEM … / Amount" — a purchase reversed back to the card
+        val isRefund = Regex("""(?i)\brefund\b|^\s*Reverse\s+Transaction\b""").containsMatchIn(body)
         val isCredit = isRefund || Regex("""(?i)\b(?:credited|received|أضيف|إيداع)\b""").containsMatchIn(body)
         if (!isDebit && !isCredit) return null
 
@@ -362,5 +454,11 @@ class AlRajhiParser : TransactionParser {
             bankName = bankName,
             paymentMethodName = detectedPaymentMethod
         )
+    }
+
+    private fun sarAmount(body: String): Double? {
+        val m = amountSarPattern.find(body)
+        return (m?.groupValues?.get(1)?.takeIf { it.isNotBlank() } ?: m?.groupValues?.get(2)?.takeIf { it.isNotBlank() })
+            ?.replace(",", "")?.toDoubleOrNull()
     }
 }

@@ -274,4 +274,72 @@ class AlRajhiParserTest {
         org.junit.jupiter.api.Assertions.assertEquals("JANE ROE", inc.merchant)
         org.junit.jupiter.api.Assertions.assertEquals("1234", inc.accountLast4)
     }
+
+    // ── Oct 2026: remaining layouts (backlog item 8) ──
+
+    private fun rajhi(body: String) = ParserRegistry.parse("AlRajhiBank", body)
+
+    @org.junit.jupiter.api.Test
+    fun `a bare PoS header is a card purchase`() {
+        val r = rajhi("PoS\nBy:1234;mada-Apple Pay\nAmount:SAR 45.50\nAt:NOON\nBalance:SAR 900\n26/5/1 12:00")!!
+        org.junit.jupiter.api.Assertions.assertEquals(TransactionDirection.DEBIT, r.type)
+        org.junit.jupiter.api.Assertions.assertEquals(45.5, r.amount, 0.001)
+        org.junit.jupiter.api.Assertions.assertEquals("NOON", r.merchant)
+        org.junit.jupiter.api.Assertions.assertEquals("1234", r.accountLast4)
+        val intl = rajhi("PoS International\nBy:1234 ;Visa\nAmount:SAR 3.99\nAt:APPLE.COM\nCountry:IRELAND\nBalance:SAR 50")!!
+        org.junit.jupiter.api.Assertions.assertEquals(TransactionDirection.DEBIT, intl.type)
+        org.junit.jupiter.api.Assertions.assertEquals("APPLE.COM", intl.merchant)
+    }
+
+    @org.junit.jupiter.api.Test
+    fun `a Reverse Transaction is money back from the merchant`() {
+        val r = rajhi("Reverse Transaction\nBy:1234 ;Visa\nAt:CAREEM RIDE\nAmount:SAR 12.50\nBalance:SAR 900\n26/3/18 09:00")!!
+        org.junit.jupiter.api.Assertions.assertEquals(TransactionDirection.CREDIT, r.type)
+        org.junit.jupiter.api.Assertions.assertEquals(12.5, r.amount, 0.001)
+        org.junit.jupiter.api.Assertions.assertEquals("CAREEM RIDE", r.merchant)
+    }
+
+    @org.junit.jupiter.api.Test
+    fun `a bill paid by card is a purchase on that card`() {
+        val r = rajhi("Bill Payment\nCard:1234;Visa\nAmount:SAR 287.50\nBalance:SAR 900\n26/8/21 10:00")!!
+        org.junit.jupiter.api.Assertions.assertEquals(TransactionDirection.DEBIT, r.type)
+        org.junit.jupiter.api.Assertions.assertEquals(287.5, r.amount, 0.001)
+        org.junit.jupiter.api.Assertions.assertEquals("1234", r.accountLast4)
+        // the account-paid layout is unchanged
+        org.junit.jupiter.api.Assertions.assertEquals(
+            TransactionDirection.PAYMENT,
+            rajhi("Bill Payment\nFrom:1234\nAmount:SAR 240\nBiller:125\nService:ENBD PAYMENTS\nBill:99")!!.type
+        )
+    }
+
+    @org.junit.jupiter.api.Test
+    fun `a transfer from the card to an account is a transfer to the At recipient, fee excluded`() {
+        val r = rajhi("Transfer to account\nCard:1234 Visa\nAmount:2500 SAR\nFee and VAT:86.25 SAR\nAt:STC BANK\nTotal due amount:2586.25 SAR\nBalance:900 SAR\nOn:26/8/14 10:00")!!
+        org.junit.jupiter.api.Assertions.assertEquals(TransactionDirection.TRANSFER, r.type)
+        org.junit.jupiter.api.Assertions.assertEquals(2500.0, r.amount, 0.001)
+        org.junit.jupiter.api.Assertions.assertEquals("STC BANK", r.merchant)
+        org.junit.jupiter.api.Assertions.assertEquals("1234", r.accountLast4)
+    }
+
+    @org.junit.jupiter.api.Test
+    fun `ATM cash and claims are read`() {
+        val w = rajhi("Withdrawal:ATM\nBy:1234;mada\nAmount:SAR 500\nPlace:SOME MALL 2\nDate:2025-09-29")!!
+        org.junit.jupiter.api.Assertions.assertEquals(TransactionDirection.TRANSFER, w.type)
+        org.junit.jupiter.api.Assertions.assertEquals("ATM withdrawal", w.merchant)
+        org.junit.jupiter.api.Assertions.assertEquals("1234", w.accountLast4)
+        val d = rajhi("Deposit:ATM\nAmount:SAR 1000\nTo:1234\nDate:2025-06-14")!!
+        org.junit.jupiter.api.Assertions.assertEquals("ATM deposit", d.merchant)
+        org.junit.jupiter.api.Assertions.assertEquals(1000.0, d.amount, 0.001)
+        val c = rajhi("ATM Claims Transaction\nTo:1234\nAmount:SAR 20.00\nDate:2025-07-13")!!
+        org.junit.jupiter.api.Assertions.assertEquals(TransactionDirection.CREDIT, c.type)
+        org.junit.jupiter.api.Assertions.assertEquals("1234", c.accountLast4)
+    }
+
+    @org.junit.jupiter.api.Test
+    fun `the separate transfer fee message is a fee, not the transfer`() {
+        val r = rajhi("Transfer to account fee deduction\nAmount & VAT: 34.50 SAR\nBy: 1234 Visa\nAt: STC BANK\nDate: 2025-11-19")!!
+        org.junit.jupiter.api.Assertions.assertEquals(TransactionDirection.DEBIT, r.type)
+        org.junit.jupiter.api.Assertions.assertEquals(34.5, r.amount, 0.001)
+        org.junit.jupiter.api.Assertions.assertEquals("Al Rajhi transfer fee", r.merchant)
+    }
 }
