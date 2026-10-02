@@ -4,6 +4,7 @@ import android.content.Context
 import com.expenseanalyst.domain.model.PendingNotification
 import com.expenseanalyst.domain.repository.BillRepository
 import com.expenseanalyst.domain.repository.PendingNotificationRepository
+import com.expenseanalyst.domain.util.BillSettlement
 import com.expenseanalyst.feature.notification.parser.ParsedBillStatement
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CoroutineScope
@@ -23,8 +24,10 @@ import javax.inject.Singleton
  *    stack on the same card instead of adding a prompt each.
  * 2. The statement is still WAITING in the inbox → count it on that card; the count moves onto
  *    the bill when the user saves it. (Previously dropped silently.)
- * 3. Otherwise → a new BILL card. If an open bill exists for the biller, its id is stored in
- *    [linkedBillId] so the inbox can offer "Update Bill" instead of "Add as New Bill".
+ * 3. Otherwise → a new BILL card. If an open bill exists for the biller **in the same billing
+ *    cycle** (BillSettlement.isSameCycle — due dates within a week), its id is stored in
+ *    [linkedBillId] so the inbox can offer "Update Bill" instead of "Add as New Bill". Next
+ *    month's statement is always a new bill, even while last month's still looks open.
  */
 @Singleton
 class BillStatementManager @Inject constructor(
@@ -101,7 +104,7 @@ class BillStatementManager @Inject constructor(
             val existing = billRepository.findOpenBillByBiller(
                 billerName = statement.billerName,
                 accountId = null
-            )
+            )?.takeIf { BillSettlement.isSameCycle(it.dueDateMillis, statement.dueDateMillis) }
             val pendingId = pendingRepository.save(
                 PendingNotification(
                     amount = statement.totalDue ?: 0.0,

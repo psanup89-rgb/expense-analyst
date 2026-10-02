@@ -21,6 +21,8 @@ package com.expenseanalyst.feature.notification.parser
  * Sample (bill payment — same Biller:/Service: field vocabulary as the Mubasher app, but this
  * one arrives from Al Rajhi's own sender):
  *   "Bill Payment\nFrom:6805\nAmount:SAR 240\nBiller:125\nService:ENBD PAYMENTS\nBill:01600000025919"
+ * Sample (credit card bill paid — PAYMENT on the card):
+ *   "Credit Card:Payment\nCard:Visa 1234\nAmount: SAR 500.00\nBalance: SAR 1,000.00"
  */
 class AlRajhiParser : TransactionParser {
 
@@ -37,7 +39,10 @@ class AlRajhiParser : TransactionParser {
     // Standing order / external transfer — without these, this shape falls through every
     // branch below and gets claimed by D360Parser's own standing-order fingerprint instead,
     // mislabeling the bank as "D360 Bank".
-    private val standingOrderPattern = Regex("""(?i)standing\s+order""")
+    // Also the one-off "Debit Transfer Local / Bank: X / From:1234 / Amount:SAR N / To:NAME / To:5678 /
+    // Fees:SAR N" — same fields without the "Standing Order-" prefix. Until Oct 2026 only the
+    // prefixed form matched, so one-off transfers to other banks were silently dropped.
+    private val standingOrderPattern = Regex("""(?i)standing\s+order|\bDebit\s+Transfer\s+Local\b""")
     private val standingOrderToNamePattern = Regex("""(?i)To\s*:\s*([A-Za-z][A-Za-z ]{2,})""")
     // Bill payment — without these, this shape falls through and gets claimed by
     // MubasherParser's own Biller:/Service: fingerprint instead, mislabeling the bank as
@@ -87,6 +92,25 @@ class AlRajhiParser : TransactionParser {
     private val fundTransferFromPattern = Regex("""(?i)From\s*:\s*([A-Za-z][A-Za-z .'-]{1,79}?)\s*(?:\n|$)""")
     private val fundTransferToDigitsPattern = Regex("""(?i)\bTo\s*:\s*\**\s*(\d{4,})""")
 
+    // Card bill payment (real layout, Aug 2025–Sep 2026): "Credit Card:Payment / Card: 1234;… /
+    // Amount: SAR N / Balance: SAR N / date". No branch matched it — the generic fallback needs a
+    // purchase/credited word — so none of the card's payments was ever recorded and Al Rajhi card
+    // bills could never settle. The merchant names the bank so BillMatcher links it to the open
+    // "Al Rajhi Bank" statement, like ENBD's "Emirates NBD card payment".
+    private val cardPaymentPattern = Regex("""(?i)Credit\s*Card\s*:\s*Payment\b""")
+    // "Card:Visa 1234" (2026) or "Card:1234 ;Visa" (2025)
+    private val cardPaymentCardPattern = Regex("""(?i)\bCard\s*:\s*(?:Visa|Mastercard|Mada|Amex)?\s*[xX*]*(\d{4})""")
+
+    // Transfers in the other layouts Al Rajhi uses (real, 2025–2026), none of which any branch
+    // matched, so they were dropped:
+    //   "Credit Transfer Local / Via: X / Amount: SAR N / To: 1234 / From: NAME / From: 5678" — money in
+    //   from another bank; To: is the user's own account, the first From: the sender's name.
+    //   "Local Transfer" / "Internal Transfer" (2025, no Debit/Credit word): outgoing when From: is
+    //   the user's digits and To: a name; incoming when To: is digits and From: a name.
+    private val plainTransferPattern = Regex("""(?i)^\s*(?:Local|Internal)\s+Transfer\b|\bCredit\s+Transfer\s+Local\b""")
+    private val creditTransferLocalPattern = Regex("""(?i)\bCredit\s+Transfer\s+Local\b""")
+    private val firstFromIsDigitsPattern = Regex("""(?i)\bFrom\s*:\s*\**\d""")
+
     override fun canParse(sender: String, body: String): Boolean =
         senderPattern.containsMatchIn(sender) ||
         (fundTransferCreditedPattern.containsMatchIn(body) && alRajhiInBody.containsMatchIn(body)) ||
@@ -98,6 +122,23 @@ class AlRajhiParser : TransactionParser {
         (billPaymentPattern.containsMatchIn(body) && billServicePattern.containsMatchIn(body))
 
     override fun parse(sender: String, body: String): ParsedTransaction? {
+        if (cardPaymentPattern.containsMatchIn(body)) {
+            val amountMatch = amountSarPattern.find(body)
+            val amount = (amountMatch?.groupValues?.get(1)?.takeIf { it.isNotBlank() }
+                ?: amountMatch?.groupValues?.get(2)?.takeIf { it.isNotBlank() })
+                ?.replace(",", "")?.toDoubleOrNull() ?: return null
+            return ParsedTransaction(
+                amount = amount,
+                currencyCode = "SAR",
+                type = TransactionDirection.PAYMENT,
+                merchant = "$bankName card payment",
+                accountLast4 = cardPaymentCardPattern.find(body)?.groupValues?.get(1),
+                referenceNumber = null,
+                bankName = bankName,
+                paymentMethodName = "CREDIT_CARD"
+            )
+        }
+
         // Handle MOI government payment: "MOI Payments From:6805 Amount:SR 400 Provider:X Service:Y"
         if (moiFingerprintPattern.containsMatchIn(body)) {
             val amountMatch = amountSarPattern.find(body)
@@ -184,6 +225,45 @@ class AlRajhiParser : TransactionParser {
                 bankName = bankName,
                 paymentMethodName = "NET_BANKING"
             )
+        }
+
+        if (plainTransferPattern.containsMatchIn(body)) {
+            val amountMatch = amountSarPattern.find(body)
+            val amount = (amountMatch?.groupValues?.get(1)?.takeIf { it.isNotBlank() }
+                ?: amountMatch?.groupValues?.get(2)?.takeIf { it.isNotBlank() })
+                ?.replace(",", "")?.toDoubleOrNull() ?: return null
+            // Which From: comes first decides it — "Credit Transfer Local" also carries the
+            // sender's account digits on a second From: line.
+            val firstFrom = Regex("""(?i)\bFrom\s*:""").find(body)
+            val outgoing = !creditTransferLocalPattern.containsMatchIn(body) &&
+                firstFrom != null && firstFromIsDigitsPattern.find(body)?.range?.first == firstFrom.range.first
+            return if (outgoing) {
+                ParsedTransaction(
+                    amount = amount,
+                    currencyCode = "SAR",
+                    type = TransactionDirection.TRANSFER,
+                    merchant = standingOrderToNamePattern.find(body)?.groupValues?.get(1)?.trim()
+                        ?.takeIf { it.isNotBlank() && it.length < 80 },
+                    accountLast4 = fromAccountDigitsPattern.find(body)?.groupValues?.get(1),
+                    referenceNumber = null,
+                    bankName = bankName,
+                    paymentMethodName = "NET_BANKING"
+                )
+            } else {
+                // A credit from the user's own name becomes an own-account transfer at capture
+                // (TransferRecipientMatcher.isFromOwnAccount); from anyone else it is income.
+                ParsedTransaction(
+                    amount = amount,
+                    currencyCode = "SAR",
+                    type = TransactionDirection.CREDIT,
+                    merchant = transferFromNamePattern.find(body)?.groupValues?.get(1)?.trim()
+                        ?.takeIf { it.isNotBlank() && it.length < 80 },
+                    accountLast4 = transferToPattern.find(body)?.groupValues?.get(1),
+                    referenceNumber = null,
+                    bankName = bankName,
+                    paymentMethodName = "NET_BANKING"
+                )
+            }
         }
 
         // Standing order / external transfer: "Standing Order-Debit Transfer Local /

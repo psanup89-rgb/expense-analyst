@@ -44,4 +44,16 @@ object BillSettlement {
         if (from != null && to != null && from > 0.0) return payment.amount * to / from
         return if (currency == homeCurrency) payment.homeAmount else null
     }
+
+    private const val SAME_CYCLE_MILLIS = 7L * 24 * 60 * 60 * 1000
+
+    /**
+     * Whether a new statement is a correction of an open bill (same billing cycle) rather than
+     * next cycle's bill: both due dates known and within a week. The inbox offers "Update Bill"
+     * only then — it used to offer it for any open bill of the same biller, with no "Add" option,
+     * so the September Al Rajhi statement could only overwrite the unpaid-looking August one.
+     */
+    fun isSameCycle(openBillDueMillis: Long?, statementDueMillis: Long?): Boolean =
+        openBillDueMillis != null && statementDueMillis != null &&
+            kotlin.math.abs(openBillDueMillis - statementDueMillis) <= SAME_CYCLE_MILLIS
 }

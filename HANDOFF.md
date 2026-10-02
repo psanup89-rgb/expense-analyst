@@ -4,7 +4,7 @@
 **DB version**: 34
 **Build**: `./gradlew clean assembleDebug` ✅
 **Repo**: `https://github.com/psanup89-rgb/expense-analyst` (public)
-**Release**: v0.7.16-debug (GitHub Release with APK)
+**Release**: v0.7.17-debug (GitHub Release with APK)
 
 ---
 
@@ -20,12 +20,21 @@
 2. Split Tamara charges that combine several due instalments (subset-sum; sums match to the cent).
 3. Notification action buttons from the Ledger design ("Edit", "To someone / My account").
 4. Review the light ("Paper") theme on device.
-5. Salary messages exist only from Jul 2026; Jan–Jun salaries arrived some other way (ask owner).
+5. ~~Jan–Jun salaries~~ — found (Oct 2026): paid by "Credit Transfer Local", which no parser read. Recovered.
+8. Al Rajhi layouts still unread (seen in the 2025–2026 inbox): plain "PoS" purchases (3 in 2026), "Reverse Transaction" (refunds, 2 in 2026), "Bill Payment" paid by card (1 in Aug 2026), "Transfer to account" from the card (2), ATM withdrawals/deposits.
 6. Auto-detect inbound transfers (EXTERNAL_IN is manual-only).
 7. `CreateEmiFromExpenseUseCaseTest` "installment with interest" fails (expects 1064.65, gets
    1066.19) — untouched since the initial commit; check the formula vs the test's expectation.
 
 ---
+
+## Session Summary (2026-10-02) — Al Rajhi recovery (released in v0.7.17)
+
+Owner asked whether the Al Rajhi SAR 11,340.97 bill was already paid: it was (19 Sep), but no
+"Credit Card:Payment" message had ever been parsed. Running the parser over the whole Al Rajhi
+inbox found other dropped layouts too: one-off "Debit Transfer Local", "Credit Transfer Local"
+(the Jan–Jun salaries) and the 2025 transfer layouts. All fixed and recovered for 2026 with the
+owner's classifications (see CHANGELOG). Remaining unread layouts are backlog item 8.
 
 ## Session Summary (2026-10-02) — Bill payment linking (released in v0.7.16)
 

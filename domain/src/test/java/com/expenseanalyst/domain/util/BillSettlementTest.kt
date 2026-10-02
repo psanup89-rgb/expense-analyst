@@ -84,4 +84,16 @@ class BillSettlementTest {
         assertEquals(PaymentMethod.CREDIT_CARD, LinkBillPaymentUseCase.methodForBillPayment(AccountType.CREDIT_CARD))
         assertNull(LinkBillPaymentUseCase.methodForBillPayment(null))
     }
+
+    @Test
+    fun `only a statement due within a week of the open bill updates it`() {
+        val day = 24L * 60 * 60 * 1000
+        val due = 1_790_899_200_000L
+        assert(BillSettlement.isSameCycle(due, due + 2 * day))
+        // next month's statement is a new bill
+        assert(!BillSettlement.isSameCycle(due, due + 30 * day))
+        // an open bill with no due date (Al Rajhi August) can't be told apart → new bill
+        assert(!BillSettlement.isSameCycle(null, due))
+        assert(!BillSettlement.isSameCycle(due, null))
+    }
 }

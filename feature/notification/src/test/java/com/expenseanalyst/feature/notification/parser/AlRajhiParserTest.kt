@@ -203,4 +203,75 @@ class AlRajhiParserTest {
             "Your Axis Bank Credit Card no. XX 1234 has a credit balance of INR 1445/-. The amount will be credited to your Savings Account if not used within 30 days."
         ))
     }
+
+    // ── Oct 2026: card payments and one-off local transfers were dropped ──
+
+    @org.junit.jupiter.api.Test
+    fun `a credit card payment is a PAYMENT named after the bank, so it can settle the bill`() {
+        val r = ParserRegistry.parse(
+            "AlRajhiBank",
+            "Credit Card:Payment\nCard:Visa 1234\nAmount: SAR 500.00\nBalance: SAR 1,000.00\n19/9/26 13:05"
+        )
+        org.junit.jupiter.api.Assertions.assertNotNull(r)
+        org.junit.jupiter.api.Assertions.assertEquals(TransactionDirection.PAYMENT, r!!.type)
+        org.junit.jupiter.api.Assertions.assertEquals(500.0, r.amount, 0.001)
+        org.junit.jupiter.api.Assertions.assertEquals("Al Rajhi Bank card payment", r.merchant)
+        org.junit.jupiter.api.Assertions.assertEquals("1234", r.accountLast4)
+        org.junit.jupiter.api.Assertions.assertEquals("CREDIT_CARD", r.paymentMethodName)
+        // 2025 layout puts the network after the digits
+        val old = ParserRegistry.parse("AlRajhiBank", "Credit Card:Payment\nCard:1234 ;Visa\nAmount: SAR 50\nBalance: SAR 10")
+        org.junit.jupiter.api.Assertions.assertEquals("1234", old!!.accountLast4)
+    }
+
+    @org.junit.jupiter.api.Test
+    fun `a payment reminder is still not a payment`() {
+        org.junit.jupiter.api.Assertions.assertNull(ParserRegistry.parse(
+            "AlRajhiBank",
+            "Payment reminder for your Credit Card ending 1234\nTotal amount due: SAR 500.00\nMinimum amount due: SAR 25.00"
+        ))
+    }
+
+    @org.junit.jupiter.api.Test
+    fun `a one-off Debit Transfer Local is read like the standing-order one`() {
+        val r = ParserRegistry.parse(
+            "AlRajhiBank",
+            "Debit Transfer Local\nBank: SNB\nFrom: 1234\nAmount: SAR 400\nTo: JOHN DOE\nTo: 5678\nFees: SAR 0.58\n26/8/7 12:01"
+        )
+        org.junit.jupiter.api.Assertions.assertNotNull(r)
+        org.junit.jupiter.api.Assertions.assertEquals(TransactionDirection.TRANSFER, r!!.type)
+        org.junit.jupiter.api.Assertions.assertEquals(400.0, r.amount, 0.001)
+        org.junit.jupiter.api.Assertions.assertEquals("JOHN DOE", r.merchant)
+        org.junit.jupiter.api.Assertions.assertEquals("1234", r.accountLast4)
+        org.junit.jupiter.api.Assertions.assertEquals("Al Rajhi Bank", r.bankName)
+    }
+
+    @org.junit.jupiter.api.Test
+    fun `a Credit Transfer Local is money in from the sender, to the user's own account`() {
+        val r = ParserRegistry.parse(
+            "AlRajhiBank",
+            "Credit Transfer Local\nVia: SARIE\nAmount: SAR 700\nTo: 1234\nFrom: JANE ROE\nFrom: 9876\n26/2/28 10:00"
+        )
+        org.junit.jupiter.api.Assertions.assertEquals(TransactionDirection.CREDIT, r!!.type)
+        org.junit.jupiter.api.Assertions.assertEquals(700.0, r.amount, 0.001)
+        org.junit.jupiter.api.Assertions.assertEquals("JANE ROE", r.merchant)
+        org.junit.jupiter.api.Assertions.assertEquals("1234", r.accountLast4)
+    }
+
+    @org.junit.jupiter.api.Test
+    fun `the 2025 Local and Internal Transfer layouts read both directions`() {
+        val out = ParserRegistry.parse(
+            "AlRajhiBank",
+            "Local Transfer\nBank: SNB\nFrom: 1234\nAmount: SAR 250\nTo: JOHN DOE\nFees: SAR 0.58\nDate: 2025-08-06"
+        )!!
+        org.junit.jupiter.api.Assertions.assertEquals(TransactionDirection.TRANSFER, out.type)
+        org.junit.jupiter.api.Assertions.assertEquals("JOHN DOE", out.merchant)
+        org.junit.jupiter.api.Assertions.assertEquals("1234", out.accountLast4)
+        val inc = ParserRegistry.parse(
+            "AlRajhiBank",
+            "Internal Transfer\nAmount: SAR 90\nTo: 1234\nFrom: JANE ROE\nDate: 2025-08-13"
+        )!!
+        org.junit.jupiter.api.Assertions.assertEquals(TransactionDirection.CREDIT, inc.type)
+        org.junit.jupiter.api.Assertions.assertEquals("JANE ROE", inc.merchant)
+        org.junit.jupiter.api.Assertions.assertEquals("1234", inc.accountLast4)
+    }
 }

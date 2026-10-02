@@ -5,6 +5,17 @@ Format: `[Date] — Summary`
 ---
 
 
+## 2026-10-02 — v0.7.17
+
+Released as v0.7.17-debug (DB v34, no migration): the entry below.
+
+## 2026-10-02 — Al Rajhi: card payments, local transfers, bill cycles
+
+- **Card payments were never recorded.** `AlRajhiParser` had no branch for "Credit Card:Payment / Card:Visa 1234 / Amount …" — 9 payments in 2026 (and every one since Aug 2025) were dropped, so Al Rajhi card bills could never settle. Now a PAYMENT named "Al Rajhi Bank card payment" on the card, which `BillMatcher` links to the open Al Rajhi statement. The 19 Sep SAR 11,340.97 payment settled the August statement.
+- **One-off transfers to other banks were dropped**: "Debit Transfer Local" only matched with the "Standing Order-" prefix. Also new: "Credit Transfer Local" (money in from another bank — this is how the Jan–Jun salaries arrived; all six were missing from Received) and the 2025 "Local Transfer" / "Internal Transfer" layouts.
+- **Pending statement offered only "Update Bill"** whenever the biller had any open bill, so September's Al Rajhi statement could only overwrite the unpaid-looking August bill. `BillStatementManager` now links for update only within the same billing cycle (`BillSettlement.isSameCycle`: due dates within a week).
+- Recovered on device from the SMS inbox (2026 only, the app's history): 9 card payments, 6 Jan–Jun salary credits (merchant rule → Salary), 24 transfers classified with the owner (new recipient rules; two sets linked to loans; 6 left in Review), 3 MOI fees and 6 monthly cashbacks.
+
 ## 2026-10-02 — v0.7.16
 
 Released as v0.7.16-debug (DB v34, no migration): the entry below.
