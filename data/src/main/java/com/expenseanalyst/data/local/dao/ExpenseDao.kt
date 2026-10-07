@@ -4,6 +4,7 @@ import androidx.room.*
 import com.expenseanalyst.data.local.entity.ExpenseEntity
 import com.expenseanalyst.data.local.relation.ExpenseWithCategory
 import com.expenseanalyst.domain.model.PaymentMethod
+import com.expenseanalyst.domain.model.TransferClassification
 import com.expenseanalyst.domain.util.NeedsReviewEvaluator
 import com.expenseanalyst.domain.util.ReviewReason
 import kotlinx.coroutines.flow.Flow
@@ -453,16 +454,36 @@ interface ExpenseDao {
     @Transaction
     suspend fun classifyTransfer(id: Long, classification: String, updatedAt: Long): Int {
         val existing = getExpenseEntityById(id) ?: return 0
-        val remaining = NeedsReviewEvaluator.remove(
-            existing.needsReviewReasons,
-            ReviewReason.UNCLASSIFIED_TRANSFER
-        )
-        return applyTransferClassification(
+        // An own-account transfer counts toward nothing, so its category no longer needs review
+        // and a generic one is replaced by "Transfer" (same as capture: CategoryInference.forTransfer).
+        val ownAccount = classification == TransferClassification.OWN_ACCOUNT.name
+        val resolved = if (ownAccount) {
+            setOf(ReviewReason.UNCLASSIFIED_TRANSFER, ReviewReason.GENERIC_CATEGORY)
+        } else {
+            setOf(ReviewReason.UNCLASSIFIED_TRANSFER)
+        }
+        val remaining = NeedsReviewEvaluator.removeAll(existing.needsReviewReasons, resolved)
+        val rows = applyTransferClassification(
             id = id,
             classification = classification,
             reasons = NeedsReviewEvaluator.encode(remaining).takeIf { it.isNotBlank() },
             needsReview = remaining.isNotEmpty(),
             updatedAt = updatedAt
         )
+        if (ownAccount && rows > 0) fileGenericUnderTransfer(id, updatedAt)
+        return rows
     }
+
+    /** A Misc/Other row moves to the "Transfer" category, if one exists; a real category is kept. */
+    @Query(
+        """
+        UPDATE expenses
+        SET category_id = (SELECT id FROM categories WHERE name = 'Transfer' ORDER BY id LIMIT 1),
+            updated_at_utc_millis = :updatedAt
+        WHERE id = :id
+          AND category_id IN (SELECT id FROM categories WHERE name IN ('Misc', 'Other'))
+          AND EXISTS (SELECT 1 FROM categories WHERE name = 'Transfer')
+        """
+    )
+    suspend fun fileGenericUnderTransfer(id: Long, updatedAt: Long): Int
 }

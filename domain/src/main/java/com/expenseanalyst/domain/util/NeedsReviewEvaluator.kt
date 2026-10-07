@@ -45,9 +45,10 @@ object NeedsReviewEvaluator {
         accountIdentified: Boolean = accountLastFour != null
     ): List<ReviewReason> = buildList {
         if (merchantName.isNullOrBlank()) add(ReviewReason.MISSING_MERCHANT)
-        // A PAYMENT (card bill, BNPL purchase) counts toward no total, so its category changes
-        // nothing — flagging it put every card payment in Review as "Misc".
-        if (categoryName in GENERIC_CATEGORY_NAMES && transactionType != TransactionType.PAYMENT) {
+        // A PAYMENT (card bill, BNPL purchase) or an own-account transfer counts toward no
+        // total, so its category changes nothing — flagging it put every card payment and every
+        // transfer to the user's own account in Review as "Misc".
+        if (categoryName in GENERIC_CATEGORY_NAMES && !countsTowardNothing(transactionType, transferClassification)) {
             add(ReviewReason.GENERIC_CATEGORY)
         }
         if (paymentMethod == PaymentMethod.OTHER) add(ReviewReason.UNKNOWN_PAYMENT_METHOD)
@@ -65,6 +66,10 @@ object NeedsReviewEvaluator {
      */
     fun remove(raw: String?, reason: ReviewReason): List<ReviewReason> =
         decode(raw).filterNot { it == reason }
+
+    private fun countsTowardNothing(type: TransactionType, classification: TransferClassification?) =
+        type == TransactionType.PAYMENT ||
+            (type == TransactionType.TRANSFER && classification == TransferClassification.OWN_ACCOUNT)
 
     /**
      * Reasons a payment no longer needs once the user has linked it to a bill: the bill says what

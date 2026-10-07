@@ -5,6 +5,15 @@ Format: `[Date] — Summary`
 ---
 
 
+## 2026-10-07 — v0.7.19
+
+Released as v0.7.19-debug (DB v34, no migration): the entry below.
+
+## 2026-10-07 — Own-account transfers leave Review
+
+- A transfer to the user's own account counts toward nothing, so it is no longer flagged for a generic category (like card payments) and is filed under "Transfer" instead of Misc — at live capture and SMS Import (`CategoryInference.forTransfer`), and when marked "My account" in Review or on the detail screen (`ExpenseDao.classifyTransfer`, Misc/Other only). External transfers still get the category flag: they count as Spent.
+- On device: 5 own-account transfers moved from Misc to Transfer; Review is empty.
+
 ## 2026-10-02 — v0.7.18
 
 Released as v0.7.18-debug (DB v34, no migration): the entry below.

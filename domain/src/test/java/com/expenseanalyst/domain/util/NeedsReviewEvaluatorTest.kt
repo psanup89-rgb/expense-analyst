@@ -178,4 +178,23 @@ class NeedsReviewEvaluatorTest {
         )
         assertTrue(NeedsReviewEvaluator.removeAll(onlyLinkable, NeedsReviewEvaluator.RESOLVED_BY_BILL_LINK).isEmpty())
     }
+
+    @Test
+    fun `an own-account transfer is not flagged for a generic category, an external one is`() {
+        assertTrue(
+            evaluate(
+                categoryName = "Misc",
+                transactionType = TransactionType.TRANSFER,
+                transferClassification = TransferClassification.OWN_ACCOUNT
+            ).isEmpty()
+        )
+        assertEquals(
+            listOf(ReviewReason.GENERIC_CATEGORY),
+            evaluate(
+                categoryName = "Misc",
+                transactionType = TransactionType.TRANSFER,
+                transferClassification = TransferClassification.EXTERNAL
+            )
+        )
+    }
 }

@@ -278,4 +278,25 @@ class CategoryInferenceTest {
         )
         assertEquals("Refund", result?.name)
     }
+
+    @Test
+    fun `an own-account transfer is filed under Transfer, others keep their category`() {
+        val misc = allCategories.first { it.name == "Misc" }
+        val bills = allCategories.first { it.name == "Bills" }
+        assertEquals(
+            "Transfer",
+            CategoryInference.forTransfer(misc, allCategories, com.expenseanalyst.domain.model.TransferClassification.OWN_ACCOUNT).name
+        )
+        assertEquals(
+            "Bills",
+            CategoryInference.forTransfer(bills, allCategories, com.expenseanalyst.domain.model.TransferClassification.EXTERNAL).name
+        )
+        assertEquals("Misc", CategoryInference.forTransfer(misc, allCategories, null).name)
+        // no Transfer category → keep what was inferred
+        val noTransfer = allCategories.filterNot { it.name == "Transfer" }
+        assertEquals(
+            "Misc",
+            CategoryInference.forTransfer(misc, noTransfer, com.expenseanalyst.domain.model.TransferClassification.OWN_ACCOUNT).name
+        )
+    }
 }

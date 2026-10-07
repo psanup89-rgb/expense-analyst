@@ -318,7 +318,7 @@ class SmsImportViewModel @Inject constructor(
                     homeAmount = null,
                     exchangeRate = null,
                     description = "",
-                    category = category,
+                    category = CategoryInference.forTransfer(category, categories, transferClassification),
                     paymentMethod = effectivePaymentMethod,
                     transactionType = transactionType,
                     date = Instant.fromEpochMilliseconds(sms.timestampMs),

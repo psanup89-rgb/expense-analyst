@@ -153,7 +153,7 @@ class PendingNotificationManager @Inject constructor(
             val merchantName = normalized.merchant?.takeIf { it.isNotBlank() }
                 ?: normalized.bankName.takeIf { it != "Unknown Bank" }
                 ?: normalized.bankName
-            val category = CategoryInference.infer(
+            val inferredCategory = CategoryInference.infer(
                 merchantName, normalized.bankName, categories,
                 smsBody = normalized.rawBody, merchantRules = merchantRules,
                 upiDebit = normalized.type == TransactionDirection.DEBIT && normalized.paymentMethodName == "UPI"
@@ -221,6 +221,7 @@ class PendingNotificationManager @Inject constructor(
             } else {
                 null
             }
+            val category = CategoryInference.forTransfer(inferredCategory, categories, transferClassification)
 
             // ── Refund matching: for a Refund-category INCOME, find the original expense it
             // refunds (same amount+currency, within RefundMatcher's window) and inherit its

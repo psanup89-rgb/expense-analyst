@@ -1,6 +1,7 @@
 package com.expenseanalyst.domain.util
 
 import com.expenseanalyst.domain.model.Category
+import com.expenseanalyst.domain.model.TransferClassification
 import com.expenseanalyst.domain.model.MerchantRule
 
 /**
@@ -200,6 +201,26 @@ object CategoryInference {
      * Finds a category by name, using exact match first, then startsWith fallback.
      * Handles user renames like "Food" → "Food & Drinks".
      */
+    /**
+     * An own-account transfer counts toward no total, so whatever the merchant name suggested
+     * it is filed under "Transfer" (falls back to [inferred] if that category was deleted).
+     * Without this, transfers to the user's own name landed in Misc and sat in Review for a
+     * category that changes nothing. Used by both capture sites; ExpenseDao.applyTransferClassification
+     * does the same when the user marks a transfer "My account".
+     */
+    fun forTransfer(
+        inferred: Category,
+        categories: List<Category>,
+        classification: TransferClassification?
+    ): Category =
+        if (classification == TransferClassification.OWN_ACCOUNT) {
+            findCategory(categories, TRANSFER_CATEGORY) ?: inferred
+        } else {
+            inferred
+        }
+
+    const val TRANSFER_CATEGORY = "Transfer"
+
     private fun findCategory(categories: List<Category>, name: String): Category? =
         categories.find { it.name.equals(name, ignoreCase = true) }
             ?: categories.find { it.name.startsWith(name, ignoreCase = true) }
