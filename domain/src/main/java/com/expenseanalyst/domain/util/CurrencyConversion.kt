@@ -49,6 +49,22 @@ object CurrencyConversion {
         }
     }
 
+    /**
+     * Converts [amount] between two currencies through the shared base rate, or null when either
+     * rate is missing. Same derivation as [resolve], for values that aren't an Expense row.
+     */
+    fun convert(
+        amount: Double,
+        fromCode: String,
+        toCode: String,
+        ratesByCode: Map<String, CurrencyRate>
+    ): Double? {
+        if (fromCode == toCode) return amount
+        val toRate = ratesByCode[toCode]?.rateToBase ?: return null
+        val fromRate = ratesByCode[fromCode]?.rateToBase?.takeIf { it > 0.0 } ?: return null
+        return amount * toRate / fromRate
+    }
+
     fun needsSync(
         expense: Expense,
         homeCurrencyCode: String,

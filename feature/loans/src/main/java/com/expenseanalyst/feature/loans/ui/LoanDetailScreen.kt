@@ -45,6 +45,7 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.expenseanalyst.domain.model.LentStatus
+import com.expenseanalyst.domain.util.LoanBalance
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -116,8 +117,15 @@ fun LoanDetailScreen(
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.primary
                     )
+                    val balance = uiState.balance
                     Text(
-                        text = if (item.status == LentStatus.PENDING) "Pending repayment" else "Settled",
+                        text = when {
+                            item.status == LentStatus.SETTLED -> "Settled"
+                            uiState.awaitingSettle -> "Fully repaid"
+                            balance != null && balance.repaid > 0.0 ->
+                                "${item.currencyCode} ${"%.2f".format(balance.remaining)} still owed"
+                            else -> "Pending repayment"
+                        },
                         style = MaterialTheme.typography.bodyMedium,
                         color = if (item.status == LentStatus.PENDING)
                             MaterialTheme.colorScheme.secondary
@@ -139,6 +147,11 @@ fun LoanDetailScreen(
 
                     HorizontalDivider()
 
+                    if (balance != null) {
+                        BalanceSummary(balance)
+                        HorizontalDivider()
+                    }
+
                     LoanLegsSection(
                         legs = uiState.legs,
                         principal = item.amount,
@@ -146,6 +159,16 @@ fun LoanDetailScreen(
                     )
 
                     HorizontalDivider()
+
+                    if (uiState.awaitingSettle) {
+                        // Asked, never automatic (owner's choice): the repayments add up, but the
+                        // user decides when the loan is closed.
+                        Text(
+                            text = "${item.personName} has repaid the full amount. Settle this loan?",
+                            style = MaterialTheme.typography.bodyMedium,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                    }
 
                     if (item.status == LentStatus.PENDING) {
                         Button(
@@ -188,7 +211,15 @@ fun LoanDetailScreen(
         AlertDialog(
             onDismissRequest = viewModel::hideSettleDialog,
             title = { Text("Mark as Settled") },
-            text = { Text("This closes the loan. It does not create a transaction — link the actual repayment from its own detail screen so it stays out of your Received total.") },
+            text = {
+                Text(
+                    if (uiState.awaitingSettle) {
+                        "The linked repayments cover the full amount. Settling closes the loan and stops its reminders."
+                    } else {
+                        "This closes the loan. It does not create a transaction — link the actual repayment from its own detail screen so it stays out of your Received total."
+                    }
+                )
+            },
             confirmButton = {
                 Button(onClick = viewModel::markSettled) { Text("Settle") }
             },
@@ -228,6 +259,39 @@ fun LoanDetailScreen(
     }
 }
 
+/**
+ * Lent · Repaid · Remaining, in the loan's currency. Repayments in other currencies are converted
+ * (LoanBalance); repaying more than was lent shows Remaining 0 and the extra is ignored.
+ */
+@Composable
+private fun BalanceSummary(balance: LoanBalance) {
+    val fmt = { v: Double -> "${balance.currencyCode} ${"%.2f".format(v)}" }
+    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+        listOf(
+            "Lent" to balance.principal,
+            "Repaid" to balance.repaid.coerceAtMost(balance.principal),
+            "Remaining" to balance.remaining
+        ).forEach { (label, value) ->
+            Column(horizontalAlignment = if (label == "Lent") Alignment.Start else Alignment.End) {
+                Text(label, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(
+                    text = fmt(value),
+                    style = MaterialTheme.typography.bodyMedium,
+                    fontWeight = FontWeight.Bold,
+                    maxLines = 1
+                )
+            }
+        }
+    }
+    if (balance.repaid > balance.principal + LoanBalance.TOLERANCE) {
+        Text(
+            text = "Repaid ${fmt(balance.repaid - balance.principal)} more than lent — the extra isn't counted.",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+    }
+}
+
 @Composable
 private fun DetailRow(label: String, value: String) {
     Row(
@@ -253,7 +317,7 @@ private fun DetailRow(label: String, value: String) {
  * The transactions linked to a loan, grouped into money lent out and money repaid. A loan can be
  * lent in several transfers and repaid in several, and its principal is stored independently of
  * these rows — so a loan whose lending predates the app's history still shows its repayments.
- * Totals are in the home currency because the two sides are often in different currencies.
+ * The totals are in [BalanceSummary].
  */
 @Composable
 private fun LoanLegsSection(

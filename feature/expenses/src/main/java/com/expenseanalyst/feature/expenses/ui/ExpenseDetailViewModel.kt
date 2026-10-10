@@ -25,6 +25,7 @@ import com.expenseanalyst.domain.repository.TagRepository
 import com.expenseanalyst.domain.repository.TransferRecipientRuleRepository
 import com.expenseanalyst.domain.usecase.GetExpenseByIdUseCase
 import com.expenseanalyst.domain.usecase.SoftDeleteExpenseUseCase
+import com.expenseanalyst.domain.util.LoanBalance
 import com.expenseanalyst.domain.util.MerchantRuleMatcher
 import com.expenseanalyst.domain.util.SpendClassifier
 import com.expenseanalyst.domain.util.TransferRecipientMatcher
@@ -63,6 +64,8 @@ data class ExpenseDetailUiState(
     val pendingLoans: List<LentItem> = emptyList(),
     /** The loan this row is already linked to, if any. */
     val linkedLoan: LentItem? = null,
+    /** Set after a repayment covers the rest of this loan: the screen asks whether to settle it. */
+    val loanToSettle: LentItem? = null,
     val showTransferSheet: Boolean = false,
     /** Non-null when a remembered rule already exists for this transfer's recipient. */
     val existingTransferRule: TransferRecipientRule? = null
@@ -268,6 +271,16 @@ class ExpenseDetailViewModel @Inject constructor(
         _ui.value = _ui.value.copy(ruleSaved = false)
     }
 
+    /** Each loan's balance, so the link sheet can show what is still owed rather than the principal. */
+    val loanBalances: StateFlow<Map<Long, LoanBalance>> = combine(
+        lentRepository.getLentItems(),
+        expenseRepository.getLoanLegs(),
+        currencyRepository.getRates()
+    ) { loans, legs, rates ->
+        val ratesByCode = rates.associateBy { it.currencyCode }
+        loans.associate { it.id to LoanBalance.of(it, legs, ratesByCode) }
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyMap())
+
     fun showLoanSheet() = _ui.update { it.copy(showLoanSheet = true) }
     fun dismissLoanSheet() = _ui.update { it.copy(showLoanSheet = false) }
 
@@ -275,18 +288,26 @@ class ExpenseDetailViewModel @Inject constructor(
      * Starts a new loan from this row (money the user lent out) and links the row as its first
      * outgoing leg. The loan's principal is stored on the loan itself, not derived from its legs,
      * so a loan whose lending predates the app's history can still exist and receive repayments.
+     *
+     * [personName] is asked for rather than taken from the merchant: when the user lends their
+     * card, the merchant is the shop the friend paid, not the friend.
      */
-    fun startLoanFromThisRow() {
+    fun startLoanFromThisRow(personName: String) {
+        val person = personName.trim().takeIf { it.isNotBlank() } ?: return
         viewModelScope.launch {
             val expense = uiState.first().expense ?: return@launch
-            val person = expense.merchantName?.takeIf { it.isNotBlank() } ?: return@launch
+            val merchant = expense.merchantName?.takeIf { it.isNotBlank() }
             val loanId = lentRepository.addLentItem(
                 LentItem(
                     personName = person,
                     amount = expense.amount,
                     currencyCode = expense.currencyCode,
                     homeAmount = expense.homeAmount,
-                    description = "Lent to $person",
+                    description = if (merchant != null && !merchant.equals(person, ignoreCase = true)) {
+                        "Paid at $merchant"
+                    } else {
+                        "Lent to $person"
+                    },
                     lentDateMillis = expense.date.toEpochMilliseconds(),
                     linkedExpenseId = expense.id
                 )
@@ -305,6 +326,16 @@ class ExpenseDetailViewModel @Inject constructor(
         viewModelScope.launch {
             val expense = uiState.first().expense ?: return@launch
             expenseRepository.linkToLoan(expense.id, loan.id, isRepayment)
+            if (isRepayment) {
+                // Ask, never settle on its own (owner's choice). Reads the legs back after the
+                // link so this repayment is included.
+                val legs = expenseRepository.getExpensesByLoan(loan.id).first()
+                val rates = currencyRepository.getRates().first().associateBy { it.currencyCode }
+                if (LoanBalance.of(loan, legs, rates).isFullyRepaid) {
+                    _ui.update { it.copy(showLoanSheet = false, loanToSettle = loan) }
+                    return@launch
+                }
+            }
             if (!isRepayment && expense.currencyCode == loan.currencyCode) {
                 val loanHome = loan.homeAmount
                 val legHome = expense.homeAmount
@@ -316,6 +347,32 @@ class ExpenseDetailViewModel @Inject constructor(
                 )
             }
             _ui.update { it.copy(showLoanSheet = false) }
+        }
+    }
+
+    fun dismissSettlePrompt() = _ui.update { it.copy(loanToSettle = null) }
+
+    /**
+     * Closes the loan the last repayment paid off. The reminder needs no cancelling here:
+     * LentReminderWorker skips a settled loan.
+     */
+    fun settlePromptedLoan() {
+        val prompted = _ui.value.loanToSettle ?: return
+        _ui.update { it.copy(loanToSettle = null) }
+        viewModelScope.launch {
+            val loan = lentRepository.getLentItemById(prompted.id) ?: return@launch
+            val legs = expenseRepository.getExpensesByLoan(loan.id).first()
+            val rates = currencyRepository.getRates().first().associateBy { it.currencyCode }
+            val repaid = LoanBalance.of(loan, legs, rates).repaid
+            lentRepository.updateLentItem(
+                loan.copy(
+                    status = LentStatus.SETTLED,
+                    settledDateMillis = System.currentTimeMillis(),
+                    // An overpayment is ignored, so what settled it is at most the principal.
+                    settledAmount = repaid.coerceAtMost(loan.amount),
+                    reminderDatetimeMillis = null
+                )
+            )
         }
     }
 

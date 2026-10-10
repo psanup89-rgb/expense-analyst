@@ -6,13 +6,16 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.expenseanalyst.domain.model.LentItem
 import com.expenseanalyst.domain.model.LentStatus
+import com.expenseanalyst.domain.repository.CurrencyRepository
 import com.expenseanalyst.domain.repository.LentRepository
+import com.expenseanalyst.domain.util.CurrencyConversion
 import com.expenseanalyst.feature.loans.service.LentReminderScheduler
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import javax.inject.Inject
@@ -21,10 +24,14 @@ import javax.inject.Inject
 class AddLoanViewModel @Inject constructor(
     savedStateHandle: SavedStateHandle,
     @ApplicationContext private val context: Context,
-    private val lentRepository: LentRepository
+    private val lentRepository: LentRepository,
+    private val currencyRepository: CurrencyRepository
 ) : ViewModel() {
 
     private val loanId: Long? = savedStateHandle.get<Long>("loanId")?.takeIf { it != -1L }
+
+    /** The loan as stored, so an edit keeps the fields this form doesn't show. */
+    private var existing: LentItem? = null
 
     private val _uiState = MutableStateFlow(AddLoanUiState(loanId = loanId))
     val uiState: StateFlow<AddLoanUiState> = _uiState.asStateFlow()
@@ -37,6 +44,7 @@ class AddLoanViewModel @Inject constructor(
         _uiState.update { it.copy(isLoading = true) }
         viewModelScope.launch {
             lentRepository.getLentItemById(id)?.let { item ->
+                existing = item
                 _uiState.update {
                     it.copy(
                         personName = item.personName,
@@ -68,11 +76,25 @@ class AddLoanViewModel @Inject constructor(
         val amount = state.amountInput.toDoubleOrNull() ?: return
         _uiState.update { it.copy(isSaving = true) }
         viewModelScope.launch {
-            val item = LentItem(
+            val stored = existing
+            val homeAmount = homeAmountOf(amount, state.currencyCode)
+                ?: stored?.homeAmount?.takeIf { stored.amount == amount && stored.currencyCode == state.currencyCode }
+            // Editing used to rebuild the loan from the form alone, which wiped its home amount and
+            // the transaction it was started from, and reopened a settled loan.
+            val item = stored?.copy(
+                personName = state.personName.trim(),
+                amount = amount,
+                currencyCode = state.currencyCode,
+                homeAmount = homeAmount,
+                description = state.description.trim(),
+                lentDateMillis = state.lentDateMillis,
+                reminderDatetimeMillis = state.reminderDatetimeMillis
+            ) ?: LentItem(
                 id = loanId ?: 0L,
                 personName = state.personName.trim(),
                 amount = amount,
                 currencyCode = state.currencyCode,
+                homeAmount = homeAmount,
                 description = state.description.trim(),
                 lentDateMillis = state.lentDateMillis,
                 status = LentStatus.PENDING,
@@ -84,10 +106,19 @@ class AddLoanViewModel @Inject constructor(
             } else {
                 lentRepository.addLentItem(item)
             }
-            state.reminderDatetimeMillis?.let { reminderAt ->
+            val reminderAt = state.reminderDatetimeMillis
+            if (reminderAt != null) {
                 LentReminderScheduler.schedule(context, savedId, reminderAt)
+            } else if (stored?.reminderDatetimeMillis != null) {
+                LentReminderScheduler.cancel(context, savedId)
             }
             _uiState.update { it.copy(isSaving = false, saved = true) }
         }
+    }
+
+    private suspend fun homeAmountOf(amount: Double, currencyCode: String): Double? {
+        val home = currencyRepository.getHomeCurrency().first()
+        val rates = currencyRepository.getRates().first().associateBy { it.currencyCode }
+        return CurrencyConversion.convert(amount, currencyCode, home, rates)
     }
 }

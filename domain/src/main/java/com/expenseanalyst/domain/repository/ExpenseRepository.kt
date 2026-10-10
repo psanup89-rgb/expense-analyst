@@ -83,6 +83,9 @@ interface ExpenseRepository {
     /** Every non-deleted row linked to [loanId], oldest first. */
     fun getExpensesByLoan(loanId: Long): Flow<List<Expense>>
 
+    /** Every non-deleted row linked to any loan — for loan balances across the list. */
+    fun getLoanLegs(): Flow<List<Expense>>
+
     /**
      * Links an expense to a loan as its outgoing or incoming leg. Targeted update — not
      * updateExpense. For a TRANSFER it also stamps the direction (see ExpenseDao.linkLoanLeg).

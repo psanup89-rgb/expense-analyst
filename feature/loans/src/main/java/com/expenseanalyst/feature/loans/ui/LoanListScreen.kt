@@ -41,6 +41,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.expenseanalyst.domain.model.LentItem
 import com.expenseanalyst.domain.model.LentStatus
+import com.expenseanalyst.domain.util.LoanBalance
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -100,7 +101,7 @@ fun LoanListScreen(
 
             if (!uiState.showSettled && uiState.pendingItems.isNotEmpty()) {
                 Text(
-                    text = "Total pending: ${uiState.pendingItems.firstOrNull()?.currencyCode ?: ""} ${"%.2f".format(uiState.totalPendingAmount)}",
+                    text = "Still owed: ${uiState.homeCurrency} ${"%.2f".format(uiState.totalPendingHome)}",
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.primary,
                     modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)
@@ -129,7 +130,7 @@ fun LoanListScreen(
                     verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     items(uiState.displayedItems, key = { it.id }) { item ->
-                        LoanCard(item = item, onClick = { onLoanClick(item.id) })
+                        LoanCard(item = item, balance = uiState.balances[item.id], onClick = { onLoanClick(item.id) })
                     }
                 }
             }
@@ -138,7 +139,7 @@ fun LoanListScreen(
 }
 
 @Composable
-private fun LoanCard(item: LentItem, onClick: () -> Unit) {
+private fun LoanCard(item: LentItem, balance: LoanBalance?, onClick: () -> Unit) {
     val dateStr = SimpleDateFormat("dd MMM yyyy", Locale.getDefault())
         .format(Date(item.lentDateMillis))
 
@@ -175,15 +176,26 @@ private fun LoanCard(item: LentItem, onClick: () -> Unit) {
                 )
             }
             Column(horizontalAlignment = Alignment.End) {
+                // A pending loan leads with what is still owed; the original amount moves below
+                // once anything has been repaid.
+                val isPending = item.status == LentStatus.PENDING
+                val partlyRepaid = isPending && balance != null && balance.repaid > 0.0
                 Text(
-                    text = "${item.currencyCode} ${"%.2f".format(item.amount)}",
+                    text = "${item.currencyCode} ${"%.2f".format(if (partlyRepaid) balance?.remaining ?: item.amount else item.amount)}",
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold,
-                    color = if (item.status == LentStatus.PENDING)
+                    color = if (isPending)
                         MaterialTheme.colorScheme.primary
                     else
                         MaterialTheme.colorScheme.onSurfaceVariant
                 )
+                if (partlyRepaid) {
+                    Text(
+                        text = if (balance?.isFullyRepaid == true) "Fully repaid" else "left of ${"%.2f".format(item.amount)}",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
                 if (item.reminderDatetimeMillis != null && item.status == LentStatus.PENDING) {
                     Spacer(Modifier.height(4.dp))
                     Icon(

@@ -130,6 +130,10 @@ interface ExpenseDao {
     @Query("SELECT * FROM expenses WHERE is_deleted = 0 AND loan_id = :loanId ORDER BY date_utc_millis ASC")
     fun getExpensesByLoanId(loanId: Long): Flow<List<ExpenseWithCategory>>
 
+    @Transaction
+    @Query("SELECT * FROM expenses WHERE is_deleted = 0 AND loan_id IS NOT NULL")
+    fun getLoanLegs(): Flow<List<ExpenseWithCategory>>
+
     /**
      * Links (or, with a null [loanId], unlinks) one expense to a loan. Targeted single-column
      * write for the same reason as [updateDescription]: a full-row updateExpense would null

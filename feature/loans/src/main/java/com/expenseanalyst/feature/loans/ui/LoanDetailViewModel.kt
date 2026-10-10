@@ -5,15 +5,17 @@ import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.expenseanalyst.domain.model.LentStatus
+import com.expenseanalyst.domain.repository.CurrencyRepository
 import com.expenseanalyst.domain.repository.ExpenseRepository
 import com.expenseanalyst.domain.repository.LentRepository
-import com.expenseanalyst.domain.util.SpendClassifier
+import com.expenseanalyst.domain.util.LoanBalance
 import com.expenseanalyst.feature.loans.service.LentReminderScheduler
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import javax.inject.Inject
@@ -23,7 +25,8 @@ class LoanDetailViewModel @Inject constructor(
     savedStateHandle: SavedStateHandle,
     @ApplicationContext private val context: Context,
     private val lentRepository: LentRepository,
-    private val expenseRepository: ExpenseRepository
+    private val expenseRepository: ExpenseRepository,
+    private val currencyRepository: CurrencyRepository
 ) : ViewModel() {
 
     private val loanId: Long = checkNotNull(savedStateHandle["loanId"])
@@ -34,16 +37,32 @@ class LoanDetailViewModel @Inject constructor(
     init {
         load()
         viewModelScope.launch {
-            expenseRepository.getExpensesByLoan(loanId).collect { legs ->
-                _uiState.update { it.copy(legs = legs) }
-            }
+            combine(
+                expenseRepository.getExpensesByLoan(loanId),
+                currencyRepository.getRates()
+            ) { legs, rates -> legs to rates.associateBy { it.currencyCode } }
+                .collect { (legs, ratesByCode) ->
+                    _uiState.update { state ->
+                        state.copy(
+                            legs = legs,
+                            ratesByCode = ratesByCode,
+                            balance = state.item?.let { LoanBalance.of(it, legs, ratesByCode) }
+                        )
+                    }
+                }
         }
     }
 
     private fun load() {
         viewModelScope.launch {
             val item = lentRepository.getLentItemById(loanId)
-            _uiState.update { it.copy(item = item, isLoading = false) }
+            _uiState.update { state ->
+                state.copy(
+                    item = item,
+                    balance = item?.let { LoanBalance.of(it, state.legs, state.ratesByCode) },
+                    isLoading = false
+                )
+            }
         }
     }
 
@@ -64,13 +83,12 @@ class LoanDetailViewModel @Inject constructor(
             // named "Refund" existed. Repayments are now real transactions the user links to the
             // loan from their own detail screen, and linked legs stay out of both totals. This
             // just records the loan as closed, using what was actually repaid when it is known.
-            val repaid = uiState.value.legs
-                .filter { SpendClassifier.isLoanRepayment(it) }
-                .sumOf { SpendClassifier.homeValue(it) }
+            // In the loan's currency, capped at the principal: an overpayment is ignored.
+            val repaid = uiState.value.balance?.repaid ?: 0.0
             val settled = item.copy(
                 status = LentStatus.SETTLED,
                 settledDateMillis = System.currentTimeMillis(),
-                settledAmount = if (repaid > 0.0) repaid else item.amount,
+                settledAmount = if (repaid > 0.0) repaid.coerceAtMost(item.amount) else item.amount,
                 reminderDatetimeMillis = null
             )
             lentRepository.updateLentItem(settled)

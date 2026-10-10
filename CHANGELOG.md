@@ -5,6 +5,17 @@ Format: `[Date] — Summary`
 ---
 
 
+## 2026-10-10 — v0.7.20
+
+Released as v0.7.20-debug (DB v34, no migration): the entry below.
+
+## 2026-10-10 — Loans track repayments to the full amount
+
+- Loan detail shows **Lent · Repaid · Remaining** in the loan's currency (`domain/util/LoanBalance`); repayments in another currency are converted (`CurrencyConversion.convert`). The loan list leads with what is still owed, and "Still owed" totals pending loans in the home currency (it used to add raw amounts across currencies under the first loan's code).
+- When a linked repayment covers the rest of a loan, the app **asks** whether to settle it — a dialog on the transaction, and a prompt on the loan — never automatically. Repaying more than was lent is ignored: remaining stops at 0 and the extra never counts as income.
+- "Start a new loan" asks who the loan is to: for a lent credit card the merchant is the shop, not the friend. The shop is kept in the description ("Paid at …"). The link sheet shows each loan's remaining amount.
+- Editing a loan no longer wipes its home amount and originating transaction or reopens a settled loan; clearing its reminder cancels it.
+
 ## 2026-10-07 — v0.7.19
 
 Released as v0.7.19-debug (DB v34, no migration): the entry below.

@@ -151,6 +151,9 @@ class ExpenseRepositoryImpl @Inject constructor(
     override fun getExpensesByLoan(loanId: Long): Flow<List<Expense>> =
         expenseDao.getExpensesByLoanId(loanId).map { list -> list.map { it.toDomain() } }
 
+    override fun getLoanLegs(): Flow<List<Expense>> =
+        expenseDao.getLoanLegs().map { list -> list.map { it.toDomain() } }
+
     override suspend fun linkToLoan(id: Long, loanId: Long, isRepayment: Boolean): Int =
         expenseDao.linkLoanLeg(
             id = id,

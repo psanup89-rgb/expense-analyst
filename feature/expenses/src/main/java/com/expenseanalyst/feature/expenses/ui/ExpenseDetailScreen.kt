@@ -1,6 +1,7 @@
 package com.expenseanalyst.feature.expenses.ui
 
 import androidx.compose.ui.text.style.TextOverflow
+import com.expenseanalyst.domain.util.LoanBalance
 import com.expenseanalyst.domain.util.ReviewReason
 import com.expenseanalyst.core.theme.expenseColors
 import androidx.compose.foundation.background
@@ -46,6 +47,7 @@ import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
@@ -169,14 +171,31 @@ fun ExpenseDetailScreen(
                 sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
                 containerColor = MaterialTheme.colorScheme.surfaceContainerLow
             ) {
+                val loanBalances by viewModel.loanBalances.collectAsStateWithLifecycle()
                 LoanLinkSheet(
                     expense = expense,
                     pendingLoans = uiState.pendingLoans,
+                    balances = loanBalances,
                     onStartLoan = viewModel::startLoanFromThisRow,
                     onLink = viewModel::linkToLoan
                 )
             }
         }
+    }
+
+    uiState.loanToSettle?.let { loan ->
+        AlertDialog(
+            onDismissRequest = viewModel::dismissSettlePrompt,
+            title = { Text("Loan fully repaid") },
+            text = {
+                Text(
+                    "${loan.personName} has now repaid the full ${loan.currencyCode} ${"%.2f".format(loan.amount)}. " +
+                        "Mark this loan as settled?"
+                )
+            },
+            confirmButton = { Button(onClick = viewModel::settlePromptedLoan) { Text("Settle") } },
+            dismissButton = { TextButton(onClick = viewModel::dismissSettlePrompt) { Text("Not yet") } }
+        )
     }
 
     if (uiState.showTransferSheet) {
@@ -1103,7 +1122,8 @@ private fun TransferOptionRow(
 private fun LoanLinkSheet(
     expense: Expense,
     pendingLoans: List<LentItem>,
-    onStartLoan: () -> Unit,
+    balances: Map<Long, LoanBalance>,
+    onStartLoan: (String) -> Unit,
     onLink: (LentItem, Boolean) -> Unit
 ) {
     val canBeLentOut = when (expense.transactionType) {
@@ -1116,7 +1136,22 @@ private fun LoanLinkSheet(
         TransactionType.TRANSFER -> expense.transferClassification != TransferClassification.EXTERNAL
         else -> false
     }
-    val person = expense.merchantName?.takeIf { it.isNotBlank() }
+    // A transfer's merchant is the recipient, a good default for who borrowed. A card purchase's
+    // merchant is the shop — the user lent their card — so the name starts empty there.
+    var personName by remember(expense.id) {
+        mutableStateOf(
+            if (expense.transactionType == TransactionType.TRANSFER) expense.merchantName.orEmpty() else ""
+        )
+    }
+    var askingName by remember(expense.id) { mutableStateOf(false) }
+    val owed = { loan: LentItem ->
+        val b = balances[loan.id]
+        if (b != null && b.repaid > 0.0) {
+            "${loan.currencyCode} ${"%.2f".format(b.remaining)} still owed of ${"%.2f".format(loan.amount)}"
+        } else {
+            "${loan.currencyCode} ${"%.2f".format(loan.amount)} lent"
+        }
+    }
 
     Column(modifier = Modifier.padding(bottom = 28.dp)) {
         Text(
@@ -1134,18 +1169,34 @@ private fun LoanLinkSheet(
         )
 
         if (canBeLentOut) {
-            if (person != null) {
+            if (!askingName) {
                 ListItem(
-                    headlineContent = { Text("Start a new loan to $person") },
-                    supportingContent = { Text("This transaction is the money lent out") },
+                    headlineContent = { Text("Start a new loan") },
+                    supportingContent = { Text("This transaction is the money lent out — e.g. a friend used your card") },
                     colors = ListItemDefaults.colors(containerColor = Color.Transparent),
-                    modifier = Modifier.clickable(onClick = onStartLoan)
+                    modifier = Modifier.clickable { askingName = true }
                 )
+            } else {
+                Column(modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp)) {
+                    OutlinedTextField(
+                        value = personName,
+                        onValueChange = { personName = it },
+                        label = { Text("Who is this loan to?") },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    Spacer(Modifier.height(8.dp))
+                    Button(
+                        onClick = { onStartLoan(personName) },
+                        enabled = personName.isNotBlank(),
+                        modifier = Modifier.fillMaxWidth()
+                    ) { Text("Start loan") }
+                }
             }
             pendingLoans.forEach { loan ->
                 ListItem(
                     headlineContent = { Text("Lent out — add to ${loan.personName}'s loan") },
-                    supportingContent = { Text("${loan.currencyCode} ${"%.2f".format(loan.amount)} · another instalment lent") },
+                    supportingContent = { Text("${owed(loan)} · another amount lent") },
                     colors = ListItemDefaults.colors(containerColor = Color.Transparent),
                     modifier = Modifier.clickable { onLink(loan, false) }
                 )
@@ -1155,7 +1206,7 @@ private fun LoanLinkSheet(
             pendingLoans.forEach { loan ->
                 ListItem(
                     headlineContent = { Text("Repayment of ${loan.personName}'s loan") },
-                    supportingContent = { Text("${loan.currencyCode} ${"%.2f".format(loan.amount)} lent") },
+                    supportingContent = { Text(owed(loan)) },
                     colors = ListItemDefaults.colors(containerColor = Color.Transparent),
                     modifier = Modifier.clickable { onLink(loan, true) }
                 )
