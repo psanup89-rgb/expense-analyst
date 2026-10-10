@@ -4,7 +4,7 @@
 **DB version**: 34
 **Build**: `./gradlew clean assembleDebug` ✅
 **Repo**: `https://github.com/psanup89-rgb/expense-analyst` (public)
-**Release**: v0.7.19-debug (GitHub Release with APK)
+**Release**: v0.7.20-debug (GitHub Release with APK)
 
 ---
 
