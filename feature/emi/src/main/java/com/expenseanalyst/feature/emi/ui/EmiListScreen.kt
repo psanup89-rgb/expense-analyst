@@ -42,17 +42,21 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.expenseanalyst.core.util.CurrencyFormatter
 import com.expenseanalyst.core.util.DateTimeUtil
 import com.expenseanalyst.domain.model.EmiGroup
+import com.expenseanalyst.domain.util.BnplPlan
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun EmiListScreen(
     onNavigateToDetail: (Long) -> Unit,
+    /** A Tabby/Tamara plan, by its purchase record's id. */
+    onBnplPlanClick: (Long) -> Unit = {},
     viewModel: EmiListViewModel = hiltViewModel(),
     /** Inside the Dues tab: the host draws the title and tabs, so no top bar. */
     embedded: Boolean = false
@@ -77,8 +81,8 @@ fun EmiListScreen(
             return@Scaffold
         }
 
-        val displayGroups = if (uiState.showCompleted) uiState.completedGroups else uiState.activeGroups
-        val isEmpty = displayGroups.isEmpty()
+        val displayItems = uiState.displayItems
+        val isEmpty = displayItems.isEmpty()
 
         LazyColumn(
             modifier = Modifier
@@ -92,7 +96,7 @@ fun EmiListScreen(
                     FilterChip(
                         selected = !uiState.showCompleted,
                         onClick = { if (uiState.showCompleted) viewModel.toggleShowCompleted() },
-                        label = { Text("Active (${uiState.activeGroups.size})") },
+                        label = { Text("Active (${uiState.activeCount})") },
                         colors = FilterChipDefaults.filterChipColors(
                             selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
                             selectedLabelColor = MaterialTheme.colorScheme.onPrimaryContainer
@@ -101,7 +105,7 @@ fun EmiListScreen(
                     FilterChip(
                         selected = uiState.showCompleted,
                         onClick = { if (!uiState.showCompleted) viewModel.toggleShowCompleted() },
-                        label = { Text("Completed (${uiState.completedGroups.size})") },
+                        label = { Text("Completed (${uiState.completedCount})") },
                         colors = FilterChipDefaults.filterChipColors(
                             selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
                             selectedLabelColor = MaterialTheme.colorScheme.onPrimaryContainer
@@ -127,7 +131,8 @@ fun EmiListScreen(
                             Spacer(Modifier.height(8.dp))
                             Text(
                                 text = if (uiState.showCompleted) "Completed EMIs will appear here."
-                                else "Convert an expense into EMI from the expense detail screen.",
+                                else "Convert an expense into EMI from the expense detail screen. " +
+                                    "Tabby and Tamara purchases appear here automatically.",
                                 style = MaterialTheme.typography.bodyMedium,
                                 color = MaterialTheme.colorScheme.outline
                             )
@@ -135,8 +140,11 @@ fun EmiListScreen(
                     }
                 }
             } else {
-                items(displayGroups, key = { it.id }) { group ->
-                    EmiGroupCard(group = group, onClick = { onNavigateToDetail(group.id) })
+                items(displayItems, key = { it.key }) { item ->
+                    when (item) {
+                        is EmiListItem.Emi -> EmiGroupCard(group = item.group, onClick = { onNavigateToDetail(item.group.id) })
+                        is EmiListItem.Bnpl -> BnplPlanCard(plan = item.plan, onClick = { onBnplPlanClick(item.plan.purchase.id) })
+                    }
                 }
             }
         }
@@ -145,10 +153,69 @@ fun EmiListScreen(
 
 @Composable
 private fun EmiGroupCard(group: EmiGroup, onClick: () -> Unit) {
-    val progress = if (group.numberOfInstallments > 0)
-        group.paidCount.toFloat() / group.numberOfInstallments.toFloat()
-    else 0f
-    val isCompleted = group.paidCount >= group.numberOfInstallments
+    PlanCard(
+        title = group.description,
+        subtitle = group.category.name,
+        label = null,
+        total = group.totalAmount,
+        instalment = group.installmentAmount,
+        currencyCode = group.currencyCode,
+        paidCount = group.paidCount,
+        instalmentCount = group.numberOfInstallments,
+        remainingText = "${group.numberOfInstallments - group.paidCount} remaining",
+        isCompleted = group.paidCount >= group.numberOfInstallments,
+        note = group.interestRate?.takeIf { it > 0 }?.let { "@ $it% p.a." },
+        startedText = "Started ${DateTimeUtil.formatDateHeader(group.startDate)}",
+        onClick = onClick
+    )
+}
+
+/**
+ * A Tabby/Tamara purchase as an EMI-style card. Progress comes from the card charges linked to it
+ * (automatically, or by hand from Review); the remaining figure is money, since a plan whose count
+ * isn't known yet can still show what's left.
+ */
+@Composable
+private fun BnplPlanCard(plan: BnplPlan, onClick: () -> Unit) {
+    PlanCard(
+        title = plan.shop,
+        subtitle = plan.payments.firstOrNull()?.charge?.category?.name ?: "Split Payments",
+        label = plan.provider,
+        total = plan.total,
+        instalment = plan.instalmentAmount,
+        currencyCode = plan.currencyCode,
+        paidCount = plan.paidCount,
+        instalmentCount = plan.instalmentCount,
+        remainingText = "${CurrencyFormatter.format(plan.remaining, plan.currencyCode)} left",
+        isCompleted = plan.isComplete,
+        note = null,
+        startedText = "Bought ${DateTimeUtil.formatDateHeader(plan.purchase.date)}",
+        onClick = onClick
+    )
+}
+
+@Composable
+private fun PlanCard(
+    title: String,
+    subtitle: String,
+    /** Provider tag for a BNPL plan ("Tabby"); null for an EMI. */
+    label: String?,
+    total: Double,
+    instalment: Double?,
+    currencyCode: String,
+    paidCount: Int,
+    instalmentCount: Int?,
+    remainingText: String,
+    isCompleted: Boolean,
+    note: String?,
+    startedText: String,
+    onClick: () -> Unit
+) {
+    val progress = when {
+        isCompleted -> 1f
+        instalmentCount != null && instalmentCount > 0 -> paidCount.toFloat() / instalmentCount.toFloat()
+        else -> 0f
+    }
 
     Card(
         modifier = Modifier
@@ -166,7 +233,7 @@ private fun EmiGroupCard(group: EmiGroup, onClick: () -> Unit) {
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
+                Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
                     Box(
                         modifier = Modifier
                             .size(40.dp)
@@ -194,17 +261,36 @@ private fun EmiGroupCard(group: EmiGroup, onClick: () -> Unit) {
                         }
                     }
                     Spacer(Modifier.width(12.dp))
-                    Column {
+                    Column(modifier = Modifier.weight(1f, fill = false)) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text(
+                                text = title,
+                                style = MaterialTheme.typography.titleSmall,
+                                fontWeight = FontWeight.SemiBold,
+                                color = MaterialTheme.colorScheme.onSurface,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                                modifier = Modifier.weight(1f, fill = false)
+                            )
+                            if (label != null) {
+                                Spacer(Modifier.width(8.dp))
+                                Text(
+                                    text = label,
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.onSecondaryContainer,
+                                    modifier = Modifier
+                                        .clip(RoundedCornerShape(6.dp))
+                                        .background(MaterialTheme.colorScheme.secondaryContainer)
+                                        .padding(horizontal = 6.dp, vertical = 2.dp)
+                                )
+                            }
+                        }
                         Text(
-                            text = group.description,
-                            style = MaterialTheme.typography.titleSmall,
-                            fontWeight = FontWeight.SemiBold,
-                            color = MaterialTheme.colorScheme.onSurface
-                        )
-                        Text(
-                            text = group.category.name,
+                            text = subtitle,
                             style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
                         )
                     }
                 }
@@ -229,7 +315,7 @@ private fun EmiGroupCard(group: EmiGroup, onClick: () -> Unit) {
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                     Text(
-                        text = CurrencyFormatter.format(group.totalAmount, group.currencyCode),
+                        text = CurrencyFormatter.format(total, currencyCode),
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.onSurface
@@ -242,7 +328,7 @@ private fun EmiGroupCard(group: EmiGroup, onClick: () -> Unit) {
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                     Text(
-                        text = CurrencyFormatter.format(group.installmentAmount, group.currencyCode),
+                        text = instalment?.let { CurrencyFormatter.format(it, currencyCode) } ?: "—",
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.primary
@@ -258,15 +344,14 @@ private fun EmiGroupCard(group: EmiGroup, onClick: () -> Unit) {
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
-                    text = "${group.paidCount}/${group.numberOfInstallments} paid",
+                    text = instalmentCount?.let { "$paidCount/$it paid" } ?: "$paidCount paid",
                     style = MaterialTheme.typography.labelMedium,
                     color = if (isCompleted) MaterialTheme.colorScheme.secondary
                     else MaterialTheme.colorScheme.onSurfaceVariant
                 )
                 AnimatedVisibility(visible = !isCompleted) {
-                    val remaining = group.numberOfInstallments - group.paidCount
                     Text(
-                        text = "$remaining remaining",
+                        text = remainingText,
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.outline
                     )
@@ -284,10 +369,10 @@ private fun EmiGroupCard(group: EmiGroup, onClick: () -> Unit) {
                 trackColor = MaterialTheme.colorScheme.surfaceContainerHighest
             )
 
-            group.interestRate?.takeIf { it > 0 }?.let { rate ->
+            note?.let {
                 Spacer(Modifier.height(8.dp))
                 Text(
-                    text = "@ ${rate}% p.a.",
+                    text = it,
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.outline
                 )
@@ -295,7 +380,7 @@ private fun EmiGroupCard(group: EmiGroup, onClick: () -> Unit) {
 
             Spacer(Modifier.height(4.dp))
             Text(
-                text = "Started ${DateTimeUtil.formatDateHeader(group.startDate)}",
+                text = startedText,
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.outline
             )

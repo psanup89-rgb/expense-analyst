@@ -17,6 +17,7 @@ import com.expenseanalyst.app.MainViewModel
 import com.expenseanalyst.core.navigation.NavRoutes
 import com.expenseanalyst.feature.emi.ui.EmiCreateScreen
 import com.expenseanalyst.app.ui.DuesScreen
+import com.expenseanalyst.feature.emi.ui.BnplPlanDetailScreen
 import com.expenseanalyst.feature.emi.ui.EmiDetailScreen
 import com.expenseanalyst.feature.expenses.ui.AddExpenseScreen
 import com.expenseanalyst.feature.expenses.ui.BillDetailScreen
@@ -198,6 +199,7 @@ fun AppNavGraph(
         composable(NavRoutes.DUES) {
             DuesScreen(
                 onEmiClick = { id -> navController.navigate(NavRoutes.emiDetail(id)) },
+                onBnplPlanClick = { id -> navController.navigate(NavRoutes.bnplPlanDetail(id)) },
                 onAddLoan = { navController.navigate(NavRoutes.ADD_LOAN) },
                 onLoanClick = { id -> navController.navigate(NavRoutes.loanDetail(id)) },
                 onExpenseClick = { id -> navController.navigate(NavRoutes.expenseDetail(id)) }
@@ -210,6 +212,16 @@ fun AppNavGraph(
         ) {
             EmiDetailScreen(
                 onBack = { navController.popBackStack() }
+            )
+        }
+
+        composable(
+            route = NavRoutes.BNPL_PLAN_DETAIL,
+            arguments = listOf(navArgument("purchaseId") { type = NavType.LongType })
+        ) {
+            BnplPlanDetailScreen(
+                onBack = { navController.popBackStack() },
+                onExpenseClick = { id -> navController.navigate(NavRoutes.expenseDetail(id)) }
             )
         }
 

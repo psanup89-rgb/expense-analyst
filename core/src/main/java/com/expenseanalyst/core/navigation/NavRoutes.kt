@@ -12,6 +12,8 @@ object NavRoutes {
     const val DUES = "dues"
     const val EMI_DETAIL = "emi_detail/{emiGroupId}"
     const val EMI_CREATE = "emi_create/{expenseId}"
+    /** A Tabby/Tamara plan in the EMIs tab, keyed by its purchase record's expense id. */
+    const val BNPL_PLAN_DETAIL = "bnpl_plan/{purchaseId}"
     const val SETTINGS = "settings"
     const val PENDING_INBOX = "pending_inbox"
     const val BILLS = "bills"
@@ -39,6 +41,7 @@ object NavRoutes {
     fun editExpense(expenseId: Long) = "edit_expense/$expenseId"
     fun tagDetail(tagId: Long) = "tag_detail/$tagId"
     fun expenseDetail(expenseId: Long) = "expense_detail/$expenseId"
+    fun bnplPlanDetail(purchaseId: Long) = "bnpl_plan/$purchaseId"
     fun emiDetail(emiGroupId: Long) = "emi_detail/$emiGroupId"
     fun emiCreate(expenseId: Long) = "emi_create/$expenseId"
     fun loanDetail(loanId: Long) = "loan_detail/$loanId"

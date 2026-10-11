@@ -45,6 +45,8 @@ fun ExpenseWithCategory.toDomain() = Expense(
         ?.let { runCatching { TransferClassification.valueOf(it) }.getOrNull() },
     loanId = expense.loanId,
     bnplPurchaseId = expense.bnplPurchaseId,
+    bnplProvider = expense.bnplProvider,
+    bnplInstalmentCount = expense.bnplInstalmentCount,
     reimbursedById = expense.reimbursedById,
     reimbursementCover = expense.reimbursementCover
 )
@@ -86,6 +88,9 @@ fun Expense.toEntity(createdAt: Long, updatedAt: Long) = ExpenseEntity(
     loanId = loanId,
     // Same full-row round-trip rule as transferClassification and loanId above.
     bnplPurchaseId = bnplPurchaseId,
+    // Same rule: the plan's provider and count are what the EMIs tab shows it by.
+    bnplProvider = bnplProvider,
+    bnplInstalmentCount = bnplInstalmentCount,
     // Same full-row round-trip rule again: dropping these would unlink every reimbursement.
     reimbursedById = reimbursedById,
     reimbursementCover = reimbursementCover

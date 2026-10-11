@@ -50,6 +50,7 @@ import kotlinx.coroutines.launch
 @Composable
 fun DuesScreen(
     onEmiClick: (Long) -> Unit,
+    onBnplPlanClick: (Long) -> Unit,
     onAddLoan: () -> Unit,
     onLoanClick: (Long) -> Unit,
     onExpenseClick: (Long) -> Unit,
@@ -72,7 +73,7 @@ fun DuesScreen(
     val loanState by loanViewModel.uiState.collectAsStateWithLifecycle()
     val pendingReimbursements by reimbursementsViewModel.pending.collectAsStateWithLifecycle()
     val counts = mapOf(
-        DuesTab.EMIS to emiState.activeGroups.size,
+        DuesTab.EMIS to emiState.activeCount,
         DuesTab.LOANS to loanState.pendingItems.size,
         DuesTab.REIMBURSEMENTS to pendingReimbursements.size
     )
@@ -125,6 +126,7 @@ fun DuesScreen(
             when (DuesTab.entries[page]) {
                 DuesTab.EMIS -> EmiListScreen(
                     onNavigateToDetail = onEmiClick,
+                    onBnplPlanClick = onBnplPlanClick,
                     viewModel = emiViewModel,
                     embedded = true
                 )

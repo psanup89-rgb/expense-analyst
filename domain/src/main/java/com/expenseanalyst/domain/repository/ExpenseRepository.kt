@@ -1,5 +1,6 @@
 package com.expenseanalyst.domain.repository
 
+import com.expenseanalyst.domain.model.BnplChargeLink
 import com.expenseanalyst.domain.model.Expense
 import com.expenseanalyst.domain.model.PaymentMethod
 import com.expenseanalyst.domain.model.TransferClassification
@@ -74,8 +75,22 @@ interface ExpenseRepository {
     /** See ExpenseDao.convertToBnplPurchase. */
     suspend fun convertToBnplPurchase(id: Long, categoryId: Long, merchantName: String): Int
 
-    /** See ExpenseDao.linkBnplInstalment. */
+    /** See ExpenseDao.linkBnplInstalment. Also resolves the charge's "Tabby/Tamara plan" review reason. */
     suspend fun linkBnplInstalment(id: Long, purchaseId: Long, merchantName: String, categoryId: Long): Int
+
+    /** See ExpenseDao.setBnplPlanInfo. */
+    suspend fun setBnplPlanInfo(purchaseId: Long, provider: String, instalmentCount: Int?): Int
+
+    /** Charges linked by hand to Tabby/Tamara plans (one charge may pay several plans). */
+    fun getBnplChargeLinks(): Flow<List<BnplChargeLink>>
+
+    suspend fun getBnplChargeLinksSnapshot(): List<BnplChargeLink>
+
+    /** See ExpenseDao.linkBnplChargeToPlans — an empty list unlinks and asks again. */
+    suspend fun linkBnplChargeToPlans(chargeId: Long, purchaseIds: List<Long>)
+
+    /** See ExpenseDao.flagUnmatchedBnplCharge — asks once about a charge no plan matched. */
+    suspend fun flagUnmatchedBnplCharge(chargeId: Long)
 
     /** Every non-deleted expense carrying [tagId], newest first. */
     fun getExpensesByTag(tagId: Long): Flow<List<Expense>>

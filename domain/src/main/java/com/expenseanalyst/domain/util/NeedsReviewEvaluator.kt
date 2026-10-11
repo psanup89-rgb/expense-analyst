@@ -23,7 +23,15 @@ enum class ReviewReason(val label: String) {
      * The owner chose to be asked, not auto-linked; resolved after capture by linking it or by
      * dismissing the suggestion (ExpenseDao.linkReimbursement / dropReviewReason).
      */
-    POSSIBLE_REIMBURSEMENT("Reimbursement?")
+    POSSIBLE_REIMBURSEMENT("Reimbursement?"),
+
+    /**
+     * A Tabby/Tamara card charge BnplReconciler couldn't match to one plan — usually Tamara billing
+     * several due instalments as one charge. The owner chose to be asked (Oct 2026): Review offers
+     * "Link to plans", resolved by ExpenseDao.linkBnplChargeToPlans. Added once by the reconciler;
+     * "Mark done" keeps the reason persisted, which is what stops it being re-added.
+     */
+    UNMATCHED_BNPL_CHARGE("Tabby/Tamara plan")
 }
 
 object NeedsReviewEvaluator {

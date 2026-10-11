@@ -6,6 +6,7 @@ import com.expenseanalyst.data.local.dao.TagDao
 import com.expenseanalyst.domain.util.ReviewReason
 import com.expenseanalyst.data.mapper.toDomain
 import com.expenseanalyst.data.mapper.toEntity
+import com.expenseanalyst.domain.model.BnplChargeLink
 import com.expenseanalyst.domain.model.Expense
 import com.expenseanalyst.domain.model.PaymentMethod
 import com.expenseanalyst.domain.model.TransferClassification
@@ -142,8 +143,28 @@ class ExpenseRepositoryImpl @Inject constructor(
     override suspend fun convertToBnplPurchase(id: Long, categoryId: Long, merchantName: String): Int =
         expenseDao.convertToBnplPurchase(id, categoryId, merchantName, DateTimeUtil.nowMillis())
 
-    override suspend fun linkBnplInstalment(id: Long, purchaseId: Long, merchantName: String, categoryId: Long): Int =
-        expenseDao.linkBnplInstalment(id, purchaseId, merchantName, categoryId, DateTimeUtil.nowMillis())
+    override suspend fun linkBnplInstalment(id: Long, purchaseId: Long, merchantName: String, categoryId: Long): Int {
+        val now = DateTimeUtil.nowMillis()
+        val linked = expenseDao.linkBnplInstalment(id, purchaseId, merchantName, categoryId, now)
+        // A charge can be flagged in the seconds before its purchase confirmation arrives.
+        if (linked > 0) expenseDao.resolveUnmatchedBnplCharge(id, now)
+        return linked
+    }
+
+    override suspend fun setBnplPlanInfo(purchaseId: Long, provider: String, instalmentCount: Int?): Int =
+        expenseDao.setBnplPlanInfo(purchaseId, provider, instalmentCount, DateTimeUtil.nowMillis())
+
+    override fun getBnplChargeLinks(): Flow<List<BnplChargeLink>> =
+        expenseDao.getBnplChargeLinks().map { list -> list.map { BnplChargeLink(it.chargeId, it.purchaseId) } }
+
+    override suspend fun getBnplChargeLinksSnapshot(): List<BnplChargeLink> =
+        expenseDao.getBnplChargeLinksSnapshot().map { BnplChargeLink(it.chargeId, it.purchaseId) }
+
+    override suspend fun linkBnplChargeToPlans(chargeId: Long, purchaseIds: List<Long>) =
+        expenseDao.linkBnplChargeToPlans(chargeId, purchaseIds, DateTimeUtil.nowMillis())
+
+    override suspend fun flagUnmatchedBnplCharge(chargeId: Long) =
+        expenseDao.flagUnmatchedBnplCharge(chargeId, DateTimeUtil.nowMillis())
 
     override fun getExpensesByTag(tagId: Long): Flow<List<Expense>> =
         expenseDao.getExpensesByTagId(tagId).map { list -> list.map { it.toDomain() } }

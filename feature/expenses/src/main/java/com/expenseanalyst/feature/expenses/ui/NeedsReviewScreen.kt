@@ -56,6 +56,17 @@ fun NeedsReviewScreen(
 ) {
     val expenses by viewModel.expenses.collectAsStateWithLifecycle()
     val homeCurrencyCode by viewModel.homeCurrencyCode.collectAsStateWithLifecycle()
+    val bnplPlans by viewModel.bnplPlans.collectAsStateWithLifecycle()
+    val linkingBnplCharge by viewModel.linkingBnplCharge.collectAsStateWithLifecycle()
+
+    linkingBnplCharge?.let { charge ->
+        BnplLinkSheet(
+            charge = charge,
+            plans = bnplPlans,
+            onLink = { viewModel.linkBnplCharge(charge.id, it) },
+            onDismiss = viewModel::dismissBnplLink
+        )
+    }
 
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
@@ -131,7 +142,8 @@ fun NeedsReviewScreen(
                         onMarkDone = { viewModel.markReviewed(expense.id) },
                         onClassifyTransfer = { viewModel.classifyTransfer(expense.id, it) },
                         onLinkReimbursement = { viewModel.linkSuggestedReimbursement(expense.id) },
-                        onNotReimbursement = { viewModel.dismissReimbursementSuggestion(expense.id) }
+                        onNotReimbursement = { viewModel.dismissReimbursementSuggestion(expense.id) },
+                        onLinkBnplPlans = { viewModel.startBnplLink(expense) }
                     )
                 }
                 item { Spacer(Modifier.height(88.dp)) }
@@ -148,7 +160,8 @@ private fun NeedsReviewCard(
     onMarkDone: () -> Unit,
     onClassifyTransfer: (TransferClassification) -> Unit,
     onLinkReimbursement: () -> Unit = {},
-    onNotReimbursement: () -> Unit = {}
+    onNotReimbursement: () -> Unit = {},
+    onLinkBnplPlans: () -> Unit = {}
 ) {
     val style = transactionAmountStyle(expense)
     val amountColor = style.color
@@ -291,6 +304,20 @@ private fun NeedsReviewCard(
                 ) {
                     Text("Not one", style = MaterialTheme.typography.labelMedium)
                 }
+            }
+        }
+
+        // A Tabby/Tamara charge no plan matched — usually several instalments billed together.
+        // The owner chose to be asked: link it to the plans it pays, or mark it done above.
+        if (ReviewReason.UNMATCHED_BNPL_CHARGE in expense.reviewReasons && expense.bnplPurchaseId == null) {
+            FilledTonalButton(
+                onClick = onLinkBnplPlans,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(start = 44.dp, end = 14.dp, bottom = 10.dp),
+                contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp)
+            ) {
+                Text("Link to plans", style = MaterialTheme.typography.labelMedium)
             }
         }
     }

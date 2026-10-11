@@ -1,6 +1,7 @@
 package com.expenseanalyst.data.local.dao
 
 import androidx.room.*
+import com.expenseanalyst.data.local.entity.BnplChargeLinkEntity
 import com.expenseanalyst.data.local.entity.ExpenseEntity
 import com.expenseanalyst.data.local.relation.ExpenseWithCategory
 import com.expenseanalyst.domain.model.PaymentMethod
@@ -406,6 +407,77 @@ interface ExpenseDao {
         """
     )
     suspend fun convertToBnplPurchase(id: Long, categoryId: Long, merchantName: String, updatedAt: Long): Int
+
+    /** Stamps a Tabby/Tamara purchase with its provider and instalment count (BnplReconciler). */
+    @Query(
+        """
+        UPDATE expenses SET bnpl_provider = :provider, bnpl_instalment_count = :count, updated_at_utc_millis = :updatedAt
+        WHERE id = :id AND is_deleted = 0
+        """
+    )
+    suspend fun setBnplPlanInfo(id: Long, provider: String, count: Int?, updatedAt: Long): Int
+
+    @Query("SELECT * FROM bnpl_charge_links")
+    fun getBnplChargeLinks(): Flow<List<BnplChargeLinkEntity>>
+
+    @Query("SELECT * FROM bnpl_charge_links")
+    suspend fun getBnplChargeLinksSnapshot(): List<BnplChargeLinkEntity>
+
+    @Insert(onConflict = OnConflictStrategy.IGNORE)
+    suspend fun insertBnplChargeLinks(links: List<BnplChargeLinkEntity>)
+
+    @Query("DELETE FROM bnpl_charge_links WHERE charge_id = :chargeId")
+    suspend fun deleteBnplChargeLinks(chargeId: Long)
+
+    /**
+     * Links a charge by hand to the plans it pays, replacing any earlier manual links, and resolves
+     * its "Tabby/Tamara plan" review reason. An empty list unlinks it — and, since the charge is
+     * still unmatched, puts the question back in Review.
+     */
+    @Transaction
+    suspend fun linkBnplChargeToPlans(chargeId: Long, purchaseIds: List<Long>, updatedAt: Long) {
+        deleteBnplChargeLinks(chargeId)
+        if (purchaseIds.isEmpty()) {
+            flagUnmatchedBnplCharge(chargeId, updatedAt, force = true)
+            return
+        }
+        insertBnplChargeLinks(purchaseIds.distinct().map { BnplChargeLinkEntity(chargeId, it) })
+        resolveUnmatchedBnplCharge(chargeId, updatedAt)
+    }
+
+    /**
+     * Asks about a Tabby/Tamara charge no plan matched. Only once: a reason already persisted —
+     * still open, or answered with "Mark done", which keeps the reason — is left alone, so the
+     * reconciler running on every launch never re-asks. [force] re-asks after an explicit unlink.
+     */
+    @Transaction
+    suspend fun flagUnmatchedBnplCharge(id: Long, updatedAt: Long, force: Boolean = false) {
+        val existing = getExpenseEntityById(id) ?: return
+        if (existing.isDeleted) return
+        val reasons = NeedsReviewEvaluator.decode(existing.needsReviewReasons)
+        if (ReviewReason.UNMATCHED_BNPL_CHARGE in reasons && !force) return
+        val updated = (reasons - ReviewReason.UNMATCHED_BNPL_CHARGE) + ReviewReason.UNMATCHED_BNPL_CHARGE
+        setReviewState(id, NeedsReviewEvaluator.encode(updated), true, updatedAt)
+    }
+
+    /**
+     * Drops the "Tabby/Tamara plan" reason once the charge is linked, automatically or by hand. Not
+     * [dropReviewReason]: that re-raises the flag when other reasons remain, and a row the user
+     * already marked done must stay done.
+     */
+    @Transaction
+    suspend fun resolveUnmatchedBnplCharge(id: Long, updatedAt: Long) {
+        val existing = getExpenseEntityById(id) ?: return
+        val reasons = NeedsReviewEvaluator.decode(existing.needsReviewReasons)
+        if (ReviewReason.UNMATCHED_BNPL_CHARGE !in reasons) return
+        val remaining = reasons - ReviewReason.UNMATCHED_BNPL_CHARGE
+        setReviewState(
+            id,
+            NeedsReviewEvaluator.encode(remaining).takeIf { it.isNotBlank() },
+            existing.needsReview && remaining.isNotEmpty(),
+            updatedAt
+        )
+    }
 
     /** Links a card charge to its BNPL purchase and names it after the shop. Targeted update. */
     @Query(

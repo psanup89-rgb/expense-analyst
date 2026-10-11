@@ -68,6 +68,14 @@ data class Expense(
      */
     val bnplPurchaseId: Long? = null,
     /**
+     * On a Tabby/Tamara purchase record (Split Payments PAYMENT): "Tabby" or "Tamara", stamped by
+     * BnplReconciler so the plan can be shown without re-reading the message. Its presence is what
+     * marks the row as a BNPL plan (domain/util/BnplPlans).
+     */
+    val bnplProvider: String? = null,
+    /** On a BNPL purchase: its instalment count, stated (Tamara) or inferred from a linked charge. */
+    val bnplInstalmentCount: Int? = null,
+    /**
      * On a reimbursable expense: the incoming payment that paid it back. Several expenses may
      * point at one payment (an employer repaying a whole claim). A linked expense leaves Spent —
      * see [com.expenseanalyst.domain.util.SpendClassifier.spendValue].

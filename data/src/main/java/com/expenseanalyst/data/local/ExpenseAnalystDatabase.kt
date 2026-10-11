@@ -34,6 +34,7 @@ import com.expenseanalyst.data.local.entity.PlannedExpenseEntity
 import com.expenseanalyst.data.local.entity.SalaryEntryEntity
 import com.expenseanalyst.data.local.entity.TagEntity
 import com.expenseanalyst.data.local.entity.TransferRecipientRuleEntity
+import com.expenseanalyst.data.local.entity.BnplChargeLinkEntity
 
 
 @Database(
@@ -52,9 +53,10 @@ import com.expenseanalyst.data.local.entity.TransferRecipientRuleEntity
         PlannedExpenseEntity::class,
         LentItemEntity::class,
         MerchantRuleTagCrossRef::class,
-        TransferRecipientRuleEntity::class
+        TransferRecipientRuleEntity::class,
+        BnplChargeLinkEntity::class
     ],
-    version = 34,
+    version = 35,
     exportSchema = true
 )
 abstract class ExpenseAnalystDatabase : RoomDatabase() {
@@ -671,13 +673,32 @@ abstract class ExpenseAnalystDatabase : RoomDatabase() {
             }
         }
 
+        /**
+         * Tabby/Tamara plans in the EMIs tab. The purchase record carries its provider and
+         * instalment count (stamped by BnplReconciler, so nothing is backfilled here), and
+         * `bnpl_charge_links` holds charges the user linked by hand — one charge can pay
+         * instalments of several plans, which `bnpl_purchase_id` can't express.
+         */
+        private val MIGRATION_34_35 = object : Migration(34, 35) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE expenses ADD COLUMN bnpl_provider TEXT")
+                db.execSQL("ALTER TABLE expenses ADD COLUMN bnpl_instalment_count INTEGER")
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS bnpl_charge_links (" +
+                        "charge_id INTEGER NOT NULL, purchase_id INTEGER NOT NULL, " +
+                        "PRIMARY KEY(charge_id, purchase_id))"
+                )
+                db.execSQL("CREATE INDEX IF NOT EXISTS index_bnpl_charge_links_purchase_id ON bnpl_charge_links (purchase_id)")
+            }
+        }
+
         fun buildDatabase(context: Context): ExpenseAnalystDatabase {
             return Room.databaseBuilder(
                 context.applicationContext,
                 ExpenseAnalystDatabase::class.java,
                 DATABASE_NAME
             )
-                .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13, MIGRATION_13_14, MIGRATION_14_15, MIGRATION_15_16, MIGRATION_16_17, MIGRATION_17_18, MIGRATION_18_19, MIGRATION_19_20, MIGRATION_20_21, MIGRATION_21_22, MIGRATION_22_23, MIGRATION_23_24, MIGRATION_24_25, MIGRATION_25_26, MIGRATION_26_27, MIGRATION_27_28, MIGRATION_28_29, MIGRATION_29_30, MIGRATION_30_31, MIGRATION_31_32, MIGRATION_32_33, MIGRATION_33_34)
+                .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13, MIGRATION_13_14, MIGRATION_14_15, MIGRATION_15_16, MIGRATION_16_17, MIGRATION_17_18, MIGRATION_18_19, MIGRATION_19_20, MIGRATION_20_21, MIGRATION_21_22, MIGRATION_22_23, MIGRATION_23_24, MIGRATION_24_25, MIGRATION_25_26, MIGRATION_26_27, MIGRATION_27_28, MIGRATION_28_29, MIGRATION_29_30, MIGRATION_30_31, MIGRATION_31_32, MIGRATION_32_33, MIGRATION_33_34, MIGRATION_34_35)
                 .addCallback(SeedDatabaseCallback())
                 .build()
         }

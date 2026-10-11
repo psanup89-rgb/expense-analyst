@@ -5,6 +5,18 @@ Format: `[Date] — Summary`
 ---
 
 
+## 2026-10-12 — v0.7.22
+
+Released as v0.7.22-debug (DB v35, migration 34→35): the entry below.
+
+## 2026-10-12 — Tabby/Tamara plans in the EMIs tab; D360 transfers
+
+- **Tabby/Tamara purchases show in the EMIs tab** as EMI-style cards with a provider label: total, instalment, paid N of M, amount left; finished plans under Completed, active ones in the Dues badge. Tap → plan detail with the card charges that paid it. `domain/util/BnplPlans` builds them; `BnplReconciler` stamps each purchase with `bnpl_provider` / `bnpl_instalment_count` (DB v35). No total changes.
+- **Combined Tamara charges are asked about** (`ReviewReason.UNMATCHED_BNPL_CHARGE`): a Tabby/Tamara charge no plan matched goes to Review once with "Link to plans" — tick the plans it pays (one instalment each), a combination that adds up is pre-ticked. Links live in the new `bnpl_charge_links` table (one charge → several plans); unlink from the plan's detail. On device all three large combined charges pre-ticked an exact match.
+- **D360 "International transfer" and "Incoming Transfer: <bank>"** were read by no parser. Both are now TRANSFERs without own-account digits; the international amount is the SAR equivalent; the incoming one waits in Review (its masked sender name can't match the own-account rule, and as INCOME it would inflate Received).
+- A digit-less transfer is "identified" when its bank has one non-card account — D360's debit card no longer makes every D360 transfer flag "Account" (live capture).
+- On device: both missed D360 transfers recovered by SMS Import, no duplicates, October totals unchanged.
+
 ## 2026-10-11 — v0.7.21
 
 Released as v0.7.21-debug (DB v34, no migration): the entry below.

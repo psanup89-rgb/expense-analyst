@@ -62,4 +62,50 @@ class D360ParserTest {
     fun `parse returns null for non-transaction messages`(sender: String, body: String) {
         assertNull(parser.parse(sender, body))
     }
+
+    // Real wordings (Oct 2026), names and numbers replaced. Both were dropped by every parser.
+    private val international = "International transfer\nAmount: INR 2,556.77 (SAR 100.00)\nTo: Ravi Kumar\n" +
+        "10000000000001\nCountry:India\nThrough:THUNES\nOn: 2026-10-11 22:55"
+    private val incoming = "Incoming Transfer: AlRajhi Bank\nAmount: SAR 6,000.00\nFrom: RAVI K KUMA****\n" +
+        "IBAN: ****1234\nat: 2026-10-11 22:53"
+
+    @Test
+    fun `international transfer is a SAR transfer to the recipient`() {
+        val result = parser.parse("D360 Bank", international)
+        assertNotNull(result)
+        assertEquals(100.0, result!!.amount, 0.001)          // the SAR that left, not the INR
+        assertEquals("SAR", result.currencyCode)
+        assertEquals(TransactionDirection.TRANSFER, result.type)
+        assertEquals("Ravi Kumar", result.merchant)
+        assertNull(result.accountLast4)                     // the account number is the recipient's
+        assertEquals("NET_BANKING", result.paymentMethodName)
+    }
+
+    @Test
+    fun `incoming transfer is a transfer from the unmasked part of the sender's name`() {
+        val result = parser.parse("D360 Bank", incoming)
+        assertNotNull(result)
+        assertEquals(6000.0, result!!.amount, 0.001)
+        assertEquals(TransactionDirection.TRANSFER, result.type) // not income: often the user's own money
+        assertEquals("RAVI K KUMA", result.merchant)
+        assertNull(result.accountLast4)                          // the IBAN is the sender's
+    }
+
+    @Test
+    fun `the registry saves both and still skips the transfer OTP`() {
+        assertEquals(TransactionDirection.TRANSFER, ParserRegistry.parse("D360 Bank", international)?.type)
+        assertEquals(TransactionDirection.TRANSFER, ParserRegistry.parse("D360 Bank", incoming)?.type)
+        assertNull(ParserRegistry.parse("D360 Bank", "OTP: 1111\nAmount: SAR 100.00\nFor: International transfer"))
+    }
+
+    @Test
+    fun `a maintenance notice is not a transaction`() {
+        assertNull(
+            ParserRegistry.parse(
+                "D360 Bank",
+                "Dear Customer,\nWe will conduct system maintenance on Friday, October 9, from 4-5:30 AM. " +
+                    "Card services and transactions may be temporarily affected."
+            )
+        )
+    }
 }

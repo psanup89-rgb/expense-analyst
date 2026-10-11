@@ -253,7 +253,7 @@ class PendingNotificationManager @Inject constructor(
                 transactionType = transactionType,
                 transferClassification = transferClassification,
                 accountIdentified = (refundMatch?.accountLastFour ?: normalized.accountLast4) != null ||
-                    isOnlyAccountOfBank(effectiveAccountId, normalized.bankName)
+                    isOnlyAccountOfBank(effectiveAccountId, normalized.bankName, accountLevel = transactionType == TransactionType.TRANSFER)
             ) + possibleReimbursementReason(transactionType, category.name, normalized, now)
             var needsReview = reviewReasons.isNotEmpty()
 
@@ -320,6 +320,7 @@ class PendingNotificationManager @Inject constructor(
 
     companion object {
         const val DEFAULT_PAYMENT_MERCHANT = "BillPayments"
+        private val CARD_ACCOUNT_TYPES = setOf(AccountType.CREDIT_CARD, AccountType.DEBIT_CARD, AccountType.FOREX_CARD)
     }
 
     /**
@@ -417,10 +418,16 @@ class PendingNotificationManager @Inject constructor(
     }
 
     /** A digit-less message still names its account when the bank has just one (STC). */
-    private suspend fun isOnlyAccountOfBank(accountId: Long?, bankName: String): Boolean {
+    /**
+     * [accountLevel]: a transfer moves money between bank accounts, never through a card, so only
+     * the bank's non-card accounts are candidates. D360 has a debit card and one savings account;
+     * every digit-less D360 transfer was flagged "Account" although it could only be the savings.
+     */
+    private suspend fun isOnlyAccountOfBank(accountId: Long?, bankName: String, accountLevel: Boolean = false): Boolean {
         if (accountId == null || bankName == "Unknown Bank") return false
         val ofBank = runCatching { accountRepository.getAccounts().first() }.getOrElse { return false }
             .filter { it.bankName == bankName }
+            .filter { !accountLevel || it.accountType !in CARD_ACCOUNT_TYPES }
         return ofBank.size == 1 && ofBank.single().id == accountId
     }
 

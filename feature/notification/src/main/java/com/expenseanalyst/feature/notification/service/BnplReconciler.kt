@@ -5,6 +5,7 @@ import com.expenseanalyst.domain.repository.CategoryRepository
 import com.expenseanalyst.domain.repository.ExpenseRepository
 import com.expenseanalyst.domain.repository.MerchantRuleRepository
 import com.expenseanalyst.domain.util.BnplInstallmentMatcher
+import com.expenseanalyst.domain.util.BnplPlans
 import com.expenseanalyst.domain.util.CategoryInference
 import com.expenseanalyst.feature.notification.parser.TabbyTamaraParser
 import kotlinx.coroutines.flow.first
@@ -23,9 +24,11 @@ import javax.inject.Singleton
  *    wording, found by re-parsing its stored SMS — becomes a Split Payments PAYMENT with the shop
  *    name fixed ("CENTREPOINT is confirmed" → "CENTREPOINT").
  * 2. Card charges to Tabby/Tamara are linked to their purchase by [BnplInstallmentMatcher] and
- *    renamed "Centrepoint 2/4 · Tabby", taking the shop's category. Unmatched charges (purchases
- *    older than the app's history, or Tamara charges that combine several due instalments) stay
- *    as they are.
+ *    renamed "Centrepoint 2/4 · Tabby", taking the shop's category. Each purchase is stamped with
+ *    its provider and instalment count, which is what shows it as a plan in the EMIs tab.
+ * 3. A charge nothing matched (a Tamara charge combining several due instalments, or a purchase
+ *    older than the app's history) is put in Review once, to be linked by hand to the plans it
+ *    pays (owner's choice, Oct 2026). Charges already linked by hand are left out of matching.
  *
  * Works only on stored, parsed fields; the raw SMS is re-read by the parser and never surfaced.
  */
@@ -73,9 +76,10 @@ class BnplReconciler @Inject constructor(
         }
         if (purchases.isEmpty()) return@withLock
         val purchaseById = purchases.associateBy { it.id }
+        val manuallyLinked = expenseRepository.getBnplChargeLinksSnapshot().mapTo(mutableSetOf()) { it.chargeId }
 
         val charges = rows.mapNotNull { e ->
-            if (e.transactionType != TransactionType.EXPENSE) return@mapNotNull null
+            if (e.transactionType != TransactionType.EXPENSE || e.id in manuallyLinked) return@mapNotNull null
             val provider = e.bnplPurchaseId?.let { purchaseById[it]?.provider }
                 ?: PROVIDERS.firstOrNull { it.equals(e.merchantName?.trim(), ignoreCase = true) }
                 ?: return@mapNotNull null
@@ -90,7 +94,8 @@ class BnplReconciler @Inject constructor(
         val rowById = rows.associateBy { it.id }
         val rules = merchantRuleRepository.getRules().first()
 
-        BnplInstallmentMatcher.match(purchases, charges).forEach { link ->
+        val links = BnplInstallmentMatcher.match(purchases, charges)
+        links.forEach { link ->
             val purchase = purchaseById.getValue(link.purchaseId)
             val charge = rowById[link.chargeId] ?: return@forEach
             val shop = NotificationCopy.displayMerchant(purchase.shop) ?: purchase.shop
@@ -103,6 +108,24 @@ class BnplReconciler @Inject constructor(
                 expenseRepository.linkBnplInstalment(charge.id, purchase.id, name, category.id)
             }
         }
+
+        // Stamp each purchase as a plan: provider, and the count its confirmation states or its
+        // linked charges imply.
+        val countByPurchase = links.associate { it.purchaseId to it.count }
+        purchases.forEach { p ->
+            val count = p.count ?: countByPurchase[p.id]
+            val row = rowById[p.id] ?: return@forEach
+            if (row.bnplProvider != p.provider || row.bnplInstalmentCount != count) {
+                expenseRepository.setBnplPlanInfo(p.id, p.provider, count)
+            }
+        }
+
+        // ── Pass 3: ask about charges no plan matched ──
+        val matched = links.mapTo(mutableSetOf()) { it.chargeId }
+        rows.filter {
+            BnplPlans.providerOfCharge(it) != null && it.bnplPurchaseId == null &&
+                it.id !in matched && it.id !in manuallyLinked && !it.isDeleted
+        }.forEach { expenseRepository.flagUnmatchedBnplCharge(it.id) }
     }
 
     // Tamara's confirmation never names Tamara in its text, so ask the parser first; it knows

@@ -7,7 +7,12 @@ import com.expenseanalyst.domain.model.TransferClassification
 import com.expenseanalyst.domain.repository.ExpenseRepository
 import com.expenseanalyst.domain.repository.TransferRecipientRuleRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
+import com.expenseanalyst.domain.util.BnplPlan
+import com.expenseanalyst.domain.util.BnplPlans
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.stateIn
@@ -36,6 +41,27 @@ class NeedsReviewViewModel @Inject constructor(
             started = SharingStarted.WhileSubscribed(5_000),
             initialValue = "SAR"
         )
+
+    /** Tabby/Tamara plans, for linking an unmatched charge from its Review card. */
+    val bnplPlans: StateFlow<List<BnplPlan>> = combine(
+        expenseRepository.getExpenses(),
+        expenseRepository.getBnplChargeLinks()
+    ) { expenses, links -> BnplPlans.build(expenses, links) }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
+    /** The charge whose "Link to plans" sheet is open, if any. */
+    private val _linkingBnplCharge = MutableStateFlow<com.expenseanalyst.domain.model.Expense?>(null)
+    val linkingBnplCharge: StateFlow<com.expenseanalyst.domain.model.Expense?> = _linkingBnplCharge.asStateFlow()
+
+    fun startBnplLink(charge: com.expenseanalyst.domain.model.Expense) { _linkingBnplCharge.value = charge }
+    fun dismissBnplLink() { _linkingBnplCharge.value = null }
+
+    /** Each ticked plan gets one instalment paid by this charge; the Review question is answered. */
+    fun linkBnplCharge(chargeId: Long, purchaseIds: List<Long>) {
+        _linkingBnplCharge.value = null
+        if (purchaseIds.isEmpty()) return
+        viewModelScope.launch { expenseRepository.linkBnplChargeToPlans(chargeId, purchaseIds) }
+    }
 
     fun markReviewed(expenseId: Long) {
         viewModelScope.launch {
