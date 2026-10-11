@@ -27,6 +27,7 @@ import com.expenseanalyst.domain.util.PaymentMethodInference
 import com.expenseanalyst.domain.util.ReviewReason
 import com.expenseanalyst.domain.util.ReimbursementMatcher
 import com.expenseanalyst.domain.util.RefundMatcher
+import com.expenseanalyst.domain.util.SameTransactionKey
 import com.expenseanalyst.domain.util.TransferRecipientMatcher
 import com.expenseanalyst.feature.notification.parser.ParsedTransaction
 import com.expenseanalyst.feature.notification.parser.TransactionDirection
@@ -116,12 +117,12 @@ class PendingNotificationManager @Inject constructor(
 
             // ── Soft-dupe check: same amount + merchant + calendar day ──
             val now = System.currentTimeMillis()
-            val isDuplicate = normalized.merchant != null &&
+            // SameTransactionKey is shared with SMS Import, so both drop the same twins.
+            val incomingKey = SameTransactionKey.of(normalized.amount, normalized.merchant, now)
+            val isDuplicate = incomingKey != null &&
                 expenseRepository.getExpensesSnapshot().any { expense ->
                     !expense.isDeleted &&
-                        expense.amount == normalized.amount &&
-                        expense.merchantName?.trim()?.lowercase() == normalized.merchant.trim().lowercase() &&
-                        isSameCalendarDay(expense.date.toEpochMilliseconds(), now)
+                        SameTransactionKey.of(expense.amount, expense.merchantName, expense.date.toEpochMilliseconds()) == incomingKey
                 }
             if (isDuplicate) return@launch
 

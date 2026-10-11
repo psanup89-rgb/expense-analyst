@@ -63,6 +63,42 @@ class IciciParserTest {
         assertEquals(12500.0, result!!.amount, 0.01)
     }
 
+    // Real wording (Oct 2026), digits and phone numbers replaced. Was dropped by every parser.
+    private val cardSpend = "Rs 1,22,099.00 spent on ICICI Bank Card XX1234 on 11-Oct-26 at WWWCROMACOM. " +
+        "Avl Lmt: Rs 27,901.00. To dispute, call 18000000000/SMS BLOCK 1234 to 9000000000. " +
+        "To convert this txn to EMI give a missed call on 9000000001. Know more about EMI conversion at https://example.com/x"
+
+    @Test
+    fun `parse reads a credit card purchase worded as spent`() {
+        val result = parser.parse("ICICIT", cardSpend)
+        assertNotNull(result)
+        assertEquals(122099.0, result!!.amount, 0.01)
+        assertEquals(TransactionDirection.DEBIT, result.type)
+        assertEquals("INR", result.currencyCode)
+        assertEquals("1234", result.accountLast4)
+        assertEquals("CROMA", result.merchant)
+        assertEquals("CREDIT_CARD", result.paymentMethodName)
+    }
+
+    @Test
+    fun `a spend at a plain merchant keeps its name`() {
+        val result = parser.parse(
+            "ICICIT",
+            "Rs 450.00 spent on ICICI Bank Card XX1234 on 02-Oct-26 at SWIGGY. Avl Lmt: Rs 50,000.00."
+        )
+        assertEquals("SWIGGY", result?.merchant)
+        assertEquals(TransactionDirection.DEBIT, result?.type)
+    }
+
+    @Test
+    fun `the registry saves the card purchase instead of dropping it`() {
+        val result = ParserRegistry.parse("ICICIT", cardSpend)
+        assertNotNull(result)
+        assertEquals(122099.0, result!!.amount, 0.01)
+        assertEquals(TransactionDirection.DEBIT, result.type)
+        assertEquals("CROMA", result.merchant)
+    }
+
     @ParameterizedTest
     @CsvSource(
         "ICICIB, Your OTP for ICICI is 7890. Valid for 10 mins.",

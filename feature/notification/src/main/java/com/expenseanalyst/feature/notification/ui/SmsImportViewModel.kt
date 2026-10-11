@@ -25,6 +25,7 @@ import com.expenseanalyst.domain.util.MandateDebitMatcher
 import com.expenseanalyst.domain.util.PaymentMethodInference
 import com.expenseanalyst.domain.util.SpendClassifier
 import com.expenseanalyst.domain.util.ReimbursementMatcher
+import com.expenseanalyst.domain.util.SameTransactionKey
 import com.expenseanalyst.domain.util.ReviewReason
 import com.expenseanalyst.domain.util.TransferRecipientMatcher
 import com.expenseanalyst.domain.util.RefundMatcher
@@ -140,6 +141,12 @@ class SmsImportViewModel @Inject constructor(
             val existingFallbackKeys = existingSmsAuto
                 .filter { it.rawSmsBody.isNullOrBlank() }
                 .mapTo(mutableSetOf()) { dedupeKeyFallback(it.amount, it.date.toEpochMilliseconds(), it.merchantName) }
+            // Same amount + merchant + local day as any saved row — live capture's rule, so a
+            // bank's second, differently worded message about one transfer isn't re-added here.
+            // Every row, deleted ones too (a deleted transaction's twin must not come back), and
+            // it grows with this batch so a pair of new twins saves only once.
+            val sameTransactionKeys = fullSnapshot
+                .mapNotNullTo(mutableSetOf()) { SameTransactionKey.of(it.amount, it.merchantName, it.date.toEpochMilliseconds()) }
 
             val smsList = withContext(Dispatchers.IO) { querySmsInbox(sinceMillis = sinceMillis) }
             _uiState.value = SmsImportUiState.BulkImporting(processed = 0, total = smsList.size)
@@ -186,6 +193,14 @@ class SmsImportViewModel @Inject constructor(
                     )
                     return@forEachIndexed
                 }
+                val sameTransactionKey = SameTransactionKey.of(parsed.amount, parsed.merchant, sms.timestampMs)
+                if (sameTransactionKey != null && sameTransactionKey in sameTransactionKeys) {
+                    skipped++
+                    _uiState.value = SmsImportUiState.BulkImporting(
+                        processed = index + 1, total = smsList.size
+                    )
+                    return@forEachIndexed
+                }
                 // One auto-debit, two messages (MandateDebitMatcher) — against saved rows and this batch
                 if (parsed.type == TransactionDirection.DEBIT &&
                     MandateDebitMatcher.findTwin(parsed.amount, parsed.currencyCode, sms.timestampMs, sms.body, fullSnapshot + toSave) != null
@@ -197,6 +212,7 @@ class SmsImportViewModel @Inject constructor(
                     return@forEachIndexed
                 }
                 existingBodyKeys.add(bodyKey)
+                sameTransactionKey?.let { sameTransactionKeys.add(it) }
 
                 val parsedType = when (parsed.type) {
                     TransactionDirection.CREDIT -> TransactionType.INCOME

@@ -5,6 +5,16 @@ Format: `[Date] — Summary`
 ---
 
 
+## 2026-10-11 — v0.7.21
+
+Released as v0.7.21-debug (DB v34, no migration): the entry below.
+
+## 2026-10-11 — ICICI card purchases; SMS Import no longer re-adds twin transfers
+
+- ICICI's credit-card purchase SMS ("Rs X spent on ICICI Bank Card … at MERCHANT. Avl Lmt: …") was read by no parser — `IciciParser` knew only "debited"/"credited", and `GenericParser` doesn't treat "spent" as a debit (left so: budget notices say "spent" too). Every such purchase was dropped. Now a DEBIT with the card's digits, the merchant (run-together web descriptors cleaned: "WWWCROMACOM" → "CROMA") and Credit Card from the available limit.
+- SMS Import matched saved rows on exact message text, applying amount + merchant + day only to rows saved without text. A bank's second, differently worded message about one transfer was dropped by live capture but re-added by import — on device a SAR 4,000 loan transfer was counted again as Spent and a SAR 10,000 own-account transfer listed twice (both deleted). Import now uses live capture's rule against every saved row, deleted ones included, and within the batch; both share `domain/util/SameTransactionKey` (local calendar day).
+- On device: the missed Croma purchase (INR 1,22,099) and a missed Keeta order recovered by import.
+
 ## 2026-10-10 — v0.7.20
 
 Released as v0.7.20-debug (DB v34, no migration): the entry below.
