@@ -1,10 +1,10 @@
 # Expense Analyst — Handoff
 
-**Last updated**: 2026-10-12
+**Last updated**: 2026-10-13
 **DB version**: 35
 **Build**: `./gradlew clean assembleDebug` ✅
 **Repo**: `https://github.com/psanup89-rgb/expense-analyst` (public)
-**Release**: v0.7.22-debug (GitHub Release with APK)
+**Release**: v0.7.23-debug (GitHub Release with APK)
 
 ---
 

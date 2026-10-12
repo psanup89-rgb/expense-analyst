@@ -316,7 +316,9 @@ interface ExpenseDao {
         setReviewState(
             id,
             NeedsReviewEvaluator.encode(remaining).takeIf { it.isNotBlank() },
-            remaining.isNotEmpty(),
+            // Removing a reason never puts a row back in Review: leftovers may be reasons the
+            // user already answered with Mark done, which keeps them and clears only the flag.
+            existing.needsReview && remaining.isNotEmpty(),
             updatedAt
         )
     }
@@ -456,14 +458,17 @@ interface ExpenseDao {
         if (existing.isDeleted) return
         val reasons = NeedsReviewEvaluator.decode(existing.needsReviewReasons)
         if (ReviewReason.UNMATCHED_BNPL_CHARGE in reasons && !force) return
-        val updated = (reasons - ReviewReason.UNMATCHED_BNPL_CHARGE) + ReviewReason.UNMATCHED_BNPL_CHARGE
-        setReviewState(id, NeedsReviewEvaluator.encode(updated), true, updatedAt)
+        // On a row already out of Review its other reasons were answered (Mark done, or an edit
+        // that fixed them), so it comes back for this question alone. Keeping them is how a
+        // Tamara charge recategorised to Bills reappeared as "Missing: Category" (Oct 2026).
+        val open = if (existing.needsReview) reasons - ReviewReason.UNMATCHED_BNPL_CHARGE else emptyList()
+        setReviewState(id, NeedsReviewEvaluator.encode(open + ReviewReason.UNMATCHED_BNPL_CHARGE), true, updatedAt)
     }
 
     /**
-     * Drops the "Tabby/Tamara plan" reason once the charge is linked, automatically or by hand. Not
-     * [dropReviewReason]: that re-raises the flag when other reasons remain, and a row the user
-     * already marked done must stay done.
+     * Drops the "Tabby/Tamara plan" reason once the charge is linked, automatically or by hand.
+     * Same rule as [dropReviewReason], but a no-op when the reason isn't there — the reconciler
+     * calls this on every automatic link.
      */
     @Transaction
     suspend fun resolveUnmatchedBnplCharge(id: Long, updatedAt: Long) {
@@ -533,22 +538,39 @@ interface ExpenseDao {
         // An own-account transfer counts toward nothing, so its category no longer needs review
         // and a generic one is replaced by "Transfer" (same as capture: CategoryInference.forTransfer).
         val ownAccount = classification == TransferClassification.OWN_ACCOUNT.name
-        val resolved = if (ownAccount) {
-            setOf(ReviewReason.UNCLASSIFIED_TRANSFER, ReviewReason.GENERIC_CATEGORY)
-        } else {
-            setOf(ReviewReason.UNCLASSIFIED_TRANSFER)
+        val resolved = buildSet {
+            add(ReviewReason.UNCLASSIFIED_TRANSFER)
+            if (ownAccount) add(ReviewReason.GENERIC_CATEGORY)
+            // A transfer never goes through a card, so on a bank's only non-card account it is
+            // identified — the live-capture rule since Oct 2026. Rows captured before that rule
+            // (every digit-less D360 transfer) carried a stale "Account" that classifying left behind.
+            if (existing.accountId?.let { isOnlyNonCardAccountOfBank(it) } == true) add(ReviewReason.UNRESOLVED_ACCOUNT)
         }
         val remaining = NeedsReviewEvaluator.removeAll(existing.needsReviewReasons, resolved)
         val rows = applyTransferClassification(
             id = id,
             classification = classification,
             reasons = NeedsReviewEvaluator.encode(remaining).takeIf { it.isNotBlank() },
-            needsReview = remaining.isNotEmpty(),
+            // An unclassified transfer is in Review by its shape, not its flag — so the flag is
+            // what the user last left it as. Never raise it here: the reasons left over may be
+            // ones the user already answered (Mark done keeps reasons, only clears the flag).
+            needsReview = existing.needsReview && remaining.isNotEmpty(),
             updatedAt = updatedAt
         )
         if (ownAccount && rows > 0) fileGenericUnderTransfer(id, updatedAt)
         return rows
     }
+
+    /** True when [accountId] is the only savings/current/other account its bank has here. */
+    @Query(
+        """
+        SELECT COUNT(*) = 1 AND MAX(id) = :accountId FROM accounts
+        WHERE bank_name = (SELECT bank_name FROM accounts WHERE id = :accountId)
+          AND bank_name <> 'Unknown Bank'
+          AND account_type NOT IN ('CREDIT_CARD', 'DEBIT_CARD', 'FOREX_CARD')
+        """
+    )
+    suspend fun isOnlyNonCardAccountOfBank(accountId: Long): Boolean
 
     /** A Misc/Other row moves to the "Transfer" category, if one exists; a real category is kept. */
     @Query(

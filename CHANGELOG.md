@@ -5,6 +5,16 @@ Format: `[Date] — Summary`
 ---
 
 
+## 2026-10-13 — v0.7.23
+
+Released as v0.7.23-debug (DB v35, no migration): the entry below.
+
+## 2026-10-13 — Answered review reasons no longer bring a row back
+
+- "Mark done" and the Edit screen clear `needs_review` but keep the reason list. v0.7.22's `flagUnmatchedBnplCharge` raised the flag with every saved reason, so a Tamara charge already recategorised to Bills came back as "Missing: Category". A done row now returns with the new question only, and removing a reason (`classifyTransfer`, `dropReviewReason`, `resolveUnmatchedBnplCharge`) never re-raises the flag.
+- Classifying a transfer clears "Account" when the row is on its bank's only non-card account (`ExpenseDao.isOnlyNonCardAccountOfBank`) — the D360 transfer captured before v0.7.22's account fix kept the flag after "My account".
+- On device: both rows marked done; Review empty.
+
 ## 2026-10-12 — v0.7.22
 
 Released as v0.7.22-debug (DB v35, migration 34→35): the entry below.
