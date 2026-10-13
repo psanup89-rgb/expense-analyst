@@ -334,10 +334,15 @@ interface ExpenseDao {
     @Transaction
     suspend fun linkBillPayment(id: Long, billId: Long, paymentMethodIfUnknown: String?, updatedAt: Long): Int {
         val existing = getExpenseEntityById(id) ?: return 0
-        val remaining = NeedsReviewEvaluator.removeAll(
-            existing.needsReviewReasons,
+        // A PAYMENT counts toward no total, so its category stops mattering once it's tied to a
+        // bill. An EXPENSE paying a utility bill still counts as Spent: its category still matters,
+        // so only the payment method is answered by the link.
+        val resolved = if (existing.transactionType == "PAYMENT") {
             NeedsReviewEvaluator.RESOLVED_BY_BILL_LINK
-        )
+        } else {
+            setOf(ReviewReason.UNKNOWN_PAYMENT_METHOD)
+        }
+        val remaining = NeedsReviewEvaluator.removeAll(existing.needsReviewReasons, resolved)
         val method = if (existing.paymentMethod == PaymentMethod.OTHER.name && paymentMethodIfUnknown != null) {
             paymentMethodIfUnknown
         } else {
@@ -348,7 +353,8 @@ interface ExpenseDao {
             billId = billId,
             paymentMethod = method,
             reasons = NeedsReviewEvaluator.encode(remaining).takeIf { it.isNotBlank() },
-            needsReview = remaining.isNotEmpty(),
+            // Never re-raise: see dropReviewReason.
+            needsReview = existing.needsReview && remaining.isNotEmpty(),
             updatedAt = updatedAt
         )
     }

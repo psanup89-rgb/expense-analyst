@@ -223,6 +223,7 @@ fun ExpenseDetailScreen(
             sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
         ) {
             LinkBillSheetContent(
+                expense = uiState.expense,
                 openBills = uiState.openBills,
                 onSelect = viewModel::linkToBill,
                 onDismiss = viewModel::dismissLinkBillSheet
@@ -440,8 +441,10 @@ private fun ExpenseDetailContent(
                 }
                 DetailDivider()
                 DetailRow("Source", expense.sourceType.name.replace("_", " "))
-                // Bill link row — only visible for PAYMENT type
-                if (expense.transactionType == TransactionType.PAYMENT) {
+                // Bill link row. A card-bill PAYMENT settles a statement; an EXPENSE can pay a
+                // utility bill (Saudi Electricity paid by card) — it stays an expense and keeps
+                // counting toward Spent, the link only closes the bill (Oct 2026).
+                if (expense.transactionType == TransactionType.PAYMENT || expense.transactionType == TransactionType.EXPENSE) {
                     DetailDivider()
                     Row(
                         modifier = Modifier
@@ -857,10 +860,17 @@ private fun DetailDivider() {
 
 @Composable
 private fun LinkBillSheetContent(
+    expense: Expense?,
     openBills: List<Bill>,
     onSelect: (Bill) -> Unit,
     onDismiss: () -> Unit
 ) {
+    // A bill for exactly this amount is almost always the one; put it first and say so.
+    val matches: (Bill) -> Boolean = { bill ->
+        expense != null && bill.currencyCode == expense.currencyCode &&
+            bill.totalDue?.let { kotlin.math.abs(it - expense.amount) <= 0.01 } == true
+    }
+    val sortedBills = openBills.sortedByDescending(matches)
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -882,7 +892,7 @@ private fun LinkBillSheetContent(
                 modifier = Modifier.padding(vertical = 8.dp)
             )
         } else {
-            openBills.forEach { bill ->
+            sortedBills.forEach { bill ->
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -904,6 +914,13 @@ private fun LinkBillSheetContent(
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
+                        if (matches(bill)) {
+                            Text(
+                                text = "Same amount",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.primary
+                            )
+                        }
                     }
                 }
                 HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))

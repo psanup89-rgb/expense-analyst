@@ -5,6 +5,16 @@ Format: `[Date] — Summary`
 ---
 
 
+## 2026-10-13 — v0.7.24
+
+Released as v0.7.24-debug (DB v35, no migration): the entry below.
+
+## 2026-10-13 — Link an expense to a bill
+
+- The detail screen's "Linked Bill" row showed only for PAYMENT rows, so a utility bill paid by card (an EXPENSE) could never settle its bill. It now shows for EXPENSE too; the link sheet lists a bill for the same amount and currency first ("Same amount"). The expense stays an EXPENSE and keeps counting toward Spent — linking only recomputes the bill's status (`LinkBillPaymentUseCase` / `BillSettlement`).
+- `ExpenseDao.linkBillPayment` drops GENERIC_CATEGORY only for a PAYMENT (an expense's category still matters) and no longer re-raises `needs_review`.
+- On device: the SAR 252.94 Saudi Electricity expense linked to its Saudi Energy bill → Settled; October Spent unchanged.
+
 ## 2026-10-13 — v0.7.23
 
 Released as v0.7.23-debug (DB v35, no migration): the entry below.
