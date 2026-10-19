@@ -244,8 +244,8 @@ class AddExpenseViewModel @Inject constructor(
         getCategoriesUseCase(),
         homeCurrencyFlow,
         combine(selectedCurrencyRateFlow, homeCurrencyRateFlow) { sel, home -> sel to home },
-        tagRepository.getAllTags()
-    ) { form, categories, homeCurrency, (selectedRate, homeRate), allTags ->
+        tagRepository.getTagsWithUsage()
+    ) { form, categories, homeCurrency, (selectedRate, homeRate), tagUsage ->
         val suggestedExchangeRate = when {
             form.currencyCode == homeCurrency -> 1.0
             selectedRate != null && homeRate != null && selectedRate.rateToBase > 0.0 ->
@@ -256,7 +256,8 @@ class AddExpenseViewModel @Inject constructor(
             categories = categories,
             homeCurrencyCode = homeCurrency,
             suggestedExchangeRate = suggestedExchangeRate,
-            availableTags = allTags
+            availableTags = tagUsage.sortedByDescending { it.expenseCount }.map { it.tag },
+            tagUsageCounts = tagUsage.associate { it.tag.id to it.expenseCount }
         )
     }.stateIn(
         scope = viewModelScope,

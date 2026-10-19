@@ -11,6 +11,9 @@ import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.material3.CheckboxDefaults
+import androidx.compose.material3.Checkbox
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -1142,6 +1145,7 @@ internal fun AddExpenseContent(
                         TagSelector(
                             selectedTags = uiState.selectedTags,
                             availableTags = uiState.availableTags,
+                            usageCounts = uiState.tagUsageCounts,
                             searchQuery = uiState.tagSearchQuery,
                             onSearchQueryChange = onTagSearchQueryChange,
                             onTagSelect = onTagSelect,
@@ -1421,8 +1425,22 @@ internal fun TagSelector(
     onTagSelect: (Tag) -> Unit,
     onTagRemove: (Tag) -> Unit,
     onCreateTag: (String) -> Unit,
-    accentColor: Color
+    accentColor: Color,
+    usageCounts: Map<Long, Int> = emptyMap()
 ) {
+    var showAllTags by remember { mutableStateOf(false) }
+    if (showAllTags) {
+        AllTagsSheet(
+            selectedTags = selectedTags,
+            availableTags = availableTags,
+            usageCounts = usageCounts,
+            onTagSelect = onTagSelect,
+            onTagRemove = onTagRemove,
+            onCreateTag = onCreateTag,
+            accentColor = accentColor,
+            onDismiss = { showAllTags = false }
+        )
+    }
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         // Selected tags as removable chips
         if (selectedTags.isNotEmpty()) {
@@ -1484,7 +1502,9 @@ internal fun TagSelector(
         }
         val exactMatch = availableTags.any { it.name.equals(query, ignoreCase = true) }
 
-        if (suggestions.isNotEmpty() || (query.isNotBlank() && !exactMatch)) {
+        // Quick chips show only a few, so the full list is one tap away
+        val showAllChip = query.isBlank() && availableTags.isNotEmpty()
+        if (suggestions.isNotEmpty() || showAllChip || (query.isNotBlank() && !exactMatch)) {
             FlowRow(
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                 verticalArrangement = Arrangement.spacedBy(4.dp)
@@ -1496,6 +1516,22 @@ internal fun TagSelector(
                         label = { Text(tag.name, style = MaterialTheme.typography.labelSmall) },
                         colors = FilterChipDefaults.filterChipColors(
                             containerColor = MaterialTheme.colorScheme.surfaceContainerHigh
+                        )
+                    )
+                }
+                if (showAllChip) {
+                    FilterChip(
+                        selected = false,
+                        onClick = { showAllTags = true },
+                        label = {
+                            Text(
+                                "All tags (${availableTags.size})",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = accentColor
+                            )
+                        },
+                        colors = FilterChipDefaults.filterChipColors(
+                            containerColor = accentColor.copy(alpha = 0.1f)
                         )
                     )
                 }
@@ -1517,6 +1553,111 @@ internal fun TagSelector(
                         )
                     )
                 }
+            }
+        }
+    }
+}
+
+/**
+ * Every tag, A–Z, with a tick box and how many expenses use it — the quick chips above the
+ * field only show a handful. Ticking applies straight away (same callbacks as the chips);
+ * typing filters, and a name that doesn't exist yet can be created from here.
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun AllTagsSheet(
+    selectedTags: List<Tag>,
+    availableTags: List<Tag>,
+    usageCounts: Map<Long, Int>,
+    onTagSelect: (Tag) -> Unit,
+    onTagRemove: (Tag) -> Unit,
+    onCreateTag: (String) -> Unit,
+    accentColor: Color,
+    onDismiss: () -> Unit
+) {
+    var filter by remember { mutableStateOf("") }
+    val selectedIds = selectedTags.map { it.id }.toSet()
+    val query = filter.trim()
+    val shown = availableTags
+        .filter { query.isBlank() || it.name.contains(query, ignoreCase = true) }
+        .sortedBy { it.name.lowercase() }
+    val exactMatch = availableTags.any { it.name.equals(query, ignoreCase = true) }
+
+    ModalBottomSheet(onDismissRequest = onDismiss) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp)
+                .navigationBarsPadding()
+                .imePadding(),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    "Tags",
+                    style = MaterialTheme.typography.titleLarge,
+                    modifier = Modifier.weight(1f)
+                )
+                if (selectedIds.isNotEmpty()) {
+                    Text(
+                        "${selectedIds.size} selected",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+            OutlinedTextField(
+                value = filter,
+                onValueChange = { filter = it },
+                placeholder = { Text("Search tags") },
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth()
+            )
+            LazyColumn(modifier = Modifier.weight(1f, fill = false)) {
+                if (query.isNotBlank() && !exactMatch) {
+                    item(key = "create") {
+                        ListItem(
+                            headlineContent = { Text("Create \"$query\"", color = accentColor) },
+                            modifier = Modifier.clickable {
+                                onCreateTag(query)
+                                filter = ""
+                            },
+                            colors = ListItemDefaults.colors(containerColor = Color.Transparent)
+                        )
+                    }
+                }
+                items(shown, key = { it.id }) { tag ->
+                    val checked = tag.id in selectedIds
+                    val toggle = { if (checked) onTagRemove(tag) else onTagSelect(tag) }
+                    val count = usageCounts[tag.id]
+                    ListItem(
+                        headlineContent = { Text(tag.name, maxLines = 1, overflow = TextOverflow.Ellipsis) },
+                        supportingContent = count?.let {
+                            { Text(if (it == 1) "1 expense" else "$it expenses") }
+                        },
+                        leadingContent = {
+                            Checkbox(
+                                checked = checked,
+                                onCheckedChange = { toggle() },
+                                colors = CheckboxDefaults.colors(checkedColor = accentColor)
+                            )
+                        },
+                        modifier = Modifier.clickable { toggle() },
+                        colors = ListItemDefaults.colors(containerColor = Color.Transparent)
+                    )
+                }
+                if (shown.isEmpty() && query.isBlank()) {
+                    item(key = "empty") {
+                        Text(
+                            "No tags yet",
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.padding(vertical = 16.dp)
+                        )
+                    }
+                }
+            }
+            TextButton(onClick = onDismiss, modifier = Modifier.align(Alignment.End)) {
+                Text("Done", color = accentColor)
             }
         }
     }

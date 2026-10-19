@@ -30,7 +30,10 @@ data class AddExpenseUiState(
     val description: String = "",
     val merchantName: String = "",
     val selectedTags: List<Tag> = emptyList(),
+    /** Most-used first, so the quick chips are the tags actually used. */
     val availableTags: List<Tag> = emptyList(),
+    /** Tag id → number of expenses carrying it, shown in the "All tags" sheet. */
+    val tagUsageCounts: Map<Long, Int> = emptyMap(),
     val tagSearchQuery: String = "",
     val accounts: List<Account> = emptyList(),
     val selectedAccountId: Long? = null,

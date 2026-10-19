@@ -5,6 +5,14 @@ Format: `[Date] — Summary`
 ---
 
 
+## 2026-10-20 — v0.7.25
+
+Released as v0.7.25-debug (DB v35, no migration): the entry below.
+
+## 2026-10-20 — All tags on the Add/Edit expense screen
+
+- The tag field's quick chips now show the **most-used** tags first (was the first six A–Z), plus an **All tags (N)** chip that opens a sheet listing every tag A–Z with a tick box and its expense count. Ticking applies straight away; the sheet can search and create a tag. `TagSelector` in `AddExpenseScreen` (shared by Add, Edit and the rule dialog); Add/Edit read `TagRepository.getTagsWithUsage()`.
+
 ## 2026-10-13 — v0.7.24
 
 Released as v0.7.24-debug (DB v35, no migration): the entry below.
