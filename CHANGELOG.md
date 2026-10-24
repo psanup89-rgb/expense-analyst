@@ -5,6 +5,16 @@ Format: `[Date] — Summary`
 ---
 
 
+## 2026-10-24 — v0.7.26
+
+Released as v0.7.26-debug (DB v35, no migration): the entry below.
+
+## 2026-10-24 — Axis AutoPay notice no longer a second expense
+
+- Axis's "AutoPay activation successful. Txn amt: INR 2900 / Merchant: Google Play … We will inform you of the txn amt before any future debits" sets up a card mandate; it was saved as an expense next to the real "Spent INR 2900 … at GOOGLEPLAY" message. `ParserRegistry`'s non-transaction guard now rejects AutoPay/mandate set-up notices.
+- `AxisParser` reads the newer "Spent" layout where the merchant follows "IST at" on its own line — the purchase had been named "Axis Bank".
+- On device: the notice row soft-deleted, the purchase renamed "Google Play".
+
 ## 2026-10-20 — v0.7.25
 
 Released as v0.7.25-debug (DB v35, no migration): the entry below.

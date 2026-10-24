@@ -126,7 +126,7 @@ Registered in `BillStatementParserRegistry` (tried before transaction parsers). 
 | 1 | HdfcParser | HDFC Bank | Sender `hdfc` | INR | `Rs.X debited/credited`, UPI, NEFT, card payment |
 | 2 | SbiParser | SBI | Sender `sbi` | INR | `Rs X debited from A/c`, `Info:`, card payment |
 | 3 | IciciParser | ICICI Bank | Sender `icici` | INR | `Acct XX1234 debited`, `Info:`, card payment |
-| 4 | AxisParser | Axis Bank | Sender `axis` | Multi | `Rs.X debited/credited`, Forex (`SAR/USD/AED/EUR/GBP`), UPI/P2M compact |
+| 4 | AxisParser | Axis Bank | Sender `axis` | Multi | `Rs.X debited/credited`, Forex (`SAR/USD/AED/EUR/GBP`), UPI/P2M compact, card "Spent … IST [at] MERCHANT … Avl limit" (merchant may be on its own line) |
 | 5 | KotakParser | Kotak Bank | Sender `kotak` | INR | `INR X debited from A/c`, `via UPI to` |
 | 6 | YesBankParser | Yes Bank | Sender `yes` + body `YES BANK` | INR | `Ac X2919 debited`, UPI `/To:`, NEFT `/From:` |
 | 7 | IdfcFirstBankParser | IDFC First Bank | Sender `idfcfb` | INR | CC spend (fun prefixes), savings debit/credit, card payment, interest |
@@ -149,7 +149,7 @@ Registered in `BillStatementParserRegistry` (tried before transaction parsers). 
 
 Applied to every parser's result — never re-implement per parser:
 
-- **Not a transaction → null**: OTP messages; card-due reminders ("is due for payment"); failed auto-debits; "balance is almost consumed"; UPI collect requests ("has requested money"); bill-download links. Bill reminders still reach `BillStatementParserRegistry`, which runs on a null here.
+- **Not a transaction → null**: OTP messages; card-due reminders ("is due for payment"); failed auto-debits; "balance is almost consumed"; UPI collect requests ("has requested money"); bill-download links; card AutoPay / mandate set-up notices ("AutoPay activation successful … we will inform you of the txn amt before any future debits" — they restate the amount but charge nothing; Oct 2026). Bill reminders still reach `BillStatementParserRegistry`, which runs on a null here.
 - **Card-bill payment → `PAYMENT`**: a debit to CRED / Dreamplug / American Express / "… Credit Card Bill", and a credit that is a card-bill payment arriving on the card ("Payment … received towards your Credit Card", "credited to your card ending", "Credit Card: Credited", "Excess amount … credit card"). Refund wording opts out.
 - **`sanitizeMerchant`**: "ACH D- Groww-<ref>" → "Groww"; cuts "… using your … Card xx12"; nulls a merchant that carries a card/account identifier or is a bare phone number.
 

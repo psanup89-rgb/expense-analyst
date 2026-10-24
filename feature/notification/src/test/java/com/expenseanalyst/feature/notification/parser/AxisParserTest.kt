@@ -77,4 +77,36 @@ class AxisParserTest {
     fun `parse returns null for non-transaction messages`(sender: String, body: String) {
         assertNull(parser.parse(sender, body))
     }
+
+    // ── Oct 2026: a Google Play purchase arrived as two rows ──
+
+    @Test
+    fun `an AutoPay activation notice is not a transaction`() {
+        assertNull(
+            ParserRegistry.parse(
+                "AX-AXISBK",
+                "AutoPay activation successful.\nTxn amt: INR 2900.00\nMerchant: Google Play - App Purchase Services\n" +
+                    "Axis Bank Card no.: XX1234\nMax limit: INR 15000.00\nID: Abc1d2Efg3\nManage AutoPay at https://example.com/x\n" +
+                    "We will inform you of the txn amt before any future debits initiated by Google Play - App Purchase Services.\nTnC apply."
+            )
+        )
+    }
+
+    @Test
+    fun `the Spent layout with the merchant on its own line keeps the merchant`() {
+        val r = ParserRegistry.parse(
+            "AX-AXISBK",
+            "Spent INR 2900 \nusing Axis Bank Credit Card no. XX1234 on 24-10-26 01:16:30 IST at \nGOOGLEPLAY. \nAvl limit: INR 123456. Not you? SMS BLOCK 1234 to +911234567890."
+        )
+        assertNotNull(r)
+        assertEquals(2900.0, r!!.amount, 0.001)
+        assertEquals("GOOGLEPLAY", r.merchant)
+        assertEquals("1234", r.accountLast4)
+        // the older one-line layout still reads
+        val old = ParserRegistry.parse(
+            "AX-AXISBK",
+            "Spent INR 450 Axis Bank Card no. XX1234 24-09-26 10:00:00 IST SWIGGY Avl Limit: INR 5000"
+        )
+        assertEquals("SWIGGY", old!!.merchant)
+    }
 }

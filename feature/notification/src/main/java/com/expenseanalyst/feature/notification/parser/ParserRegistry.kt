@@ -84,6 +84,12 @@ object ParserRegistry {
             // credited to your Savings Account if not used" — a notice; the actual move arrives
             // later as "Excess amount … has been credited to A/c".
             """\bhas\s+a\s+credit\s+balance\b|""" +
+            // A card mandate being set up, not charged: Axis "AutoPay activation successful. Txn amt:
+            // INR 2900 / Merchant: Google Play … We will inform you of the txn amt before any future
+            // debits" — saved as a second INR 2,900 expense next to the real "Spent" message (Oct 2026).
+            """\bauto\s*pay\s+(?:activation|registration|setup|set\s+up)\s+(?:is\s+)?successful|""" +
+            """\bmandate\s+(?:has\s+been\s+|is\s+)?(?:successfully\s+)?(?:registered|activated|created)\b|""" +
+            """\binform\s+you\s+of\s+the\s+(?:txn|transaction)\s+(?:amt|amount)\s+before\s+any\s+future\s+debits\b|""" +
             // A bounced auto-debit: "NACH debit towards MONTHLYSMALLCAS for INR 2,200 … has been
             // returned today" — the money never left, but it was counted as spent.
             """\bdebit\b.{0,120}\bhas\s+been\s+returned\b""",

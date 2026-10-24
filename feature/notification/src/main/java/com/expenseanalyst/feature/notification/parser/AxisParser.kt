@@ -39,8 +39,12 @@ class AxisParser : TransactionParser {
     private val achMerchantPattern = Regex("""(?i)ACH-(?:DR|CR)-([A-Z0-9]+)-\d""")
     // Merchant from NACH: "NACH debit towards MERCHANTNAME for INR"
     private val nachMerchantPattern = Regex("""(?i)NACH\s+debit\s+towards\s+(\S+)\s+for""")
-    // Merchant from credit-card "Spent INR X ... IST MERCHANT Avl Limit"
-    private val spentMerchantPattern = Regex("""(?i)\bIST\s+([A-Za-z0-9][A-Za-z0-9 &_\-]+?)\s+Avl\s*Limit""")
+    // Merchant from credit-card "Spent INR X ... IST MERCHANT Avl Limit", and the newer layout
+    // "… on 24-10-26 01:16:30 IST at \nGOOGLEPLAY. \nAvl limit: …" (Oct 2026), where the merchant
+    // came out empty and the row was named "Axis Bank".
+    private val spentMerchantPattern = Regex(
+        """(?i)\bIST\s+(?:at\s+)?([A-Za-z0-9][A-Za-z0-9 &_\-*.]*?)\s*\.?\s+Avl\s*Limit"""
+    )
 
     override fun canParse(sender: String, body: String): Boolean =
         senderPattern.containsMatchIn(sender)

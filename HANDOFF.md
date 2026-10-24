@@ -1,10 +1,10 @@
 # Expense Analyst — Handoff
 
-**Last updated**: 2026-10-20
+**Last updated**: 2026-10-24
 **DB version**: 35
 **Build**: `./gradlew clean assembleDebug` ✅
 **Repo**: `https://github.com/psanup89-rgb/expense-analyst` (public)
-**Release**: v0.7.25-debug (GitHub Release with APK)
+**Release**: v0.7.26-debug (GitHub Release with APK)
 
 ---
 
@@ -27,6 +27,13 @@
    1066.19) — untouched since the initial commit; check the formula vs the test's expectation.
 
 ---
+
+## Session Summary (2026-10-24) — Axis AutoPay duplicate (released in v0.7.26)
+
+A Google Play subscription showed as two INR 2,900 expenses: the real Axis "Spent" message and
+an "AutoPay activation successful" mandate notice that restates the amount. The notice is now
+rejected as a non-transaction, and AxisParser keeps the merchant in the newer "Spent" layout.
+Device: notice row soft-deleted, purchase renamed "Google Play" (backup taken first).
 
 ## Session Summary (2026-10-02) — Al Rajhi recovery (released in v0.7.17)
 
