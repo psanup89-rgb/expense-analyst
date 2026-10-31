@@ -70,12 +70,13 @@ Each feature is an Android library module containing:
 
 All feature modules are fully implemented:
 - `:feature:expenses` — Expense list (date-grouped, filtered, searchable), Add/Edit/Detail screens
-- `:feature:settings` — Home currency picker, notification toggle, SMS import trigger, about section
+- `:feature:settings` — Home currency picker, notification and bill-reminder toggles, SMS import trigger, about section
 - `:feature:emi` — Create EMI from expense, EMI list (active/completed), EMI detail with installment timeline
 - `:feature:onboarding` — 3-step flow: welcome → currency picker → notification access + SMS import
 - `:feature:analytics` — Analytics dashboard (Phase 2)
 - `:feature:budget` — Budget tracking (biometric gate, salary, planned expenses, planned vs actual comparison)
-- `:feature:notification` — 18 bank parsers, NotificationListenerService, SMS import (bulk/browse), notification banner, PaymentMethodDetector
+- `:feature:notification` — 21 bank parsers + 13 bill-statement parsers, NotificationListenerService, SMS import (bulk/browse), notification banner, PaymentMethodDetector, and the daily **bill reminder** WorkManager job (`worker/BillReminderWorker`, scheduled by `BillReminderScheduler` from `ExpenseAnalystApp.onCreate`)
+- `:feature:loans` — loans/lent tracking, `LentReminderWorker` (one-off WorkManager reminders)
 
 ### App Module (`:app`)
 - `ExpenseAnalystApp`: Application class with Hilt

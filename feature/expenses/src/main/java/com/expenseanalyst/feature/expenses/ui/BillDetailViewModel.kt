@@ -9,6 +9,7 @@ import com.expenseanalyst.domain.usecase.LinkBillPaymentUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import javax.inject.Inject
@@ -44,6 +45,14 @@ class BillDetailViewModel @Inject constructor(
         viewModelScope.launch {
             billRepository.softDeleteBill(billId)
             onDeleted()
+        }
+    }
+
+    /** [millis] is the date picker's UTC midnight, the same form statement parsers store. */
+    fun setDueDate(millis: Long) {
+        viewModelScope.launch {
+            val bill = billRepository.getBillById(billId).first() ?: return@launch
+            billRepository.updateBill(bill.copy(dueDateMillis = millis))
         }
     }
 

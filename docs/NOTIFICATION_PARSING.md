@@ -96,7 +96,7 @@ Priority: Wallet overlays > UPI > Net Banking > Credit Card > Debit Card.
 
 Some parsers add context-aware fallbacks (e.g. IDFC CC spend → `CREDIT_CARD`, FASTag → `WALLET`, OneCard → `CREDIT_CARD`).
 
-## Bill Statement Parsers (12 total)
+## Bill Statement Parsers (13 total)
 
 Includes `MobilyStatementParser` (bill issued + reminder wordings). Reminders of a saved bill (same biller + amount, 35 days) become a "Link to bill" inbox card — see CLAUDE.md.
 
@@ -109,6 +109,7 @@ Registered in `BillStatementParserRegistry` (tried before transaction parsers). 
 | 3 | EmiratesNbdStatementParser | Sender `ENBD` + body fingerprint | Statement amount, due date |
 | 4 | AlRajhiStatementParser | Sender contains `alrajhi` | Arabic/English statement SMS |
 | 5 | HdfcStatementParser | Sender `hdfc` + "statement" keywords | Extracts totalDue, minDue, due date |
+| 5b | IciciStatementParser | `icici` + "statement" + "Total of Rs X" | "Statement is sent to … Total of Rs X or minimum of Rs Y is due by dd-MMM-yy"; totalDue, minDue, due date, card last-4 |
 | 6 | TamaraStatementParser | "payment of X SAR for your ORDER due in N days" | Computes due date from relative "N days" |
 | 7 | SaudiEnergyStatementParser | `se.com.sa` or "your bill for account" | `reference = account number` |
 | 8 | EjarStatementParser | `منصة إيجار` or `checkout.ejar.sa` | Arabic SMS, `reference = contract number` |
@@ -149,7 +150,7 @@ Registered in `BillStatementParserRegistry` (tried before transaction parsers). 
 
 Applied to every parser's result — never re-implement per parser:
 
-- **Not a transaction → null**: OTP messages; card-due reminders ("is due for payment"); failed auto-debits; "balance is almost consumed"; UPI collect requests ("has requested money"); bill-download links; card AutoPay / mandate set-up notices ("AutoPay activation successful … we will inform you of the txn amt before any future debits" — they restate the amount but charge nothing; Oct 2026). Bill reminders still reach `BillStatementParserRegistry`, which runs on a null here.
+- **Not a transaction → null**: OTP messages; card-due reminders ("is due for payment"); failed auto-debits; "balance is almost consumed"; UPI collect requests ("has requested money"); bill-download links; card statements sent by e-mail (ICICI "Statement is sent to … minimum of Rs N is due by …" — filed as a bill by `IciciStatementParser`); card AutoPay / mandate set-up notices ("AutoPay activation successful … we will inform you of the txn amt before any future debits" — they restate the amount but charge nothing; Oct 2026). Bill reminders still reach `BillStatementParserRegistry`, which runs on a null here.
 - **Card-bill payment → `PAYMENT`**: a debit to CRED / Dreamplug / American Express / "… Credit Card Bill", and a credit that is a card-bill payment arriving on the card ("Payment … received towards your Credit Card", "credited to your card ending", "Credit Card: Credited", "Excess amount … credit card"). Refund wording opts out.
 - **`sanitizeMerchant`**: "ACH D- Groww-<ref>" → "Groww"; cuts "… using your … Card xx12"; nulls a merchant that carries a card/account identifier or is a bare phone number.
 

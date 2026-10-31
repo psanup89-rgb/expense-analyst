@@ -68,6 +68,13 @@ class CurrencyPreferencesDataSource @Inject constructor(
         dataStore.edit { it[GOOGLE_PLACES_ENABLED_KEY] = enabled }
     }
 
+    fun isBillRemindersEnabled(): Flow<Boolean> =
+        dataStore.data.map { it[BILL_REMINDERS_ENABLED_KEY] ?: true }
+
+    suspend fun setBillRemindersEnabled(enabled: Boolean) {
+        dataStore.edit { it[BILL_REMINDERS_ENABLED_KEY] = enabled }
+    }
+
     private companion object {
         const val PREFERENCES_FILE_NAME = "expense_analyst_preferences.preferences_pb"
         const val DEFAULT_THEME_MODE = "SYSTEM"
@@ -76,5 +83,6 @@ class CurrencyPreferencesDataSource @Inject constructor(
         val NOTIFICATION_CAPTURE_KEY = booleanPreferencesKey("notification_capture_enabled")
         val THEME_MODE_KEY = stringPreferencesKey("theme_mode")
         val GOOGLE_PLACES_ENABLED_KEY = booleanPreferencesKey("google_places_enabled")
+        val BILL_REMINDERS_ENABLED_KEY = booleanPreferencesKey("bill_reminders_enabled")
     }
 }

@@ -29,4 +29,10 @@ class AppPreferencesRepositoryImpl @Inject constructor(
 
     override suspend fun setGooglePlacesEnabled(enabled: Boolean) =
         dataSource.setGooglePlacesEnabled(enabled)
+
+    override fun isBillRemindersEnabled(): Flow<Boolean> =
+        dataSource.isBillRemindersEnabled()
+
+    override suspend fun setBillRemindersEnabled(enabled: Boolean) =
+        dataSource.setBillRemindersEnabled(enabled)
 }

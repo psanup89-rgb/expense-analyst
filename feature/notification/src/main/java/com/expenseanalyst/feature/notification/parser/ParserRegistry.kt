@@ -84,6 +84,10 @@ object ParserRegistry {
             // credited to your Savings Account if not used" — a notice; the actual move arrives
             // later as "Excess amount … has been credited to A/c".
             """\bhas\s+a\s+credit\s+balance\b|""" +
+            // A card statement, not a spend: ICICI "Credit Card XX1234 Statement is sent to … Total of
+            // Rs 1,22,099 or minimum of Rs 6,105 is due by 17-NOV-26" was saved as a second expense of
+            // the full balance (Oct 2026). IciciStatementParser files it as a bill instead.
+            """\bstatement\s+is\s+sent\s+to\b|\bminimum\s+of\s+(?:rs\.?|inr)\s*[\d,]+(?:\.\d+)?\s+is\s+due\b|""" +
             // A card mandate being set up, not charged: Axis "AutoPay activation successful. Txn amt:
             // INR 2900 / Merchant: Google Play … We will inform you of the txn amt before any future
             // debits" — saved as a second INR 2,900 expense next to the real "Spent" message (Oct 2026).

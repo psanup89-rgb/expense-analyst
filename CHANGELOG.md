@@ -5,6 +5,22 @@ Format: `[Date] — Summary`
 ---
 
 
+## 2026-10-31 — ICICI card statement filed as a bill, not an expense
+
+- ICICI's "Credit Card XX1234 Statement is sent to … Total of Rs 1,22,099 or minimum of Rs 6,105 is due by 10-NOV-26" carries none of the "total due" wording, so no statement parser read it and the transaction parsers saved the full balance as a second expense next to the purchase it bills. New `IciciStatementParser` (total, minimum, due date, card); `ParserRegistry`'s non-transaction guard rejects "statement is sent to" / "minimum of Rs N is due" so SMS Import (which tries bills only when no transaction parses) files it as a bill too.
+- On device: the expense row soft-deleted; the statement put in Pending Bill Statements (due 10 Nov).
+
+## 2026-10-31 — v0.7.27
+
+Released as v0.7.27-debug (DB v35, no migration): the two entries below (bill reminders, ICICI statement).
+
+## 2026-10-31 — Daily bill reminders
+
+- **Bill reminders** (owner's rules): a daily check at 12:00 (`BillReminderWorker`, unique periodic WorkManager job scheduled from `ExpenseAnalystApp.onCreate`, `BillReminderScheduler`) posts one "N bill statements to add" notification while statements wait in Pending Bill Statements (tap → the inbox), and one notification per saved bill that is unsettled and due within 3 days, overdue, or has no due date — every day until it is settled (tap → that bill, `BillReminderNotification.ACTION_OPEN_BILL_DETAIL`). Which bills qualify is `domain/util/BillReminderPlanner` (unit-tested). Own "Bill Reminders" channel.
+- Settings → Notifications → **Bill reminders** switch (on by default; `AppPreferencesRepository.isBillRemindersEnabled`, read by the worker).
+- A bill with no due date shows **Set due date** on its detail screen (date picker, saves straight to the bill).
+- Debug builds: `adb shell am broadcast -a com.expenseanalyst.RUN_BILL_REMINDERS -p com.expenseanalyst` runs the check once (the periodic job won't run before its first 12:00).
+
 ## 2026-10-24 — v0.7.26
 
 Released as v0.7.26-debug (DB v35, no migration): the entry below.

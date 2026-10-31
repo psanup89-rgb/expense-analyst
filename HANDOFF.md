@@ -1,10 +1,10 @@
 # Expense Analyst — Handoff
 
-**Last updated**: 2026-10-24
+**Last updated**: 2026-10-31
 **DB version**: 35
 **Build**: `./gradlew clean assembleDebug` ✅
 **Repo**: `https://github.com/psanup89-rgb/expense-analyst` (public)
-**Release**: v0.7.26-debug (GitHub Release with APK)
+**Release**: v0.7.27-debug (GitHub Release with APK)
 
 ---
 
@@ -27,6 +27,17 @@
    1066.19) — untouched since the initial commit; check the formula vs the test's expectation.
 
 ---
+
+## Session Summary (2026-10-31) — ICICI statement as a bill; bill reminders (released in v0.7.27)
+
+- An ICICI card statement ("Statement is sent to … Total of Rs X or minimum of Rs Y is due by …") was
+  saved as a second expense of the full balance. New `IciciStatementParser`; the wording is a
+  non-transaction for `ParserRegistry`. Device: the row soft-deleted, the statement queued in the inbox.
+- **Bill reminders** (owner's rules, asked and answered): daily at 12:00; one summary while statements
+  wait in the inbox; one notification per bill from 3 days before due, daily through overdue until
+  settled; no due date → daily, with "Set due date" on the bill; Settings switch, on by default.
+  Verified on device with the debug `RUN_BILL_REMINDERS` trigger (3 bills due the next day + 1 waiting
+  statement notified; bills due in 6 days correctly not).
 
 ## Session Summary (2026-10-24) — Axis AutoPay duplicate (released in v0.7.26)
 

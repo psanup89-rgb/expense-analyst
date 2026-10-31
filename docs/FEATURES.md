@@ -167,3 +167,16 @@
 ## Phase 3 (not started)
 
 F18: iOS App (KMP) · F19: Smart Categorization · F20: Recurring Detection · F21: Receipt Photos · F22: Split Expenses · F23: Income Tracking · F24: Multiple Accounts · F25: Tags ✅ (fully implemented: DB schema v10→v11, `TagRepository`, `TagDao`, searchable tag selector in Add/Edit Expense, tag chips in Expense Detail, search-by-tag in Expense List) · F26: Spending Insights · F27: Bill Reminders
+
+---
+
+## Bill reminders (Oct 2026)
+
+**Goal:** never miss adding a detected bill, or paying a saved one.
+
+**Acceptance criteria**
+- Once a day at about 12:00, if any statement waits in Pending Bill Statements, one notification says how many; tapping opens the inbox.
+- Each saved bill that is not settled gets its own notification from 3 days before its due date, on the due day and every day it is overdue, until it is settled (a linked payment that covers it, or marked settled). Tapping opens that bill.
+- A bill with no due date is reminded daily with "No due date — tap to set one"; its detail screen has **Set due date**.
+- Settings → Notifications → Bill reminders turns all of this off; it is on by default.
+

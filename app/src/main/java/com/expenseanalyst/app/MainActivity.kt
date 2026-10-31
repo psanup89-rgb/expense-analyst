@@ -31,6 +31,7 @@ import com.expenseanalyst.core.navigation.NavRoutes
 import com.expenseanalyst.core.theme.ExpenseAnalystTheme
 import com.expenseanalyst.domain.model.ThemeMode
 import com.expenseanalyst.domain.repository.AppPreferencesRepository
+import com.expenseanalyst.feature.notification.service.BillReminderNotification
 import com.expenseanalyst.feature.notification.service.TransactionAlertNotification
 import dagger.hilt.android.AndroidEntryPoint
 import javax.inject.Inject
@@ -137,6 +138,11 @@ class MainActivity : ComponentActivity() {
             }
             TransactionAlertNotification.ACTION_OPEN_PENDING_INBOX -> {
                 viewModel.setPendingRoute(NavRoutes.PENDING_INBOX)
+            }
+            BillReminderNotification.ACTION_OPEN_BILL_DETAIL -> {
+                val billId = intent.getLongExtra(BillReminderNotification.EXTRA_BILL_ID, -1L)
+                    .takeIf { it > 0 } ?: return
+                viewModel.setPendingRoute(NavRoutes.billDetail(billId))
             }
             TransactionAlertNotification.ACTION_OPEN_ADD_EXPENSE -> {
                 // Legacy: old notifications still in the tray before this release

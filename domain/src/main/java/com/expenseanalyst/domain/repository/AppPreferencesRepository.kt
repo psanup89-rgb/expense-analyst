@@ -10,4 +10,7 @@ interface AppPreferencesRepository {
     suspend fun setThemeMode(mode: ThemeMode)
     fun isGooglePlacesEnabled(): Flow<Boolean>
     suspend fun setGooglePlacesEnabled(enabled: Boolean)
+    /** Daily 12:00 bill reminders (BillReminderWorker). On by default. */
+    fun isBillRemindersEnabled(): Flow<Boolean>
+    suspend fun setBillRemindersEnabled(enabled: Boolean)
 }

@@ -40,9 +40,10 @@ class SettingsViewModel @Inject constructor(
                 themeMode = themeMode
             )
         },
-        appPreferencesRepository.isGooglePlacesEnabled()
-    ) { state, googleEnabled ->
-        state.copy(googlePlacesEnabled = googleEnabled)
+        appPreferencesRepository.isGooglePlacesEnabled(),
+        appPreferencesRepository.isBillRemindersEnabled()
+    ) { state, googleEnabled, billReminders ->
+        state.copy(googlePlacesEnabled = googleEnabled, billRemindersEnabled = billReminders)
     }.stateIn(
         scope = viewModelScope,
         started = SharingStarted.WhileSubscribed(5_000),
@@ -66,6 +67,12 @@ class SettingsViewModel @Inject constructor(
     fun toggleNotificationCapture(enabled: Boolean) {
         viewModelScope.launch {
             appPreferencesRepository.setNotificationCaptureEnabled(enabled)
+        }
+    }
+
+    fun toggleBillReminders(enabled: Boolean) {
+        viewModelScope.launch {
+            appPreferencesRepository.setBillRemindersEnabled(enabled)
         }
     }
 

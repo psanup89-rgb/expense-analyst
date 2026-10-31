@@ -1,5 +1,8 @@
 package com.expenseanalyst.feature.expenses.ui
 
+import androidx.compose.material3.rememberDatePickerState
+import androidx.compose.material3.DatePickerDialog
+import androidx.compose.material3.DatePicker
 import com.expenseanalyst.core.theme.expenseColors
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -66,6 +69,20 @@ fun BillDetailScreen(
     onViewPayment: (Long) -> Unit = {},
     viewModel: BillDetailViewModel = hiltViewModel()
 ) {
+    var showDueDatePicker by remember { mutableStateOf(false) }
+    if (showDueDatePicker) {
+        val pickerState = rememberDatePickerState()
+        DatePickerDialog(
+            onDismissRequest = { showDueDatePicker = false },
+            confirmButton = {
+                TextButton(onClick = {
+                    pickerState.selectedDateMillis?.let(viewModel::setDueDate)
+                    showDueDatePicker = false
+                }) { Text("Save") }
+            },
+            dismissButton = { TextButton(onClick = { showDueDatePicker = false }) { Text("Cancel") } }
+        ) { DatePicker(state = pickerState) }
+    }
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     var showDeleteDialog by remember { mutableStateOf(false) }
     var unlinkExpenseId by remember { mutableStateOf<Long?>(null) }
@@ -215,6 +232,19 @@ fun BillDetailScreen(
                                         fontWeight = FontWeight.Medium
                                     )
                                 }
+                            }
+                        }
+                        if (dueDateMillis == null && bill.status != BillStatus.SETTLED) {
+                            // Without a due date the bill is reminded daily (BillReminderPlanner);
+                            // this is the quick way to give it one.
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Text(
+                                    text = "Due Date: Not set",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    modifier = Modifier.weight(1f)
+                                )
+                                TextButton(onClick = { showDueDatePicker = true }) { Text("Set due date") }
                             }
                         }
                         if (bill.reminderCount > 0) {

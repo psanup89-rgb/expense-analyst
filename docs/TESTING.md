@@ -250,3 +250,13 @@ jobs:
 3. Add one foreign-currency expense and confirm the row shows both original and home amounts.
 4. Open Settings and change home currency; verify Home totals and row-level home amounts refresh correctly.
 5. Relaunch the app and verify the repaired conversion values persist.
+6. Bill reminders: with a debug build installed, run
+   `adb shell am broadcast -a com.expenseanalyst.RUN_BILL_REMINDERS -p com.expenseanalyst` — expect one
+   "N bill statements to add" notification if the inbox has statements, and one per unsettled bill due within
+   3 days, overdue or without a due date. Tapping a bill reminder opens that bill. (The daily job itself won't
+   run before its first 12:00, even with `cmd jobscheduler run -f`.)
+
+### Debug-only adb triggers (`SmsTestReceiver`, ignored in release builds)
+- `adb shell am broadcast -a com.expenseanalyst.TEST_SMS --es sender "<SENDER>" --es body "<text>"` — runs a fake SMS through bills → transactions.
+- `adb shell am broadcast -a com.expenseanalyst.RUN_BILL_REMINDERS -p com.expenseanalyst` — runs the bill-reminder check once.
+

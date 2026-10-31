@@ -1,5 +1,8 @@
 package com.expenseanalyst.feature.notification.service
 
+import androidx.work.OneTimeWorkRequestBuilder
+import androidx.work.WorkManager
+import com.expenseanalyst.feature.notification.worker.BillReminderWorker
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
@@ -22,6 +25,10 @@ import javax.inject.Inject
 @AndroidEntryPoint
 class SmsTestReceiver : BroadcastReceiver() {
 
+    companion object {
+        const val ACTION_RUN_BILL_REMINDERS = "com.expenseanalyst.RUN_BILL_REMINDERS"
+    }
+
     @Inject
     lateinit var pendingManager: PendingNotificationManager
 
@@ -30,6 +37,13 @@ class SmsTestReceiver : BroadcastReceiver() {
 
     override fun onReceive(context: Context, intent: Intent) {
         if (!BuildConfig.DEBUG) return
+
+        // Runs the daily bill-reminder check once, now — the periodic job won't run before 12:00:
+        //   adb shell am broadcast -a com.expenseanalyst.RUN_BILL_REMINDERS -p com.expenseanalyst
+        if (intent.action == ACTION_RUN_BILL_REMINDERS) {
+            WorkManager.getInstance(context).enqueue(OneTimeWorkRequestBuilder<BillReminderWorker>().build())
+            return
+        }
 
         val sender = intent.getStringExtra("sender") ?: return
         val body = intent.getStringExtra("body") ?: return

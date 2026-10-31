@@ -88,6 +88,7 @@ fun SettingsScreen(
         onCurrencySelected = viewModel::updateHomeCurrency,
         onThemeModeSelected = viewModel::updateThemeMode,
         onNotificationCaptureToggle = viewModel::toggleNotificationCapture,
+        onBillRemindersToggle = viewModel::toggleBillReminders,
         onGooglePlacesToggle = viewModel::toggleGooglePlaces,
         onNavigateToSmsImport = onNavigateToSmsImport,
         onNavigateToCategoryManagement = onNavigateToCategoryManagement,
@@ -111,6 +112,7 @@ private fun SettingsContent(
     onCurrencySelected: (String) -> Unit,
     onThemeModeSelected: (ThemeMode) -> Unit,
     onNotificationCaptureToggle: (Boolean) -> Unit,
+    onBillRemindersToggle: (Boolean) -> Unit,
     onGooglePlacesToggle: (Boolean) -> Unit,
     onNavigateToSmsImport: () -> Unit,
     onNavigateToCategoryManagement: () -> Unit,
@@ -394,6 +396,33 @@ private fun SettingsContent(
                             Switch(
                                 checked = uiState.notificationCaptureEnabled,
                                 onCheckedChange = onNotificationCaptureToggle,
+                                colors = SwitchDefaults.colors(
+                                    checkedThumbColor = MaterialTheme.colorScheme.onPrimary,
+                                    checkedTrackColor = MaterialTheme.colorScheme.primary
+                                )
+                            )
+                        }
+                        Spacer(Modifier.height(12.dp))
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    text = "Bill reminders",
+                                    style = MaterialTheme.typography.labelLarge,
+                                    color = MaterialTheme.colorScheme.onSurface
+                                )
+                                Text(
+                                    text = "Daily at 12:00 — bills to add, and bills due within 3 days until paid",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                            Switch(
+                                checked = uiState.billRemindersEnabled,
+                                onCheckedChange = onBillRemindersToggle,
                                 colors = SwitchDefaults.colors(
                                     checkedThumbColor = MaterialTheme.colorScheme.onPrimary,
                                     checkedTrackColor = MaterialTheme.colorScheme.primary

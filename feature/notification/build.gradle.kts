@@ -44,6 +44,11 @@ dependencies {
     implementation(libs.hilt.navigation.compose)
     implementation(libs.kotlinx.datetime)
 
+    // WorkManager + Hilt-Work (for BillReminderWorker)
+    implementation(libs.work.runtime)
+    implementation(libs.hilt.work)
+    ksp(libs.hilt.androidx.compiler)
+
     // Testing - Parser tests are critical
     testImplementation(libs.junit5.api)
     testRuntimeOnly(libs.junit5.engine)
