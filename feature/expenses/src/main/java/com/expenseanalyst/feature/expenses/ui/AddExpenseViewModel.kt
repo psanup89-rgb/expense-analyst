@@ -487,7 +487,7 @@ class AddExpenseViewModel @Inject constructor(
         // amount is unknown (form not yet filled), skip auto-link rather than guess.
         val parsedAmount = state.amountInput.toDoubleOrNull()
         val autoMatch = if (parsedAmount != null) {
-            BillMatcher.findMatchingOpenBill(parsedAmount, merchant, openBills)
+            BillMatcher.findMatchingOpenBill(parsedAmount, merchant, openBills, state.currencyCode)
         } else null
         _form.update {
             it.copy(

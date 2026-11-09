@@ -1,5 +1,6 @@
 package com.expenseanalyst.feature.expenses.ui
 
+import com.expenseanalyst.domain.util.BillPaymentTwins
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -28,7 +29,7 @@ class BillDetailViewModel @Inject constructor(
         billRepository.getBillById(billId),
         expenseRepository.getExpensesByBillId(billId)
     ) { bill, payments ->
-        val totalPaid = payments.sumOf { it.homeAmount ?: it.amount }
+        val totalPaid = BillPaymentTwins.distinct(payments).sumOf { it.homeAmount ?: it.amount }
         BillDetailUiState(
             bill = bill,
             payments = payments,

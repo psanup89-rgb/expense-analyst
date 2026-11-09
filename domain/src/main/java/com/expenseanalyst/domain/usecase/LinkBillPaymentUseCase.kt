@@ -6,6 +6,7 @@ import com.expenseanalyst.domain.repository.AccountRepository
 import com.expenseanalyst.domain.repository.BillRepository
 import com.expenseanalyst.domain.repository.CurrencyRepository
 import com.expenseanalyst.domain.repository.ExpenseRepository
+import com.expenseanalyst.domain.util.BillPaymentTwins
 import com.expenseanalyst.domain.util.BillSettlement
 import kotlinx.coroutines.flow.first
 import javax.inject.Inject
@@ -29,13 +30,35 @@ class LinkBillPaymentUseCase @Inject constructor(
         val previousBillId = expense.billId
         val accountType = expense.accountId?.let { accountRepository.getAccountById(it).first()?.accountType }
         expenseRepository.linkBillPayment(expenseId, billId, methodForBillPayment(accountType))
+        // The same payment's other message goes on the same bill (BillPaymentTwins) — only an
+        // unlinked twin, so a payment the user deliberately put on another bill is left alone.
+        BillPaymentTwins.twinsOf(expense, expenseRepository.getExpensesSnapshot())
+            .filter { it.billId == null }
+            .forEach { twin ->
+                val twinAccountType = twin.accountId?.let { accountRepository.getAccountById(it).first()?.accountType }
+                expenseRepository.linkBillPayment(twin.id, billId, methodForBillPayment(twinAccountType))
+            }
         if (previousBillId != null && previousBillId != billId) refreshStatus(previousBillId)
         refreshStatus(billId)
     }
 
+    /** Links [expenseId] to the bill its twin is already on, if any. Returns that bill's id. */
+    suspend fun linkToTwinsBill(expenseId: Long): Long? {
+        val expense = expenseRepository.getExpenseById(expenseId).first() ?: return null
+        if (expense.billId != null) return expense.billId
+        val billId = BillPaymentTwins.twinsOf(expense, expenseRepository.getExpensesSnapshot())
+            .firstNotNullOfOrNull { it.billId } ?: return null
+        link(expenseId, billId)
+        return billId
+    }
+
     suspend fun unlink(expenseId: Long) {
-        val billId = expenseRepository.getExpenseById(expenseId).first()?.billId ?: return
+        val expense = expenseRepository.getExpenseById(expenseId).first() ?: return
+        val billId = expense.billId ?: return
         expenseRepository.unlinkBillPayment(expenseId)
+        BillPaymentTwins.twinsOf(expense, expenseRepository.getExpensesSnapshot())
+            .filter { it.billId == billId }
+            .forEach { expenseRepository.unlinkBillPayment(it.id) }
         refreshStatus(billId)
     }
 

@@ -141,7 +141,8 @@ class PendingNotificationManager @Inject constructor(
                 BillMatcher.findMatchingOpenBill(
                     payment = normalized.amount,
                     merchant = normalized.merchant,
-                    openBills = openBills
+                    openBills = openBills,
+                    currencyCode = normalized.currencyCode
                 )?.id
             } else null
 
@@ -288,8 +289,11 @@ class PendingNotificationManager @Inject constructor(
             // An auto-linked bill payment goes through the same path as a manual link: the link
             // answers category/method (so it doesn't land in Review), and the bill's status is
             // worked out from all its payments — this path used to leave the bill Pending.
-            if (linkedBillId != null) {
-                linkBillPayment.link(savedId, linkedBillId)
+            // No bill of its own? The same payment's other message may already be on one.
+            val billId = linkedBillId
+                ?: if (transactionType == TransactionType.PAYMENT) linkBillPayment.linkToTwinsBill(savedId) else null
+            if (billId != null) {
+                if (linkedBillId != null) linkBillPayment.link(savedId, linkedBillId)
                 needsReview = (reviewReasons - NeedsReviewEvaluator.RESOLVED_BY_BILL_LINK).isNotEmpty()
             }
 

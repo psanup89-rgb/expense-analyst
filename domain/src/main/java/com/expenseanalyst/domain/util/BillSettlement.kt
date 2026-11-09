@@ -24,7 +24,8 @@ object BillSettlement {
         homeCurrency: String,
         ratesByCode: Map<String, CurrencyRate>
     ): BillStatus {
-        val live = payments.filterNot { it.isDeleted }
+        // One payment reported by two messages is linked twice but paid once (BillPaymentTwins)
+        val live = BillPaymentTwins.distinct(payments.filterNot { it.isDeleted })
         if (live.isEmpty()) return BillStatus.PENDING
         if (totalDue == null) return BillStatus.SETTLED
         val paid = live.sumOf { amountInCurrency(it, billCurrency, homeCurrency, ratesByCode) ?: 0.0 }

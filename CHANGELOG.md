@@ -5,6 +5,17 @@ Format: `[Date] — Summary`
 ---
 
 
+## 2026-11-09 — v0.7.28
+
+Released as v0.7.28-debug (DB v35, no migration): the entry below.
+
+## 2026-11-04 — One bill payment, two messages: both on the same bill
+
+- A card-bill payment arrives as two messages — the paying bank's debit (UPI "IDFC Bank Credit Card Bill" / "Federal One Credit card") and the card's or bill-pay confirmation ("BillPayments"). `domain/util/BillPaymentTwins` treats two PAYMENTs of the same amount and currency within 2 days as one payment: linking either (automatically or by hand) links the other to the same bill, unlinking one unlinks both, a new message joins the bill its twin is on (live capture), and bill status / "paid" totals count the pair **once** (`BillSettlement`, Bills and Bill detail screens).
+- `BillMatcher` fallback: a payment of **exactly** one open bill's total, in that bill's currency, links to it even when the payee name differs — the IDFC payment matched no name and never linked.
+- **Link to bill** on an expense now also offers settled bills: the one the other message of the same payment is on (listed first, "Paid · linked to the other message of this payment") and bills settled in the last 60 days. It used to list open bills only, so once one message settled a bill the other could never be linked to it by hand.
+- On device: IDFC INR 7,313.64 (both messages) linked, bill settled; OneCard INR 299 UPI message linked beside its twin.
+
 ## 2026-10-31 — ICICI card statement filed as a bill, not an expense
 
 - ICICI's "Credit Card XX1234 Statement is sent to … Total of Rs 1,22,099 or minimum of Rs 6,105 is due by 10-NOV-26" carries none of the "total due" wording, so no statement parser read it and the transaction parsers saved the full balance as a second expense next to the purchase it bills. New `IciciStatementParser` (total, minimum, due date, card); `ParserRegistry`'s non-transaction guard rejects "statement is sent to" / "minimum of Rs N is due" so SMS Import (which tries bills only when no transaction parses) files it as a bill too.

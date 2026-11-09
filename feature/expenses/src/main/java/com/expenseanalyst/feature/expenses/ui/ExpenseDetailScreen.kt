@@ -1,5 +1,6 @@
 package com.expenseanalyst.feature.expenses.ui
 
+import com.expenseanalyst.domain.model.BillStatus
 import androidx.compose.ui.text.style.TextOverflow
 import com.expenseanalyst.domain.util.LoanBalance
 import com.expenseanalyst.domain.util.ReviewReason
@@ -225,6 +226,7 @@ fun ExpenseDetailScreen(
             LinkBillSheetContent(
                 expense = uiState.expense,
                 openBills = uiState.openBills,
+                twinBillIds = uiState.twinBillIds,
                 onSelect = viewModel::linkToBill,
                 onDismiss = viewModel::dismissLinkBillSheet
             )
@@ -476,7 +478,7 @@ private fun ExpenseDetailContent(
                                 contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 8.dp, vertical = 0.dp)
                             ) {
                                 Text(
-                                    text = if (hasOpenBills) "Link to Bill" else "No open bills",
+                                    text = if (hasOpenBills) "Link to Bill" else "No bills to link",
                                     style = MaterialTheme.typography.labelMedium,
                                     color = if (hasOpenBills) MaterialTheme.colorScheme.primary
                                             else MaterialTheme.colorScheme.onSurfaceVariant
@@ -862,6 +864,7 @@ private fun DetailDivider() {
 private fun LinkBillSheetContent(
     expense: Expense?,
     openBills: List<Bill>,
+    twinBillIds: Set<Long>,
     onSelect: (Bill) -> Unit,
     onDismiss: () -> Unit
 ) {
@@ -870,7 +873,12 @@ private fun LinkBillSheetContent(
         expense != null && bill.currencyCode == expense.currencyCode &&
             bill.totalDue?.let { kotlin.math.abs(it - expense.amount) <= 0.01 } == true
     }
-    val sortedBills = openBills.sortedByDescending(matches)
+    // The other message's bill first, then same amount, then open before settled
+    val sortedBills = openBills.sortedWith(
+        compareByDescending<Bill> { it.id in twinBillIds }
+            .thenByDescending(matches)
+            .thenBy { it.status == BillStatus.SETTLED }
+    )
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -886,7 +894,7 @@ private fun LinkBillSheetContent(
         )
         if (openBills.isEmpty()) {
             Text(
-                text = "No open bills found.",
+                text = "No open or recently settled bills.",
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(vertical = 8.dp)
@@ -914,7 +922,13 @@ private fun LinkBillSheetContent(
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
-                        if (matches(bill)) {
+                        if (bill.id in twinBillIds) {
+                            Text(
+                                text = "Paid · linked to the other message of this payment",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.primary
+                            )
+                        } else if (matches(bill)) {
                             Text(
                                 text = "Same amount",
                                 style = MaterialTheme.typography.labelSmall,

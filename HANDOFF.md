@@ -1,10 +1,10 @@
 # Expense Analyst — Handoff
 
-**Last updated**: 2026-10-31
+**Last updated**: 2026-11-09
 **DB version**: 35
 **Build**: `./gradlew clean assembleDebug` ✅
 **Repo**: `https://github.com/psanup89-rgb/expense-analyst` (public)
-**Release**: v0.7.27-debug (GitHub Release with APK)
+**Release**: v0.7.28-debug (GitHub Release with APK)
 
 ---
 
@@ -27,6 +27,16 @@
    1066.19) — untouched since the initial commit; check the formula vs the test's expectation.
 
 ---
+
+## Session Summary (2026-11-09) — twin bill payments (released in v0.7.28)
+
+IDFC INR 7,313.64 and OneCard INR 299 each arrived as two PAYMENT messages (paying bank's UPI debit +
+the card's "BillPayments"); the IDFC bill stayed Pending (payee names matched nothing) and OneCard had
+one copy linked. `BillPaymentTwins` + `LinkBillPaymentUseCase` now link/unlink both and count the pair
+once; `BillMatcher` links an exact-total payment by amount+currency; the expense "Link to bill" sheet
+also offers settled bills (twin's bill first, then last 60 days). Device rows fixed (backup taken first).
+Owner also linked a loan's INR 122,099 repayments (3 × EXTERNAL_IN transfers) by hand via
+expense detail → Loan → "Repayment of …'s loan" — no code change; confirmed that is the intended flow.
 
 ## Session Summary (2026-10-31) — ICICI statement as a bill; bill reminders (released in v0.7.27)
 

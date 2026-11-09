@@ -1,5 +1,6 @@
 package com.expenseanalyst.feature.expenses.ui
 
+import com.expenseanalyst.domain.util.BillPaymentTwins
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -55,7 +56,14 @@ data class ExpenseDetailUiState(
     val ruleSelectedTags: List<Tag> = emptyList(),
     val ruleTagSearchQuery: String = "",
     val showLinkBillSheet: Boolean = false,
+    /**
+     * Bills the "Link to bill" sheet offers: every open bill, plus settled ones that may still need
+     * this payment — the bill the other message of the same payment is on ([twinBillIds]; it is
+     * usually settled already) and bills settled in the last [RECENT_SETTLED_DAYS] days.
+     */
     val openBills: List<Bill> = emptyList(),
+    /** Bills a twin of this payment (BillPaymentTwins) is linked to — listed first in the sheet. */
+    val twinBillIds: Set<Long> = emptySet(),
     val linkedBillName: String? = null,
     val linkedBillId: Long? = null,
     val homeCurrency: String = "SAR",
@@ -84,6 +92,9 @@ data class ReimbursementDetail(
     val showSheet: Boolean = false
 )
 
+/** How far back the link sheet still offers settled bills (owner's choice, Nov 2026). */
+private const val RECENT_SETTLED_DAYS = 60L
+
 @HiltViewModel
 class ExpenseDetailViewModel @Inject constructor(
     savedStateHandle: SavedStateHandle,
@@ -102,6 +113,17 @@ class ExpenseDetailViewModel @Inject constructor(
 
     private val expenseId: Long = checkNotNull(savedStateHandle["expenseId"])
     private val _ui = MutableStateFlow(ExpenseDetailUiState())
+
+    init {
+        // The other message of the same bill payment may already be on a (now settled) bill
+        viewModelScope.launch {
+            val expense = getExpenseByIdUseCase(expenseId).first() ?: return@launch
+            if (expense.transactionType != TransactionType.PAYMENT) return@launch
+            val twinBills = BillPaymentTwins.twinsOf(expense, expenseRepository.getExpensesSnapshot())
+                .mapNotNull { it.billId }.toSet()
+            if (twinBills.isNotEmpty()) _ui.update { it.copy(twinBillIds = twinBills) }
+        }
+    }
 
     val uiState: StateFlow<ExpenseDetailUiState> = combine(
         combine(
@@ -127,7 +149,14 @@ class ExpenseDetailViewModel @Inject constructor(
             it.merchantName?.takeIf { m -> m.isNotBlank() } ?: it.description.takeIf { d -> d.isNotBlank() }
         }
         val existingRule = MerchantRuleMatcher.findMatch(ruleSearchText, rules)
-        val openBills = bills.filter { it.status != BillStatus.SETTLED && !it.isDeleted }
+        val recentSince = (expense?.date?.toEpochMilliseconds() ?: 0L) - RECENT_SETTLED_DAYS * DAY_MS
+        val openBills = bills.filter { bill ->
+            !bill.isDeleted && (
+                bill.status != BillStatus.SETTLED ||
+                    bill.id in ui.twinBillIds ||
+                    maxOf(bill.dueDateMillis ?: 0L, bill.createdAtMillis) >= recentSince
+                )
+        }
         val linkedBill = expense?.billId?.let { bid -> bills.find { it.id == bid } }
         val existingTransferRule = expense
             ?.takeIf { it.transactionType == TransactionType.TRANSFER }

@@ -180,3 +180,12 @@ F18: iOS App (KMP) · F19: Smart Categorization · F20: Recurring Detection · F
 - A bill with no due date is reminded daily with "No due date — tap to set one"; its detail screen has **Set due date**.
 - Settings → Notifications → Bill reminders turns all of this off; it is on by default.
 
+---
+
+## Bill payment linking (Nov 2026)
+
+- A card-bill payment that arrives as two messages (the paying bank's debit and the card's/bill-pay confirmation) is linked to **one** bill together and counted **once** toward its paid total and status.
+- A payment of exactly one open bill's total (same currency) links to it automatically even if the payee name differs.
+- Expense → **Link to bill** lists open bills plus settled ones: the other message's bill first, then any settled within 60 days.
+- Loan repayments: expense → **Loan → Link to loan → Repayment of <name>'s loan**; the loan is never settled automatically (the app asks).
+

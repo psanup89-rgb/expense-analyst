@@ -1,5 +1,6 @@
 package com.expenseanalyst.feature.expenses.ui
 
+import com.expenseanalyst.domain.util.BillPaymentTwins
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.expenseanalyst.domain.model.Bill
@@ -51,7 +52,7 @@ class BillsViewModel @Inject constructor(
                 // Combine each bill with its linked payment expenses
                 val paymentFlows = bills.map { bill ->
                     expenseRepository.getExpensesByBillId(bill.id).map { payments ->
-                        val totalPaid = payments.sumOf { it.homeAmount ?: it.amount }
+                        val totalPaid = BillPaymentTwins.distinct(payments).sumOf { it.homeAmount ?: it.amount }
                         BillWithPayments(bill, payments, totalPaid)
                     }
                 }
