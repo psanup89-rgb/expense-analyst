@@ -160,14 +160,19 @@ interface ExpenseDao {
     suspend fun linkLoanLeg(id: Long, loanId: Long, classification: String, updatedAt: Long): Int {
         val existing = getExpenseEntityById(id) ?: return 0
         if (existing.isDeleted) return 0
-        val remaining = NeedsReviewEvaluator.remove(existing.needsReviewReasons, ReviewReason.UNCLASSIFIED_TRANSFER)
+        // The link answers the transfer type, the category and the merchant (RESOLVED_BY_LOAN_LINK);
+        // like every reason removal it never re-raises a flag the user already cleared.
+        val remaining = NeedsReviewEvaluator.removeAll(
+            existing.needsReviewReasons,
+            NeedsReviewEvaluator.RESOLVED_BY_LOAN_LINK
+        )
         val isTransfer = existing.transactionType == "TRANSFER"
         return applyLoanLeg(
             id = id,
             loanId = loanId,
             classification = if (isTransfer) classification else existing.transferClassification,
             reasons = NeedsReviewEvaluator.encode(remaining).takeIf { it.isNotBlank() },
-            needsReview = remaining.isNotEmpty(),
+            needsReview = existing.needsReview && remaining.isNotEmpty(),
             updatedAt = updatedAt
         )
     }

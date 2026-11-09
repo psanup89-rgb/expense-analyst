@@ -197,4 +197,20 @@ class NeedsReviewEvaluatorTest {
             )
         )
     }
+
+    @Test
+    fun `linking to a loan drops transfer type, category and merchant but not method or account`() {
+        val raw = NeedsReviewEvaluator.encode(
+            listOf(
+                ReviewReason.MISSING_MERCHANT, ReviewReason.GENERIC_CATEGORY, ReviewReason.UNCLASSIFIED_TRANSFER,
+                ReviewReason.UNKNOWN_PAYMENT_METHOD, ReviewReason.UNRESOLVED_ACCOUNT
+            )
+        )
+        assertEquals(
+            listOf(ReviewReason.UNKNOWN_PAYMENT_METHOD, ReviewReason.UNRESOLVED_ACCOUNT),
+            NeedsReviewEvaluator.removeAll(raw, NeedsReviewEvaluator.RESOLVED_BY_LOAN_LINK)
+        )
+        val loanRepayment = NeedsReviewEvaluator.encode(listOf(ReviewReason.MISSING_MERCHANT, ReviewReason.GENERIC_CATEGORY))
+        assertTrue(NeedsReviewEvaluator.removeAll(loanRepayment, NeedsReviewEvaluator.RESOLVED_BY_LOAN_LINK).isEmpty())
+    }
 }

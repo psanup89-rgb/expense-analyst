@@ -188,4 +188,4 @@ F18: iOS App (KMP) · F19: Smart Categorization · F20: Recurring Detection · F
 - A payment of exactly one open bill's total (same currency) links to it automatically even if the payee name differs.
 - Expense → **Link to bill** lists open bills plus settled ones: the other message's bill first, then any settled within 60 days.
 - Loan repayments: expense → **Loan → Link to loan → Repayment of <name>'s loan**; the loan is never settled automatically (the app asks).
-
+- Linking a payment to a loan takes it out of Review for its transfer type, category and merchant (the loan names the person); method and account flags remain.

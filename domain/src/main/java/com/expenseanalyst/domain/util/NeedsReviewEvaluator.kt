@@ -88,6 +88,15 @@ object NeedsReviewEvaluator {
     val RESOLVED_BY_BILL_LINK: Set<ReviewReason> =
         setOf(ReviewReason.GENERIC_CATEGORY, ReviewReason.UNKNOWN_PAYMENT_METHOD)
 
+    /**
+     * Reasons a loan leg no longer needs (Nov 2026): it counts toward neither Spent nor Received,
+     * so a generic category is moot, and the loan names who the money was with, which answers a
+     * merchant the bank never gave (HDFC's incoming-transfer SMS names no sender, so the row was
+     * saved as "HDFC Bank"). The payment method and the account are not answered by the link.
+     */
+    val RESOLVED_BY_LOAN_LINK: Set<ReviewReason> =
+        setOf(ReviewReason.UNCLASSIFIED_TRANSFER, ReviewReason.GENERIC_CATEGORY, ReviewReason.MISSING_MERCHANT)
+
     fun removeAll(raw: String?, reasons: Set<ReviewReason>): List<ReviewReason> =
         decode(raw).filterNot { it in reasons }
 

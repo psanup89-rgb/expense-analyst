@@ -5,6 +5,15 @@ Format: `[Date] — Summary`
 ---
 
 
+## 2026-11-10 — v0.7.29
+
+Released as v0.7.29-debug (DB v35, no migration): the entry below.
+
+## 2026-11-10 — Linking a payment to a loan clears its category and merchant flags
+
+- A loan leg counts toward neither Spent nor Received, and the loan names who the money was with, so `ExpenseDao.linkLoanLeg` now drops UNCLASSIFIED_TRANSFER, GENERIC_CATEGORY and MISSING_MERCHANT (`NeedsReviewEvaluator.RESOLVED_BY_LOAN_LINK`) — it only dropped the first, so three loan repayments (HDFC's incoming-transfer SMS names no sender → "HDFC Bank" / Misc) stayed in Review after being linked. Payment method and account still flag. Like every reason removal it never re-raises a flag already cleared.
+- On device: the three repayment rows cleared; Review is empty.
+
 ## 2026-11-09 — v0.7.28
 
 Released as v0.7.28-debug (DB v35, no migration): the entry below.

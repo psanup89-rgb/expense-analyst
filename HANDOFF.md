@@ -1,10 +1,10 @@
 # Expense Analyst — Handoff
 
-**Last updated**: 2026-11-09
+**Last updated**: 2026-11-10
 **DB version**: 35
 **Build**: `./gradlew clean assembleDebug` ✅
 **Repo**: `https://github.com/psanup89-rgb/expense-analyst` (public)
-**Release**: v0.7.28-debug (GitHub Release with APK)
+**Release**: v0.7.29-debug (GitHub Release with APK)
 
 ---
 
@@ -27,6 +27,16 @@
    1066.19) — untouched since the initial commit; check the formula vs the test's expectation.
 
 ---
+
+## Session Summary (2026-11-10) — loan links clear review flags (released in v0.7.29)
+
+Three loan repayments (incoming HDFC transfers, no sender name → "HDFC Bank" / Misc) stayed in Review
+after being linked to the loan: `linkLoanLeg` only dropped UNCLASSIFIED_TRANSFER. It now also drops
+GENERIC_CATEGORY and MISSING_MERCHANT (`RESOLVED_BY_LOAN_LINK`) and never re-raises a cleared flag.
+Device rows cleared (backup taken first). Also checked this session: the phone's emergency-alert siren
+is played by Google's Cell Broadcast Receiver with a built-in sound — not user-changeable (only the
+follow-up notification channels' sound is). Wi-Fi adb at home: the phone advertises `_adb._tcp` on port
+5555; `adb connect <ip>:5555` after `adb kill-server` when the TLS entry is missing.
 
 ## Session Summary (2026-11-09) — twin bill payments (released in v0.7.28)
 
