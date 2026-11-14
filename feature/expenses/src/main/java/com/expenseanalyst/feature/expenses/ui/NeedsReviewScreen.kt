@@ -1,5 +1,18 @@
 package com.expenseanalyst.feature.expenses.ui
 
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
+import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.clickable
+import androidx.compose.material3.Checkbox
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.ListItemDefaults
+import androidx.compose.material3.ListItem
+import androidx.compose.material3.ModalBottomSheet
+import com.expenseanalyst.core.ui.CategoryBadge
+import com.expenseanalyst.domain.util.ReviewCategoryPlanner
+import com.expenseanalyst.domain.model.Category
 import com.expenseanalyst.core.theme.expenseColors
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -58,6 +71,15 @@ fun NeedsReviewScreen(
     val homeCurrencyCode by viewModel.homeCurrencyCode.collectAsStateWithLifecycle()
     val bnplPlans by viewModel.bnplPlans.collectAsStateWithLifecycle()
     val linkingBnplCharge by viewModel.linkingBnplCharge.collectAsStateWithLifecycle()
+    val categoryPick by viewModel.categoryPick.collectAsStateWithLifecycle()
+
+    categoryPick?.let { pick ->
+        CategoryPickSheet(
+            pick = pick,
+            onPick = viewModel::applyCategory,
+            onDismiss = viewModel::dismissCategoryPick
+        )
+    }
 
     linkingBnplCharge?.let { charge ->
         BnplLinkSheet(
@@ -143,7 +165,8 @@ fun NeedsReviewScreen(
                         onClassifyTransfer = { viewModel.classifyTransfer(expense.id, it) },
                         onLinkReimbursement = { viewModel.linkSuggestedReimbursement(expense.id) },
                         onNotReimbursement = { viewModel.dismissReimbursementSuggestion(expense.id) },
-                        onLinkBnplPlans = { viewModel.startBnplLink(expense) }
+                        onLinkBnplPlans = { viewModel.startBnplLink(expense) },
+                        onSetCategory = { viewModel.startCategoryPick(expense) }
                     )
                 }
                 item { Spacer(Modifier.height(88.dp)) }
@@ -161,7 +184,8 @@ private fun NeedsReviewCard(
     onClassifyTransfer: (TransferClassification) -> Unit,
     onLinkReimbursement: () -> Unit = {},
     onNotReimbursement: () -> Unit = {},
-    onLinkBnplPlans: () -> Unit = {}
+    onLinkBnplPlans: () -> Unit = {},
+    onSetCategory: () -> Unit = {}
 ) {
     val style = transactionAmountStyle(expense)
     val amountColor = style.color
@@ -280,6 +304,20 @@ private fun NeedsReviewCard(
             }
         }
 
+        // The most common reason a row is here: no usable category. Pick one without opening the
+        // row, then Edit, then the category menu.
+        if (ReviewCategoryPlanner.needsCategory(expense)) {
+            FilledTonalButton(
+                onClick = onSetCategory,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(start = 44.dp, end = 14.dp, bottom = 10.dp),
+                contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp)
+            ) {
+                Text("Set category", style = MaterialTheme.typography.labelMedium)
+            }
+        }
+
         // "Reimbursement?" — a payment matching pending reimbursable expenses. One tap links it
         // to the suggested expenses (both then leave the totals); the detail screen offers a
         // different pick.
@@ -322,3 +360,81 @@ private fun NeedsReviewCard(
         }
     }
 }
+
+/**
+ * Picks a category for a Review row. Tapping a category applies it straight away; the two tick
+ * boxes decide whether the merchant is remembered (on by default, owner's choice) and whether the
+ * other Review rows from the same merchant get it too.
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun CategoryPickSheet(
+    pick: NeedsReviewViewModel.CategoryPick,
+    onPick: (Category, Boolean, Boolean) -> Unit,
+    onDismiss: () -> Unit
+) {
+    var rememberMerchant by remember(pick.expense.id) { mutableStateOf(pick.canRemember) }
+    var alsoOthers by remember(pick.expense.id) { mutableStateOf(pick.sameMerchantCount > 0) }
+    var filter by remember(pick.expense.id) { mutableStateOf("") }
+    val shown = pick.categories.filter { filter.isBlank() || it.name.contains(filter.trim(), ignoreCase = true) }
+    val merchant = pick.expense.merchantName?.takeIf { it.isNotBlank() } ?: "this merchant"
+
+    ModalBottomSheet(onDismissRequest = onDismiss) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp)
+                .navigationBarsPadding(),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            Text("Category for $merchant", style = MaterialTheme.typography.titleMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            OutlinedTextField(
+                value = filter,
+                onValueChange = { filter = it },
+                placeholder = { Text("Search categories") },
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth()
+            )
+            if (pick.canRemember) {
+                Row(
+                    modifier = Modifier.fillMaxWidth().clickable { rememberMerchant = !rememberMerchant },
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Checkbox(checked = rememberMerchant, onCheckedChange = { rememberMerchant = it })
+                    Text("Always use this for $merchant", style = MaterialTheme.typography.bodyMedium)
+                }
+            }
+            if (pick.sameMerchantCount > 0) {
+                Row(
+                    modifier = Modifier.fillMaxWidth().clickable { alsoOthers = !alsoOthers },
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Checkbox(checked = alsoOthers, onCheckedChange = { alsoOthers = it })
+                    Text(
+                        "Also set it on ${pick.sameMerchantCount} other row${if (pick.sameMerchantCount == 1) "" else "s"} here",
+                        style = MaterialTheme.typography.bodyMedium
+                    )
+                }
+            }
+            LazyColumn(modifier = Modifier.weight(1f, fill = false)) {
+                items(shown, key = { it.id }) { category ->
+                    ListItem(
+                        headlineContent = { Text(category.name) },
+                        leadingContent = {
+                            CategoryBadge(
+                                iconName = category.iconName,
+                                colorHex = category.colorHex,
+                                contentDescription = null,
+                                size = 36.dp
+                            )
+                        },
+                        modifier = Modifier.clickable { onPick(category, rememberMerchant, alsoOthers) },
+                        colors = ListItemDefaults.colors(containerColor = Color.Transparent)
+                    )
+                }
+            }
+            Spacer(Modifier.height(8.dp))
+        }
+    }
+}
+

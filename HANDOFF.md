@@ -1,10 +1,10 @@
 # Expense Analyst — Handoff
 
-**Last updated**: 2026-11-10
+**Last updated**: 2026-11-14
 **DB version**: 35
 **Build**: `./gradlew clean assembleDebug` ✅
 **Repo**: `https://github.com/psanup89-rgb/expense-analyst` (public)
-**Release**: v0.7.29-debug (GitHub Release with APK)
+**Release**: v0.7.30-debug (GitHub Release with APK)
 
 ---
 
@@ -27,6 +27,16 @@
    1066.19) — untouched since the initial commit; check the formula vs the test's expectation.
 
 ---
+
+## Session Summary (2026-11-14) — "Set category" from Review (released in v0.7.30)
+
+Owner: most Review rows are there for the category, and fixing one meant row → Edit → category menu.
+Review cards flagged for Category now have a **Set category** button → sheet (search, merchant's usual
+categories first, Misc/Other not offered); one tap saves via `ExpenseDao.setCategoryFromReview`.
+Owner's choices: remember the merchant as a rule by default; offer to apply to other Review rows of
+the same merchant. `ReviewCategoryPlanner` (domain, tested) holds the rules; a MISSING_MERCHANT row's
+merchant (the bank's stand-in name) is never remembered. Not yet exercised on screen — Review was
+empty; a debug `TEST_SMS` row (soft-delete it after) is the way to try it.
 
 ## Session Summary (2026-11-10) — loan links clear review flags (released in v0.7.29)
 

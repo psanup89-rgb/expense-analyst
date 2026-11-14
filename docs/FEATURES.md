@@ -189,3 +189,12 @@ F18: iOS App (KMP) · F19: Smart Categorization · F20: Recurring Detection · F
 - Expense → **Link to bill** lists open bills plus settled ones: the other message's bill first, then any settled within 60 days.
 - Loan repayments: expense → **Loan → Link to loan → Repayment of <name>'s loan**; the loan is never settled automatically (the app asks).
 - Linking a payment to a loan takes it out of Review for its transfer type, category and merchant (the loan names the person); method and account flags remain.
+
+---
+
+## Set category from Review (Nov 2026)
+
+- A Review row flagged "Category" has a **Set category** button; picking a category in the sheet saves it immediately.
+- The merchant is remembered as a rule by default (tick box), and the category can be applied to the other Review rows from the same merchant (tick box).
+- The row leaves Review only if no other reason (merchant, payment method, account) remains.
+

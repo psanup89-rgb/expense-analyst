@@ -14,8 +14,8 @@ android {
         applicationId = "com.expenseanalyst"
         minSdk = 26
         targetSdk = 34
-        versionCode = 31
-        versionName = "0.7.29"
+        versionCode = 32
+        versionName = "0.7.30"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }

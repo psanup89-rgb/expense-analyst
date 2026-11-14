@@ -5,6 +5,16 @@ Format: `[Date] — Summary`
 ---
 
 
+## 2026-11-14 — v0.7.30
+
+Released as v0.7.30-debug (DB v35, no migration): the entry below.
+
+## 2026-11-14 — "Set category" straight from the Review tab
+
+- A Review row flagged for **Category** now has a **Set category** button. It opens a sheet (search at the top; categories the merchant already uses come first; Misc/Other are not offered) and one tap on a category saves it — no more opening the row, Edit, then the category menu. The write is targeted (`ExpenseDao.setCategoryFromReview`, not a full-row `updateExpense`): it drops only the generic-category reason and the row leaves Review only if no other reason remains.
+- Owner's choices: the merchant is **remembered** by default (a `merchant_rules` entry, tags kept — tick box "Always use this for <merchant>"), and a second tick box applies the category to **other Review rows from the same merchant** ("Also set it on N other rows here"). No rule is offered when the merchant is the bank's own stand-in name (MISSING_MERCHANT), which would otherwise categorise every message from that bank.
+- Logic lives in `domain/util/ReviewCategoryPlanner` (unit-tested).
+
 ## 2026-11-10 — v0.7.29
 
 Released as v0.7.29-debug (DB v35, no migration): the entry below.

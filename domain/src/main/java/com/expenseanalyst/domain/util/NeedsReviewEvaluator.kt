@@ -38,6 +38,8 @@ object NeedsReviewEvaluator {
 
     private val GENERIC_CATEGORY_NAMES = setOf("Other", "Misc")
 
+    fun isGenericCategory(name: String): Boolean = name in GENERIC_CATEGORY_NAMES
+
     fun evaluate(
         merchantName: String?,
         categoryName: String,

@@ -189,6 +189,9 @@ class ExpenseRepositoryImpl @Inject constructor(
     override suspend fun linkBillPayment(id: Long, billId: Long, paymentMethodIfUnknown: PaymentMethod?): Int =
         expenseDao.linkBillPayment(id, billId, paymentMethodIfUnknown?.name, DateTimeUtil.nowMillis())
 
+    override suspend fun setCategoryFromReview(id: Long, categoryId: Long): Int =
+        expenseDao.setCategoryFromReview(id, categoryId, DateTimeUtil.nowMillis())
+
     override suspend fun unlinkBillPayment(id: Long): Int =
         expenseDao.unlinkBillPayment(id, DateTimeUtil.nowMillis())
 

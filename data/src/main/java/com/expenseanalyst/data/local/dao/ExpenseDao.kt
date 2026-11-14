@@ -380,6 +380,34 @@ interface ExpenseDao {
         updatedAt: Long
     ): Int
 
+    /**
+     * "Set category" on a Review card: a targeted write of the category plus dropping the
+     * GENERIC_CATEGORY reason, never a full-row updateExpense (which nulls account_number via the
+     * mapper). Like every reason removal it never re-raises a flag already cleared, and the row
+     * leaves Review only when no other reason is left. Returns rows affected.
+     */
+    @Transaction
+    suspend fun setCategoryFromReview(id: Long, categoryId: Long, updatedAt: Long): Int {
+        val existing = getExpenseEntityById(id) ?: return 0
+        val remaining = NeedsReviewEvaluator.remove(existing.needsReviewReasons, ReviewReason.GENERIC_CATEGORY)
+        return applyCategory(
+            id = id,
+            categoryId = categoryId,
+            reasons = NeedsReviewEvaluator.encode(remaining).takeIf { it.isNotBlank() },
+            needsReview = existing.needsReview && remaining.isNotEmpty(),
+            updatedAt = updatedAt
+        )
+    }
+
+    @Query(
+        """
+        UPDATE expenses SET category_id = :categoryId, needs_review_reasons = :reasons,
+            needs_review = :needsReview, updated_at_utc_millis = :updatedAt
+        WHERE id = :id AND is_deleted = 0
+        """
+    )
+    suspend fun applyCategory(id: Long, categoryId: Long, reasons: String?, needsReview: Boolean, updatedAt: Long): Int
+
     /** Removes a payment's bill link; review state is left alone. */
     @Query("UPDATE expenses SET bill_id = NULL, updated_at_utc_millis = :updatedAt WHERE id = :id")
     suspend fun unlinkBillPayment(id: Long, updatedAt: Long): Int

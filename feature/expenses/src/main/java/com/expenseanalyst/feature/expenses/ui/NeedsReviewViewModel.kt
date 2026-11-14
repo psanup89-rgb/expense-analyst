@@ -1,5 +1,10 @@
 package com.expenseanalyst.feature.expenses.ui
 
+import com.expenseanalyst.domain.util.ReviewCategoryPlanner
+import com.expenseanalyst.domain.repository.MerchantRuleRepository
+import com.expenseanalyst.domain.repository.CategoryRepository
+import com.expenseanalyst.domain.model.Expense
+import com.expenseanalyst.domain.model.Category
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.expenseanalyst.domain.repository.CurrencyRepository
@@ -24,6 +29,8 @@ import javax.inject.Inject
 class NeedsReviewViewModel @Inject constructor(
     private val expenseRepository: ExpenseRepository,
     private val transferRecipientRuleRepository: TransferRecipientRuleRepository,
+    private val categoryRepository: CategoryRepository,
+    private val merchantRuleRepository: MerchantRuleRepository,
     currencyRepository: CurrencyRepository
 ) : ViewModel() {
 
@@ -61,6 +68,56 @@ class NeedsReviewViewModel @Inject constructor(
         _linkingBnplCharge.value = null
         if (purchaseIds.isEmpty()) return
         viewModelScope.launch { expenseRepository.linkBnplChargeToPlans(chargeId, purchaseIds) }
+    }
+
+    /** What the "Set category" sheet shows for the row being categorised. */
+    data class CategoryPick(
+        val expense: Expense,
+        val categories: List<Category>,
+        /** Other Review rows from the same merchant that also wait for a category. */
+        val sameMerchantCount: Int,
+        /** False when the merchant is the bank's stand-in name — no rule is safe to save. */
+        val canRemember: Boolean
+    )
+
+    private val _categoryPick = MutableStateFlow<CategoryPick?>(null)
+    val categoryPick: StateFlow<CategoryPick?> = _categoryPick.asStateFlow()
+
+    fun startCategoryPick(expense: Expense) {
+        viewModelScope.launch {
+            val categories = categoryRepository.getCategories().first()
+            val offered = ReviewCategoryPlanner.offeredCategories(expense, categories, expenseRepository.getExpensesSnapshot())
+            _categoryPick.value = CategoryPick(
+                expense = expense,
+                categories = offered,
+                sameMerchantCount = ReviewCategoryPlanner.sameMerchantRows(expense, expenses.value).size,
+                canRemember = ReviewCategoryPlanner.canRememberMerchant(expense)
+            )
+        }
+    }
+
+    fun dismissCategoryPick() { _categoryPick.value = null }
+
+    /**
+     * Sets [category] on the row (and, when asked, on the other Review rows from the same merchant)
+     * and — owner's choice — remembers the merchant as a rule so future expenses arrive already
+     * categorised. The rule keeps its existing tags (saveRule's tagIds = null).
+     */
+    fun applyCategory(category: Category, remember: Boolean, alsoSameMerchant: Boolean) {
+        val pick = _categoryPick.value ?: return
+        _categoryPick.value = null
+        viewModelScope.launch {
+            val rows = buildList {
+                add(pick.expense)
+                if (alsoSameMerchant) addAll(ReviewCategoryPlanner.sameMerchantRows(pick.expense, expenses.value))
+            }
+            rows.forEach { expenseRepository.setCategoryFromReview(it.id, category.id) }
+            if (remember) {
+                ReviewCategoryPlanner.merchantPattern(pick.expense)?.let { pattern ->
+                    merchantRuleRepository.saveRule(pattern, category.id, category.name)
+                }
+            }
+        }
     }
 
     fun markReviewed(expenseId: Long) {

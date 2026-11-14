@@ -69,6 +69,9 @@ interface ExpenseRepository {
      */
     suspend fun linkBillPayment(id: Long, billId: Long, paymentMethodIfUnknown: PaymentMethod?): Int
 
+    /** Review's "Set category": category + drop the generic-category reason (ExpenseDao.setCategoryFromReview). */
+    suspend fun setCategoryFromReview(id: Long, categoryId: Long): Int
+
     /** Removes a payment's bill link (targeted update). */
     suspend fun unlinkBillPayment(id: Long): Int
 
