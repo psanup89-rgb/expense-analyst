@@ -136,7 +136,7 @@ Registered in `BillStatementParserRegistry` (tried before transaction parsers). 
 | 10 | StcBankParser | STC Bank | Sender `stc` | SAR | `SAR X paid to`, `received`, card purchase "Online Purchase / Transaction Amount X / From: MERCHANT / Card: ****", "Internal outward transfer … To:NAME Acc:1234*". `accountLast4` is always null — "Acc:" is the **recipient's** account |
 | 11 | AlinmaParser | Alinma Bank | Sender `alinma` | SAR | `card ending X used for SAR X at` |
 | 12 | D360Parser | D360 Bank | Sender `d360` | SAR | `SAR X paid to`, Transaction ID |
-| 12a | SabParser | SAB | Sender `SAB`/`SABB` OR starred card "By: ***1234;" | SAR | "Online Purchase / By: ***1234;mada / From: ***5678 / Amount: SAR X / At: MERCHANT"; refund wording → CREDIT; mada → Debit Card |
+| 12a | SabParser | SAB | Sender `SAB`/`SABB` OR starred card "By: ***1234;" | SAR | "Online Purchase / By: ***1234;mada / From: ***5678 / Amount: SAR X / At: MERCHANT"; refund wording → CREDIT; mada → Debit Card  Also the sentence layout "SAB mada(Apple Pay) Card (dddd) from (***ddd) was used at X for SAR N". |
 | 13 | EmiratesNbdParser | Emirates NBD | Sender OR body fingerprint **plus** an ENBD-only marker (`XX1234`, "Remaining limit", "Credit Card: Credited") | Multi | `POS/Online Purchase`, `Card: Visa card XX1234`, `Amount: SAR X`, `Merchant:`; and the "By/At" layout (`By: XX1234;Visa`, `At: Temu.com`). "Remaining limit" ⇒ credit card |
 | 14 | FasTagParser | FASTag (LivQuik) | Sender `qwfstg` | INR | `debited RsX for VEHICLE in LOCATION at DATE` |
 | 15 | WalletParser | Digital Wallet | Sender Apple/Google/Samsung Pay | Multi | `Payment of $X at`, `Paid X to` |

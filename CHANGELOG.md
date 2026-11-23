@@ -5,6 +5,15 @@ Format: `[Date] — Summary`
 ---
 
 
+## 2026-11-24 — v0.7.31
+
+Released as v0.7.31-debug (DB v35, no migration): the entry below.
+
+## 2026-11-24 — SAB's sentence-style card messages land on the SAB card
+
+- SAB now also sends "PoS Purchase / SAB mada(Apple Pay) Card (1234) from (***567) was used at MERCHANT for SAR N on …". `SabParser` only knew the field layout ("By: ***1234;mada … Amount: …"), so these fell to `GenericParser` as "Unknown Bank" with no card digits and every such purchase landed on the Unknown account. Correcting the account by hand could not carry over: the account comes from the card digits in each message, and there were none. `SabParser` now reads the sentence layout (card in brackets, merchant after "was used at", amount after "for SAR") — `SabParserTest`.
+- On device: two 23 Nov purchases moved from the Unknown account to the SAB debit card; the stale "Account" review reason dropped from the rows already fixed by hand.
+
 ## 2026-11-14 — v0.7.30
 
 Released as v0.7.30-debug (DB v35, no migration): the entry below.

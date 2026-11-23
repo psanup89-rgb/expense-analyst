@@ -1,10 +1,10 @@
 # Expense Analyst — Handoff
 
-**Last updated**: 2026-11-14
+**Last updated**: 2026-11-24
 **DB version**: 35
 **Build**: `./gradlew clean assembleDebug` ✅
 **Repo**: `https://github.com/psanup89-rgb/expense-analyst` (public)
-**Release**: v0.7.30-debug (GitHub Release with APK)
+**Release**: v0.7.31-debug (GitHub Release with APK)
 
 ---
 
@@ -27,6 +27,15 @@
    1066.19) — untouched since the initial commit; check the formula vs the test's expectation.
 
 ---
+
+## Session Summary (2026-11-24) — SAB sentence layout (released in v0.7.31)
+
+SAB debit-card purchases kept landing on the Unknown account even after the owner fixed some by hand.
+SAB had started sending "SAB mada(Apple Pay) Card (dddd) from (***ddd) was used at X for SAR N on …",
+which SabParser didn't read, so GenericParser saved it as Unknown Bank with no card digits. There is no
+per-card account learning — the account always comes from the message — so the parser was the fix.
+Two rows moved to the SAB card on device (backup first). When masking SMS for inspection, mask the
+whole line: a label/value split leaked digits from lines that contain a time.
 
 ## Session Summary (2026-11-14) — "Set category" from Review (released in v0.7.30)
 
