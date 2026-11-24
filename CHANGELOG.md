@@ -5,6 +5,16 @@ Format: `[Date] — Summary`
 ---
 
 
+## 2026-11-25 — v0.7.32
+
+Released as v0.7.32-debug (DB v35, no migration): the entry below.
+
+## 2026-11-25 — Same-amount bill hint and "Mark as paid"
+
+- A utility bill paid by card (Saudi Electricity) is an ordinary expense whose payee name rarely matches the bill, so nothing links it and the bill stays Pending. Owner's choice: **suggest, never link automatically** — expense detail now shows "<Biller> bill of <amount> is open — same amount · Link" under Linked Bill when exactly one open bill has that amount and currency ("N open bills have this amount · Choose" when several).
+- **Mark as paid** on an unsettled bill's screen: an expense is mandatory — a sheet lists expenses and payments in the bill's currency from the last 60 days that are not on a bill, exact-amount first then newest, with search. If the pick doesn't cover the bill, the owner is asked: **Close fully** or **Keep partial**.
+- Linking never lowers a bill's status (`LinkBillPaymentUseCase.refreshStatus(allowDowngrade = false)` on link), so a bill closed fully by hand stays closed when another payment is linked later; unlinking recalculates, and editing a linked expense recalculates only when its amount or currency changed (a note or category edit used to reopen the bill). `LinkBillPaymentUseCaseTest` covers it. Logic in `domain/util/BillPaymentPicker` (unit-tested).
+
 ## 2026-11-24 — v0.7.31
 
 Released as v0.7.31-debug (DB v35, no migration): the entry below.

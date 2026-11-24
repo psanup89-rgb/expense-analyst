@@ -282,6 +282,8 @@ fun ExpenseDetailScreen(
                 linkedBillName = uiState.linkedBillName,
                 linkedBillId = uiState.linkedBillId,
                 hasOpenBills = uiState.openBills.isNotEmpty(),
+                sameAmountBills = uiState.sameAmountBills,
+                onLinkBillDirect = viewModel::linkToBill,
                 homeCurrency = uiState.homeCurrency,
                 onConvertToEmi = { onConvertToEmi(uiState.expense!!.id) },
                 onSetRule = viewModel::showRuleDialog,
@@ -310,6 +312,8 @@ private fun ExpenseDetailContent(
     linkedBillName: String?,
     linkedBillId: Long?,
     hasOpenBills: Boolean,
+    sameAmountBills: List<Bill> = emptyList(),
+    onLinkBillDirect: (Bill) -> Unit = {},
     homeCurrency: String,
     transferRuleName: String?,
     onClassifyTransfer: () -> Unit,
@@ -482,6 +486,35 @@ private fun ExpenseDetailContent(
                                     style = MaterialTheme.typography.labelMedium,
                                     color = if (hasOpenBills) MaterialTheme.colorScheme.primary
                                             else MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                        }
+                    }
+                    // Owner's choice: suggest a bill of exactly this amount, never link it on our own.
+                    if (linkedBillId == null && sameAmountBills.isNotEmpty()) {
+                        val single = sameAmountBills.singleOrNull()
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = if (single != null) {
+                                    "${single.billerName} bill of ${CurrencyFormatter.format(single.totalDue ?: 0.0, single.currencyCode)} is open — same amount"
+                                } else {
+                                    "${sameAmountBills.size} open bills have this amount"
+                                },
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.expenseColors.review,
+                                modifier = Modifier.weight(1f)
+                            )
+                            TextButton(
+                                onClick = { if (single != null) onLinkBillDirect(single) else onLinkBill() },
+                                contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 8.dp, vertical = 0.dp)
+                            ) {
+                                Text(
+                                    text = if (single != null) "Link" else "Choose",
+                                    style = MaterialTheme.typography.labelMedium,
+                                    color = MaterialTheme.colorScheme.primary
                                 )
                             }
                         }

@@ -198,3 +198,11 @@ F18: iOS App (KMP) · F19: Smart Categorization · F20: Recurring Detection · F
 - The merchant is remembered as a rule by default (tick box), and the category can be applied to the other Review rows from the same merchant (tick box).
 - The row leaves Review only if no other reason (merchant, payment method, account) remains.
 
+---
+
+## Paid bills that didn't link (Nov 2026)
+
+- Expense detail shows a hint under **Linked Bill** when an open bill has exactly the same amount and currency, with a one-tap **Link** (or **Choose** when several bills match). Nothing links automatically.
+- An unsettled bill has **Mark as paid**: pick the expense that paid it (required) from the last 60 days' unlinked expenses in the bill's currency, exact-amount first. If it is less than the bill, choose **Close fully** or **Keep partial**.
+- A bill closed fully stays closed if more payments are linked later; unlinking a payment reopens it as the payments dictate.
+

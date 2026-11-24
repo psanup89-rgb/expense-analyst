@@ -1,10 +1,10 @@
 # Expense Analyst — Handoff
 
-**Last updated**: 2026-11-24
+**Last updated**: 2026-11-25
 **DB version**: 35
 **Build**: `./gradlew clean assembleDebug` ✅
 **Repo**: `https://github.com/psanup89-rgb/expense-analyst` (public)
-**Release**: v0.7.31-debug (GitHub Release with APK)
+**Release**: v0.7.32-debug (GitHub Release with APK)
 
 ---
 
@@ -27,6 +27,15 @@
    1066.19) — untouched since the initial commit; check the formula vs the test's expectation.
 
 ---
+
+## Session Summary (2026-11-25) — same-amount bill hint, Mark as paid (released in v0.7.32)
+
+A Saudi Energy bill stayed Pending though paid by card: utility bills paid by card are EXPENSEs and
+never auto-link (payee "SAUDI ELECTRICITY COMP" ≠ biller "Saudi Energy"). Owner's choices: don't
+auto-link — hint a same-amount open bill on expense detail; add **Mark as paid** on bill detail that
+requires picking the paying expense (last 60 days, unlinked, bill currency, exact amount first); a
+short pick asks Close fully / Keep partial. Linking never lowers a bill's status and Edit only
+recalculates on an amount/currency change, so a hand-closed bill stays closed. Not yet seen on screen.
 
 ## Session Summary (2026-11-24) — SAB sentence layout (released in v0.7.31)
 

@@ -1,6 +1,7 @@
 package com.expenseanalyst.domain.usecase
 
 import com.expenseanalyst.domain.model.AccountType
+import com.expenseanalyst.domain.model.BillStatus
 import com.expenseanalyst.domain.model.PaymentMethod
 import com.expenseanalyst.domain.repository.AccountRepository
 import com.expenseanalyst.domain.repository.BillRepository
@@ -25,7 +26,13 @@ class LinkBillPaymentUseCase @Inject constructor(
     private val currencyRepository: CurrencyRepository
 ) {
 
-    suspend fun link(expenseId: Long, billId: Long) {
+    /**
+     * [closeFully] settles the bill even when the linked payments add up to less (Mark as paid,
+     * after the owner chose "close it fully"). Linking only ever adds money, so it never lowers a
+     * bill's status — that is what keeps a bill closed by hand closed when another payment is
+     * linked to it later. Unlinking and editing an amount still recalculate.
+     */
+    suspend fun link(expenseId: Long, billId: Long, closeFully: Boolean = false) {
         val expense = expenseRepository.getExpenseById(expenseId).first() ?: return
         val previousBillId = expense.billId
         val accountType = expense.accountId?.let { accountRepository.getAccountById(it).first()?.accountType }
@@ -39,7 +46,26 @@ class LinkBillPaymentUseCase @Inject constructor(
                 expenseRepository.linkBillPayment(twin.id, billId, methodForBillPayment(twinAccountType))
             }
         if (previousBillId != null && previousBillId != billId) refreshStatus(previousBillId)
-        refreshStatus(billId)
+        refreshStatus(billId, allowDowngrade = false)
+        if (closeFully) {
+            billRepository.getBillById(billId).first()
+                ?.takeIf { it.status != BillStatus.SETTLED }
+                ?.let { billRepository.updateBill(it.copy(status = BillStatus.SETTLED)) }
+        }
+    }
+
+    /** Whether linking [expenseId] would settle [billId] on its own (no need to ask). */
+    suspend fun wouldSettle(expenseId: Long, billId: Long): Boolean {
+        val bill = billRepository.getBillById(billId).first() ?: return false
+        val expense = expenseRepository.getExpenseById(expenseId).first() ?: return false
+        val payments = expenseRepository.getExpensesByBillId(billId).first() + expense
+        return BillSettlement.status(
+            totalDue = bill.totalDue,
+            billCurrency = bill.currencyCode,
+            payments = payments,
+            homeCurrency = currencyRepository.getHomeCurrency().first(),
+            ratesByCode = currencyRepository.getRates().first().associateBy { it.currencyCode }
+        ) == BillStatus.SETTLED
     }
 
     /** Links [expenseId] to the bill its twin is already on, if any. Returns that bill's id. */
@@ -62,7 +88,7 @@ class LinkBillPaymentUseCase @Inject constructor(
         refreshStatus(billId)
     }
 
-    suspend fun refreshStatus(billId: Long) {
+    suspend fun refreshStatus(billId: Long, allowDowngrade: Boolean = true) {
         val bill = billRepository.getBillById(billId).first() ?: return
         val payments = expenseRepository.getExpensesByBillId(billId).first()
         val status = BillSettlement.status(
@@ -72,7 +98,14 @@ class LinkBillPaymentUseCase @Inject constructor(
             homeCurrency = currencyRepository.getHomeCurrency().first(),
             ratesByCode = currencyRepository.getRates().first().associateBy { it.currencyCode }
         )
+        if (!allowDowngrade && rank(status) < rank(bill.status)) return
         if (status != bill.status) billRepository.updateBill(bill.copy(status = status))
+    }
+
+    private fun rank(s: BillStatus) = when (s) {
+        BillStatus.PENDING -> 0
+        BillStatus.PARTIAL -> 1
+        BillStatus.SETTLED -> 2
     }
 
     companion object {

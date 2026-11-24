@@ -385,7 +385,10 @@ class EditExpenseViewModel @Inject constructor(
                 when {
                     newBillId != null && newBillId != original.billId -> linkBillPayment.link(original.id, newBillId)
                     newBillId == null && original.billId != null -> linkBillPayment.unlink(original.id)
-                    newBillId != null -> linkBillPayment.refreshStatus(newBillId) // the amount may have changed
+                    // Only a changed amount or currency can change what the bill has been paid; any other
+                    // edit must not reopen a bill the owner closed fully by hand.
+                    newBillId != null && (updated.amount != original.amount || updated.currencyCode != original.currencyCode) ->
+                        linkBillPayment.refreshStatus(newBillId)
                 }
                 updateMerchantRule(original, updated)
                 _form.update { it.copy(isSaving = false, savedExpenseId = original.id) }

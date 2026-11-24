@@ -1,5 +1,6 @@
 package com.expenseanalyst.feature.expenses.ui
 
+import com.expenseanalyst.domain.util.BillPaymentPicker
 import com.expenseanalyst.domain.util.BillPaymentTwins
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
@@ -64,6 +65,8 @@ data class ExpenseDetailUiState(
     val openBills: List<Bill> = emptyList(),
     /** Bills a twin of this payment (BillPaymentTwins) is linked to — listed first in the sheet. */
     val twinBillIds: Set<Long> = emptySet(),
+    /** Open bills of exactly this amount — hinted under "Linked Bill", never linked automatically. */
+    val sameAmountBills: List<Bill> = emptyList(),
     val linkedBillName: String? = null,
     val linkedBillId: Long? = null,
     val homeCurrency: String = "SAR",
@@ -170,6 +173,7 @@ class ExpenseDetailViewModel @Inject constructor(
             openBills = openBills,
             linkedBillName = linkedBill?.billerName,
             linkedBillId = linkedBill?.id,
+            sameAmountBills = expense?.let { BillPaymentPicker.sameAmountOpenBills(it, bills) }.orEmpty(),
             homeCurrency = homeCurrency,
             existingTransferRule = existingTransferRule,
             pendingLoans = lentItems.filter { it.status == LentStatus.PENDING },

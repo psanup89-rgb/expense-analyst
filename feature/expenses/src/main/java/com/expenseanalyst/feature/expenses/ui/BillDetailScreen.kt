@@ -1,5 +1,14 @@
 package com.expenseanalyst.feature.expenses.ui
 
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.material3.FilledTonalButton
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.ListItemDefaults
+import androidx.compose.material3.ListItem
+import androidx.compose.material3.ModalBottomSheet
+import com.expenseanalyst.core.util.CurrencyFormatter
+import com.expenseanalyst.domain.util.BillPaymentPicker
 import androidx.compose.material3.rememberDatePickerState
 import androidx.compose.material3.DatePickerDialog
 import androidx.compose.material3.DatePicker
@@ -86,6 +95,32 @@ fun BillDetailScreen(
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     var showDeleteDialog by remember { mutableStateOf(false) }
     var unlinkExpenseId by remember { mutableStateOf<Long?>(null) }
+    val candidates by viewModel.candidates.collectAsStateWithLifecycle()
+    val shortPayment by viewModel.shortPayment.collectAsStateWithLifecycle()
+    candidates?.let { list ->
+        MarkAsPaidSheet(
+            candidates = list,
+            billTotal = uiState.bill?.totalDue,
+            onPick = viewModel::pickPayment,
+            onDismiss = viewModel::dismissMarkAsPaid
+        )
+    }
+    shortPayment?.let { expense ->
+        val bill = uiState.bill
+        AlertDialog(
+            onDismissRequest = viewModel::cancelShortPayment,
+            title = { Text("Payment is less than the bill") },
+            text = {
+                Text(
+                    "${CurrencyFormatter.format(expense.amount, expense.currencyCode)} doesn't cover " +
+                        "${bill?.totalDue?.let { CurrencyFormatter.format(it, bill.currencyCode) } ?: "the bill"}. " +
+                        "Close the bill fully, or keep it partial so another payment can be added?"
+                )
+            },
+            confirmButton = { TextButton(onClick = { viewModel.resolveShortPayment(closeFully = true) }) { Text("Close fully") } },
+            dismissButton = { TextButton(onClick = { viewModel.resolveShortPayment(closeFully = false) }) { Text("Keep partial") } }
+        )
+    }
     val dateFormat = remember { SimpleDateFormat("dd MMM yyyy", Locale.ENGLISH) }
 
     Scaffold(
@@ -298,6 +333,16 @@ fun BillDetailScreen(
                 )
             }
 
+            // Paid but not linked (a utility bill paid by card never auto-links): close it by
+            // picking the expense that paid it — an expense is required, owner's choice.
+            if (uiState.bill?.status != BillStatus.SETTLED) {
+                item {
+                    FilledTonalButton(onClick = viewModel::startMarkAsPaid, modifier = Modifier.fillMaxWidth()) {
+                        Text("Mark as paid")
+                    }
+                }
+            }
+
             if (uiState.payments.isEmpty()) {
                 item {
                     Card(
@@ -456,3 +501,69 @@ private fun PaymentItem(
         }
     }
 }
+
+/** Picks the expense that paid the bill; exact-amount matches are listed first (BillPaymentPicker). */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun MarkAsPaidSheet(
+    candidates: List<Expense>,
+    billTotal: Double?,
+    onPick: (Expense) -> Unit,
+    onDismiss: () -> Unit
+) {
+    var filter by remember { mutableStateOf("") }
+    val shown = candidates.filter {
+        filter.isBlank() || it.merchantName?.contains(filter.trim(), ignoreCase = true) == true ||
+            CurrencyFormatter.format(it.amount, it.currencyCode).contains(filter.trim())
+    }
+    val dateFormat = remember { SimpleDateFormat("d MMM", Locale.getDefault()) }
+    ModalBottomSheet(onDismissRequest = onDismiss) {
+        Column(
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp).navigationBarsPadding(),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            Text("Which expense paid this bill?", style = MaterialTheme.typography.titleMedium)
+            Text(
+                "Expenses from the last ${BillPaymentPicker.WINDOW_DAYS} days not linked to a bill",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            OutlinedTextField(
+                value = filter,
+                onValueChange = { filter = it },
+                placeholder = { Text("Search merchant or amount") },
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth()
+            )
+            if (shown.isEmpty()) {
+                Text(
+                    "No matching expenses. Add the payment as an expense first, then mark the bill as paid.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(vertical = 12.dp)
+                )
+            }
+            LazyColumn(modifier = Modifier.weight(1f, fill = false)) {
+                items(shown, key = { it.id }) { expense ->
+                    val exact = billTotal != null && kotlin.math.abs(expense.amount - billTotal) < 0.01
+                    ListItem(
+                        headlineContent = {
+                            Text(expense.merchantName ?: "Unknown merchant", maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        },
+                        supportingContent = {
+                            Text(
+                                dateFormat.format(Date(expense.date.toEpochMilliseconds())) +
+                                    if (exact) " · Same amount" else ""
+                            )
+                        },
+                        trailingContent = { Text(CurrencyFormatter.format(expense.amount, expense.currencyCode)) },
+                        modifier = Modifier.clickable { onPick(expense) },
+                        colors = ListItemDefaults.colors(containerColor = Color.Transparent)
+                    )
+                }
+            }
+            Spacer(Modifier.height(8.dp))
+        }
+    }
+}
+
